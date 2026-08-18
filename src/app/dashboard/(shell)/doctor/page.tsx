@@ -32,26 +32,26 @@ export default function DoctorPage() {
       {/* ── Header ── */}
       <div className="mb-6">
         <p className="text-[12px] font-medium text-[#8a9288]">Your care team</p>
-        <h1 className="font-title text-[28px] font-medium tracking-[-0.03em] text-[#1f3329]">Your physician</h1>
+        <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">Your physician</h1>
       </div>
 
       <div className="flex flex-col gap-5">
 
         {/* ── Doctor hero card ── */}
         <div className="rounded-[24px] bg-[#1f4033] p-6 text-white shadow-[0_8px_32px_rgba(31,64,51,0.18)]">
-          <div className="flex items-start gap-5">
+          <div className="flex flex-col items-start gap-5 sm:flex-row">
             {/* Avatar */}
-            <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full bg-white/15">
+            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-white/15 sm:h-32 sm:w-32">
               <Image src="/why_hiros_doctors.png" alt="Dr. Emre Yılmaz" fill className="object-cover object-top" />
             </div>
 
             <div className="flex-1">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="font-title text-[22px] font-medium text-white">Dr. Emre Yılmaz</h2>
+                  <h2 className="font-title text-[20px] font-medium text-white sm:text-[22px]">Dr. Emre Yılmaz</h2>
                   <p className="mt-0.5 text-[13px] text-white/60">Dermatologist · Hair & Scalp</p>
                 </div>
-                <span className="rounded-full bg-[#4a9b5f]/30 px-3 py-1 text-[11px] font-semibold text-[#9cc796]">Active</span>
+                <span className="w-fit rounded-full bg-[#4a9b5f]/30 px-3 py-1 text-[11px] font-semibold text-[#9cc796]">Active</span>
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-1.5">
@@ -70,7 +70,7 @@ export default function DoctorPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="mt-5 flex gap-3">
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/dashboard/messages"
               className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white/15 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-white/20"
@@ -94,7 +94,7 @@ export default function DoctorPage() {
         </div>
 
         {/* ── Two-column row ── */}
-        <div className="grid grid-cols-[1.1fr_1fr] gap-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
 
           {/* Bio */}
           <div className="rounded-[24px] bg-white p-5 shadow-[0_2px_16px_rgba(31,51,41,0.05)]">

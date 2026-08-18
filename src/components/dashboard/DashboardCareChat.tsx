@@ -81,7 +81,7 @@ export function DashboardCareChat() {
           role="dialog"
           aria-modal="false"
           aria-label="Hiros care assistant"
-          className="fixed bottom-6 right-6 z-[70] flex h-[520px] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[28px] border border-[#e4e0d8] bg-white shadow-[0_24px_60px_rgba(31,51,41,0.18)]"
+          className="fixed inset-x-4 bottom-4 z-[70] flex h-[min(520px,calc(100dvh-2rem))] w-auto max-w-none flex-col overflow-hidden rounded-[28px] border border-[#e4e0d8] bg-white shadow-[0_24px_60px_rgba(31,51,41,0.18)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[520px] sm:w-[360px] sm:max-w-[calc(100vw-2rem)]"
         >
           {/* Header */}
           <div className="flex items-start justify-between bg-[#1f4033] px-5 py-4">

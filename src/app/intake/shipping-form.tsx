@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useIntakeCopy } from "@/i18n/LanguageProvider";
 
 const turkeyProvinces = [
   "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin",
@@ -34,6 +35,7 @@ type ShippingFormProps = {
 };
 
 export function ShippingForm({ formData, onChange, onContinue, hideBanner = false }: ShippingFormProps) {
+  const intake = useIntakeCopy();
   const [isProvinceDropdownOpen, setIsProvinceDropdownOpen] = useState(false);
   
   const isFormValid = 
@@ -59,7 +61,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="relative">
             <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-              First name (legal)
+              {intake.shipping.firstName}
             </label>
             <input
               type="text"
@@ -71,7 +73,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
           </div>
           <div className="relative">
             <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-              Last name (legal)
+              {intake.shipping.lastName}
             </label>
             <input
               type="text"
@@ -86,7 +88,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
         {/* Street Address */}
         <div className="relative">
           <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-            Street Address
+            {intake.shipping.street}
           </label>
           <input
             type="text"
@@ -100,7 +102,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
         {/* Apt/Suite */}
         <div className="relative">
           <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-            Apt/Suite (optional)
+            {intake.shipping.apt}
           </label>
           <input
             type="text"
@@ -114,7 +116,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
         {/* City */}
         <div className="relative">
           <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-            City
+            {intake.shipping.city}
           </label>
           <input
             type="text"
@@ -130,7 +132,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
           {/* Province Dropdown */}
           <div className="relative">
             <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-              Province
+              {intake.shipping.province}
             </label>
             <button
               type="button"
@@ -139,7 +141,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
                 !formData.province && "text-black/30"
               }`}
             >
-              {formData.province || "Select province"}
+              {formData.province || intake.shipping.selectProvince}
               <svg 
                 viewBox="0 0 24 24" 
                 fill="none" 
@@ -173,7 +175,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
           {/* Postal Code */}
           <div className="relative">
             <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-              Postal Code
+              {intake.shipping.postal}
             </label>
             <input
               type="text"
@@ -188,7 +190,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
         {/* Country (readonly, defaults to Turkey) */}
         <div className="relative">
           <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-            Country
+            {intake.shipping.country}
           </label>
           <input
             type="text"
@@ -201,7 +203,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
         {/* Phone */}
         <div className="relative">
           <label className="absolute left-4 top-3 text-[12px] font-medium tracking-[-0.02em] text-black/40">
-            Phone
+            {intake.shipping.phone}
           </label>
           <input
             type="tel"
@@ -215,7 +217,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
 
       {/* Phone note */}
       <p className="mt-4 text-[13px] font-medium leading-[1.4] tracking-[-0.02em] text-black/45">
-        We'll only use your number to text order updates and important information about your treatment.
+        {intake.shipping.phoneNote}
       </p>
 
       {/* Continue Button */}
@@ -229,7 +231,7 @@ export function ShippingForm({ formData, onChange, onContinue, hideBanner = fals
             : "bg-black/10 text-black/30 cursor-not-allowed"
         }`}
       >
-        Continue
+        {intake.shipping.continue}
       </button>
     </div>
   );

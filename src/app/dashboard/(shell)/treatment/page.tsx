@@ -222,16 +222,16 @@ export default function TreatmentPage() {
     <div className="flex flex-col gap-5 overflow-y-auto pb-4 pr-1">
 
       {/* ── Header ── */}
-      <div className="flex items-baseline justify-between">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="text-[12px] font-medium text-[#8a9288]">My Treatment</p>
-          <h1 className="font-title text-[28px] font-medium tracking-[-0.03em] text-[#1f3329]">Topical Finasteride</h1>
+          <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">Topical Finasteride</h1>
         </div>
         <span className="rounded-full bg-[#dce8d6] px-3 py-1 text-[12px] font-semibold text-[#3d5c35]">Active</span>
       </div>
 
       {/* ── Row 1: Overview + Schedule ── */}
-      <div className="grid grid-cols-[1.4fr_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
 
         {/* Overview — dark green hero */}
         <div className="rounded-[24px] bg-[#1f4033] p-5 text-white shadow-[0_8px_32px_rgba(31,64,51,0.18)]">
@@ -249,7 +249,7 @@ export default function TreatmentPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[
               { label: "Adherence",   value: "92%",   sub: "last 30 days" },
               { label: "Last dose",   value: "Today", sub: "08:15 AM"     },
@@ -347,7 +347,7 @@ export default function TreatmentPage() {
       </div>
 
       {/* ── Row 2: Things to Know + Right column ── */}
-      <div className="grid grid-cols-[1fr_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
         {/* Things to know */}
         <div className={`${card} p-5`}>

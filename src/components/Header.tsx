@@ -4,8 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
+import { useHomeCopy } from "@/i18n/LanguageProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export default function Header() {
+  const { copy } = useHomeCopy();
   const headerAssetVersion = "20260520-1637";
   const [scrollProgress, setScrollProgress] = useState(0);
   const [aboutSectionProgress, setAboutSectionProgress] = useState(0);
@@ -94,7 +97,7 @@ export default function Header() {
       style={{
         backgroundColor: topHeaderWrapBackgroundColor,
       }}
-      className="sticky left-0 top-0 z-50 w-full"
+      className="sticky left-0 top-0 z-50 w-full shrink-0"
     >
         <div
           style={{
@@ -124,13 +127,13 @@ export default function Header() {
             style={{ color: navTextColor }}
             className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-12 py-[2px] font-semibold leading-none text-[16px] lg:flex"
           >
-            <a href="#about">About us</a>
-            <a href="#specialisms">Specialisms</a>
-            <a href="#how">How it works</a>
-            <a href="#research">Research</a>
-            <a href="#contact">Contact</a>
+            <a href="#about">{copy.nav.about}</a>
+            <a href="#specialisms">{copy.nav.specialisms}</a>
+            <a href="#how">{copy.nav.how}</a>
+            <a href="#research">{copy.nav.research}</a>
+            <a href="#contact">{copy.nav.contact}</a>
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/dashboard"
               style={{
@@ -142,11 +145,12 @@ export default function Header() {
               }}
               className="rounded-full border border-black/10 bg-white font-semibold leading-none text-[#11110f] shadow-sm"
             >
-              Log in
+              {copy.nav.login}
             </Link>
+            <LanguageSwitcher />
             <button
               type="button"
-              aria-label="Open menu"
+              aria-label={copy.nav.menu}
               style={{ color: navTextColor }}
               className="flex items-center justify-center self-center p-0"
             >
