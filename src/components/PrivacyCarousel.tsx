@@ -2,59 +2,11 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-
-const privacyCards = [
-  {
-    title: (
-      <>
-        <span className="text-[#8f604c]">Designed for</span>
-        <br />
-        sensitive concerns
-      </>
-    ),
-    key: "start-privately",
-    description:
-      "Answer a few guided questions from your own space—no appointments or waiting rooms required.",
-  },
-  {
-    title: (
-      <>
-        <span className="text-[#8f604c]">Reviewed by</span>
-        <br />
-        licensed physicians
-      </>
-    ),
-    key: "licensed-physicians",
-    description:
-      "Your information is assessed by registered, independent doctors who determine the right next step.",
-  },
-  {
-    title: (
-      <>
-        <span className="text-[#8f604c]">Ongoing support,</span>
-        <br />
-        not one-time care
-      </>
-    ),
-    key: "ongoing-support",
-    description:
-      "Stay supported over time with follow-ups, progress tracking, and a clear overview of your situation.",
-  },
-  {
-    title: (
-      <>
-        <span className="text-[#8f604c]">Clear next steps,</span>
-        <br />
-        whenever you need them
-      </>
-    ),
-    key: "clear-next-steps",
-    description:
-      "Get simple guidance, transparent options, and practical recommendations that fit your needs.",
-  },
-];
+import { useHomeCopy } from "@/i18n/LanguageProvider";
 
 export default function PrivacyCarousel() {
+  const { copy } = useHomeCopy();
+  const privacyCards = copy.privacy;
   const carouselRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
   const dragStartScrollLeft = useRef(0);
@@ -228,7 +180,9 @@ export default function PrivacyCarousel() {
             </div>
             <div className="pl-3 pr-1 pb-2 pt-5">
               <h3 className="mb-3 max-w-sm text-[20px] font-semibold leading-[1.08] tracking-[-0.05em] text-[#1d1d1f] sm:text-[22px]">
-                {card.title}
+                <span className="text-[#8f604c]">{card.titleLine1}</span>
+                <br />
+                {card.titleLine2}
               </h3>
               <p className="max-w-[21rem] text-[15px] font-medium leading-[1.45] tracking-[-0.03em] text-black/60 sm:text-[16px]">
                 {card.description}
@@ -239,7 +193,7 @@ export default function PrivacyCarousel() {
       </div>
       <button
         type="button"
-        aria-label="Previous cards"
+        aria-label={copy.carousel.previous}
         onClick={() => scrollByCard("left")}
         style={{ left: "calc(max(1.5rem, calc((100vw - 80rem) / 2)) + 1.25rem)" }}
         className={`absolute left-5 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-3xl leading-none text-[#11110f] shadow-lg transition-opacity duration-300 lg:flex ${
@@ -252,7 +206,7 @@ export default function PrivacyCarousel() {
       </button>
       <button
         type="button"
-        aria-label="Next cards"
+        aria-label={copy.carousel.next}
         onClick={() => scrollByCard("right")}
         className={`absolute right-5 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-3xl leading-none text-[#11110f] shadow-lg transition-opacity duration-300 lg:flex ${
           canScrollRight

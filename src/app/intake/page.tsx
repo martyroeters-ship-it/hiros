@@ -6,6 +6,7 @@ import { type MouseEvent, useCallback, useEffect, useLayoutEffect, useRef, useSt
 import { ShippingForm, type ShippingFormData } from "./shipping-form";
 import { addStoredCase } from "../doctor/store";
 import { buildCaseFromIntake, determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
+import { useIntakeCopy } from "@/i18n/LanguageProvider";
 
 type IntakeStep = {
   id: string;
@@ -310,31 +311,19 @@ const assignedDoctor = {
 
 const treatmentDetailOptions = ["Topical", "Oral", "Supplements", "Procedures", "Other"];
 const sideEffectLevelOptions = ["None", "Mild", "Moderate", "Significant"];
-const photoCheckTextBlocks = [
-  "Your physician will now\nneed a quick visual check\nto better understand\nyour hair loss.",
-  "Your photos are private and only visible\nto your assigned physician.",
-];
-const totalPhotoCheckCharacters = photoCheckTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-const postCameraInterstitialTextBlocks = ["That’s it.", "Let’s answer a few more\nquestions to complete\nyour intake."];
-const totalPostCameraInterstitialCharacters = postCameraInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-const finalReviewInterstitialTextBlocks = [
-  "Your intake is complete.",
-  "Your answers and photos have been\nsubmitted for physician review.",
-];
-const totalFinalReviewInterstitialCharacters = finalReviewInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-const preAuthInterstitialTextBlocks = [
-  "You’re doing the right\nthing by checking early.",
-  "Hair loss can have different causes.\n\nThe next part of your intake will continue\nunder the review of a licensed physician.",
-];
-const totalPreAuthInterstitialCharacters = preAuthInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-const cameraPrepPoints = [
-  "Remove any hat or cap",
-  "Stand in a well-lit area",
-  "Pull your hair back so your hairline is visible",
-];
-const totalCameraPrepPoints = cameraPrepPoints.length;
 
 export default function IntakePage() {
+  const intake = useIntakeCopy();
+  const photoCheckTextBlocks = [...intake.photoCheck];
+  const postCameraInterstitialTextBlocks = [...intake.postCamera];
+  const finalReviewInterstitialTextBlocks = [...intake.finalReview];
+  const preAuthInterstitialTextBlocks = [...intake.preAuth];
+  const cameraPrepPoints = [...intake.cameraPrep.points];
+  const totalPhotoCheckCharacters = photoCheckTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
+  const totalPostCameraInterstitialCharacters = postCameraInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
+  const totalFinalReviewInterstitialCharacters = finalReviewInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
+  const totalPreAuthInterstitialCharacters = preAuthInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
+  const totalCameraPrepPoints = cameraPrepPoints.length;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [selectedGoalOptions, setSelectedGoalOptions] = useState<string[]>([]);
@@ -436,6 +425,9 @@ export default function IntakePage() {
   const isFirstMedicalStep = currentStepIndex === medicalStartIndex;
   const isPreAuthInterstitialStep = currentStepIndex === preAuthInterstitialIndex;
   const currentStep = currentStepIndex < intakeSteps.length ? intakeSteps[currentStepIndex] : isMedicalStep ? medicalSteps[currentStepIndex - medicalStartIndex] : null;
+  const stepCopy = currentStep ? intake.steps[currentStep.id] : undefined;
+  const stepTitle = stepCopy?.title || currentStep?.title || "";
+  const stepDescription = stepCopy?.description || currentStep?.description || "";
   const selectedOption = currentStep ? selectedAnswers[currentStep.id] ?? null : null;
   const currentMedicalStepNumber = isMedicalStep ? currentStepIndex - medicalStartIndex + 1 : 0;
   const medicalProgressPercentage = isMedicalStep ? (currentMedicalStepNumber / medicalSteps.length) * 100 : 0;
@@ -602,26 +594,29 @@ export default function IntakePage() {
   const hasAnyTreatmentSelection = Object.values(treatmentSelections).some(Boolean);
   const isOtherTreatmentSelected = Boolean(treatmentSelections.other);
   const selectedTreatmentLabels = treatmentDetailOptions.filter((detailOption) => treatmentSelections[detailOption.toLocaleLowerCase("en")]);
-  const treatmentSelectionSummary = selectedTreatmentLabels.length > 0 ? selectedTreatmentLabels.join(", ") : "Select all that apply";
-  const treatmentSideEffectSummary = treatmentSideEffectsLevel ?? "Select an option";
+  const treatmentSelectionSummary = selectedTreatmentLabels.length > 0 ? selectedTreatmentLabels.map((label) => intake.option(label)).join(", ") : intake.selectAll;
+  const treatmentSideEffectSummary = treatmentSideEffectsLevel ? intake.option(treatmentSideEffectsLevel) : intake.selectOption;
+  const recommendedTreatmentCopy = recommendedTreatment
+    ? intake.treatment(recommendedTreatment.title, recommendedTreatment.description)
+    : intake.treatment("Topical Finasteride + Minoxidil", "Evidence-backed combination for male pattern hair loss.");
   const cameraInstructionText =
     cameraCapturePhase === "front"
-      ? "Align your face in the center"
-      : "Tilt your head down slightly";
+      ? intake.camera.align
+      : intake.camera.tilt;
   const nextCameraCapturePhase = cameraCapturePhase === "front" ? "right" : null;
   const isReviewingIntermediateCameraCapture = nextCameraCapturePhase !== null && capturedCameraImage !== null;
   const canContinueCameraCapture = cameraError !== null || capturedCameraImage !== null || (isCameraReadyConfirmed && cameraCountdownValue === null);
   const cameraPrimaryButtonLabel =
     cameraError !== null
-      ? "Continue"
+      ? intake.camera.continue
       : capturedCameraImage !== null
         ? nextCameraCapturePhase === null
-          ? "Continue"
-          : "Looks good"
+          ? intake.camera.continue
+          : intake.camera.looksGood
         : cameraCountdownValue !== null
-          ? "Capturing..."
-          : "Capture photo";
-  const interstitialPrimaryButtonLabel = isFinalReviewInterstitialStep ? "Go to my profile" : "Continue";
+          ? intake.camera.capturing
+          : intake.camera.capture;
+  const interstitialPrimaryButtonLabel = isFinalReviewInterstitialStep ? intake.goToProfile : intake.continue;
   const isInterstitialButtonVisible = isFinalReviewInterstitialStep ? true : isPhotoCheckButtonVisible;
   const activeInterstitialTextBlocks = isPreAuthInterstitialStep
     ? preAuthInterstitialTextBlocks
@@ -1086,7 +1081,7 @@ export default function IntakePage() {
       setNextStepsTitleVisibleCount(0);
       setNextStepsContainerIndex(0);
 
-      const titleText = "Almost done, here's \nwhat happens next:";
+      const titleText = intake.nextSteps.title;
       
       nextStepsTitleIntervalRef.current = window.setInterval(() => {
         setNextStepsTitleVisibleCount((currentCount) => {
@@ -1205,7 +1200,7 @@ export default function IntakePage() {
         recommendationRevealTimeoutRef.current = null;
       }
     };
-  }, [currentStepIndex, isCameraPrepStep, isPhotoCheckStep, isPostCameraInterstitialStep, isPreAuthInterstitialStep, isFinalReviewInterstitialStep, isNextStepsInterstitialStep, medicalEndIndex, totalActiveInterstitialCharacters]);
+  }, [currentStepIndex, isCameraPrepStep, isPhotoCheckStep, isPostCameraInterstitialStep, isPreAuthInterstitialStep, isFinalReviewInterstitialStep, isNextStepsInterstitialStep, medicalEndIndex, totalActiveInterstitialCharacters, intake.nextSteps.title]);
 
   useEffect(() => {
     // Reset and start staged reveal only on shipping-info step
@@ -1823,9 +1818,15 @@ export default function IntakePage() {
         <div className="absolute right-[8%] bottom-[16%] h-[20rem] w-[24rem] rounded-full bg-[#eee5d8]/50 blur-3xl" />
       </div>
 
-      <div className={`relative flex ${isCameraCaptureStep || isMatchingStep ? "h-screen overflow-hidden" : "min-h-screen overflow-y-auto"} flex-col px-4 pb-8 pt-4 sm:px-8 sm:pb-6 sm:pt-5 lg:px-10`}>
+      <div className={`relative flex min-w-0 flex-col px-4 sm:px-8 lg:px-10 ${
+        isCameraCaptureStep
+          ? "h-dvh overflow-hidden pb-24 pt-6 sm:h-screen sm:pb-6 sm:pt-5"
+          : isMatchingStep
+            ? "h-screen overflow-hidden pb-8 pt-4 sm:pb-6 sm:pt-5"
+            : "min-h-screen overflow-y-auto pb-8 pt-4 sm:pb-6 sm:pt-5"
+      }`}>
         {!isMatchingStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isPreAuthInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
-          <div className={`flex w-full items-start justify-between gap-6 ${isCameraCaptureStep ? "" : "mt-[10vh] sm:mt-0"}`}>
+          <div className={`flex w-full shrink-0 items-start justify-between gap-6 ${isCameraCaptureStep ? "" : "mt-[10vh] sm:mt-0"}`}>
             <a href="/" className="inline-flex items-center">
               <Image
                 src="/hiros_logo.png"
@@ -1847,7 +1848,7 @@ export default function IntakePage() {
                   <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
                     <path d="M11.75 5.75 7.5 10l4.25 4.25" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span>Previous</span>
+                  <span>{intake.previous}</span>
                 </div>
               ) : (
                 <button
@@ -1859,7 +1860,7 @@ export default function IntakePage() {
                   <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
                     <path d="M11.75 5.75 7.5 10l4.25 4.25" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span className="hidden sm:inline">Previous</span>
+                  <span className="hidden sm:inline">{intake.previous}</span>
                 </button>
               )
             ) : null}
@@ -1867,14 +1868,22 @@ export default function IntakePage() {
         ) : null}
 
         <section
-          className={`mx-auto flex w-full max-w-[1440px] flex-1 justify-center ${
-            isMatchingStep || isCameraCaptureStep || isRecommendationInterstitialStep
-              ? "items-center"
-              : "items-start pt-6 sm:pt-12"
+          className={`mx-auto flex w-full min-w-0 max-w-[1440px] flex-1 justify-center ${
+            isCameraCaptureStep
+              ? "min-h-0 flex-1 flex-col items-stretch pt-3 sm:items-start sm:pt-0"
+              : isMatchingStep ||
+                  isRecommendationInterstitialStep ||
+                  isPhotoCheckStep ||
+                  isPostCameraInterstitialStep ||
+                  isPreAuthInterstitialStep ||
+                  isFinalReviewInterstitialStep ||
+                  isCameraPrepStep
+                ? "min-h-[calc(100dvh-5rem)] items-center"
+                : "items-start pt-6 sm:pt-12"
           }`}
         >
           {isMedicalStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
-            <div className="absolute inset-x-4 top-[4.25rem] max-w-[700px] sm:inset-x-auto sm:left-1/2 sm:top-10 sm:w-full sm:-translate-x-1/2">
+            <div className={`absolute inset-x-4 top-[53px] max-w-[700px] sm:inset-x-auto sm:left-1/2 sm:top-10 sm:w-full sm:-translate-x-1/2 ${isCameraCaptureStep ? "hidden sm:block" : ""}`}>
               <div className="h-[7px] overflow-hidden rounded-full bg-black/10">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942] transition-[width] duration-500 ease-out"
@@ -1886,26 +1895,26 @@ export default function IntakePage() {
 
           {isAuthStep ? (
             <div className="w-full max-w-[520px] pt-3">
-              <h1 className="text-center font-title text-[42px] font-medium leading-[1.02] tracking-[-0.07em] text-[#2b2a28] sm:text-[50px]">
-                Continue your intake securely
+              <h1 className="text-center font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                {intake.auth.title}
               </h1>
-              <p className="mx-auto mt-4 max-w-[34ch] text-center text-[16px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:text-[17px]">
-                Choose a secure sign-in method to save your progress and continue.
+              <p className="mx-auto mt-3 max-w-[34ch] text-center text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:mt-4 sm:text-[17px]">
+                {intake.auth.subtitle}
               </p>
 
-              <div className="mx-auto mt-8 w-full max-w-[430px] space-y-3">
+              <div className="mx-auto mt-5 w-full max-w-[430px] space-y-2">
                 <a
                   href="https://accounts.google.com/signin"
                   className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84"
                 >
-                  <span className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-full bg-[#fffef9] px-5 text-center text-[16px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[56px] sm:px-6">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                  <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
                       <path fill="#4285F4" d="M21.6 12.23c0-.68-.06-1.33-.18-1.95H12v3.69h5.39a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.97-4.32 2.97-7.26Z" />
                       <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.81-1.75-5.6-4.1H3.05v2.58A10 10 0 0 0 12 22Z" />
                       <path fill="#FBBC05" d="M6.4 13.92A5.98 5.98 0 0 1 6.08 12c0-.67.12-1.32.32-1.92V7.5H3.05A10 10 0 0 0 2 12c0 1.61.39 3.14 1.05 4.5l3.35-2.58Z" />
                       <path fill="#EA4335" d="M12 5.98c1.47 0 2.78.5 3.82 1.48l2.87-2.87C16.95 2.97 14.7 2 12 2A10 10 0 0 0 3.05 7.5l3.35 2.58c.79-2.35 3-4.1 5.6-4.1Z" />
                     </svg>
-                    <span>Continue with Google</span>
+                    <span>{intake.auth.google}</span>
                   </span>
                 </a>
 
@@ -1913,18 +1922,18 @@ export default function IntakePage() {
                   href="#"
                   className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84"
                 >
-                  <span className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-full bg-[#fffef9] px-5 text-center text-[16px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[56px] sm:px-6">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
+                  <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
                       <path d="M16.63 12.57c-.03-3.12 2.54-4.62 2.66-4.7-1.46-2.13-3.72-2.42-4.52-2.46-1.92-.2-3.75 1.13-4.73 1.13-1 0-2.5-1.1-4.12-1.07-2.1.03-4.07 1.23-5.15 3.12-2.22 3.84-.56 9.48 1.56 12.56 1.06 1.5 2.3 3.17 3.93 3.11 1.59-.06 2.18-1 4.1-1 1.9 0 2.45 1 4.12.96 1.7-.03 2.78-1.52 3.8-3.03 1.23-1.72 1.72-3.43 1.74-3.52-.04-.01-3.33-1.28-3.36-5.1ZM13.5 3.33c.84-1.02 1.42-2.4 1.26-3.8-1.22.05-2.75.84-3.63 1.84-.78.9-1.48 2.3-1.3 3.64 1.37.1 2.78-.69 3.67-1.68Z" />
                     </svg>
-                    <span>Continue with Apple</span>
+                    <span>{intake.auth.apple}</span>
                   </span>
                 </a>
               </div>
 
-              <div className="mx-auto mt-6 flex w-full max-w-[430px] items-center gap-4 text-[15px] font-medium tracking-[-0.02em] text-black/38">
+              <div className="mx-auto mt-4 flex w-full max-w-[430px] items-center gap-4 text-[14px] font-medium tracking-[-0.02em] text-black/38 sm:mt-6 sm:text-[15px]">
                 <span className="h-px flex-1 bg-black/10" />
-                <span>or</span>
+                <span>{intake.auth.or}</span>
                 <span className="h-px flex-1 bg-black/10" />
               </div>
 
@@ -1934,28 +1943,28 @@ export default function IntakePage() {
                   onClick={handleContinueWithEmailClick}
                   className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84"
                 >
-                  <span className="flex min-h-[54px] w-full items-center justify-center gap-3 rounded-full bg-[#fffef9] px-5 text-center text-[16px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[56px] sm:px-6">
-                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                  <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
+                    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
                       <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
                       <path d="M5.5 8 12 13l6.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    <span>Continue with email</span>
+                    <span>{intake.auth.email}</span>
                   </span>
                 </a>
               </div>
 
               <p className="mt-6 text-center text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/42">
-                Your information stays private and securely connected to your intake.
+                {intake.auth.privacy}
               </p>
             </div>
           ) : isLocationStep ? (
             <div className="mx-auto flex min-h-[580px] w-full max-w-[560px] flex-col items-start pt-3">
               <div className="w-full">
-                <h1 className="w-full font-title text-[42px] font-medium leading-[1.02] tracking-[-0.07em] text-[#2b2a28] sm:text-[50px]">
-                  Where are you currently located?
+                <h1 className="w-full font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                  {intake.location.title}
                 </h1>
                 <p className="mt-4 max-w-[40ch] text-[16px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:text-[17px]">
-                  We’ll use your location and preferences to match you with the right licensed physician.
+                  {intake.location.subtitle}
                 </p>
 
                 <div className="relative mx-auto mt-8 w-full">
@@ -1966,7 +1975,7 @@ export default function IntakePage() {
                         : "border border-black/10 bg-white/74"
                     }`}
                   >
-                    <div className="flex min-h-[62px] items-center rounded-[17px] bg-[#fffef9] px-5 sm:px-6">
+                    <div className="flex min-h-[48px] items-center rounded-[17px] bg-[#fffef9] px-5 sm:min-h-[56px] sm:px-6">
                       <input
                         type="text"
                         value={locationQuery}
@@ -1981,7 +1990,7 @@ export default function IntakePage() {
                             setIsLocationDropdownOpen(false);
                           }, 120);
                         }}
-                        placeholder="Search for your city"
+                        placeholder={intake.location.placeholder}
                         className="w-full bg-transparent text-[18px] font-medium tracking-[-0.03em] text-[#262522] outline-none placeholder:text-black/28"
                       />
                     </div>
@@ -2022,7 +2031,13 @@ export default function IntakePage() {
                     </svg>
                   </span>
                   <span className="text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
-                    By clicking "Continue," I agree to the <span className="underline underline-offset-[3px]">Terms and Conditions</span> and <span className="underline underline-offset-[3px]">Telehealth Consent</span> and acknowledge the <span className="underline underline-offset-[3px]">Privacy Policy</span>.
+                    {intake.location.consent.beforeTerms}
+                    <span className="underline underline-offset-[3px]">{intake.location.consent.terms}</span>
+                    {intake.location.consent.beforeTelehealth}
+                    <span className="underline underline-offset-[3px]">{intake.location.consent.telehealth}</span>
+                    {intake.location.consent.beforePrivacy}
+                    <span className="underline underline-offset-[3px]">{intake.location.consent.privacy}</span>
+                    {intake.location.consent.after}
                   </span>
                 </button>
               </div>
@@ -2031,7 +2046,7 @@ export default function IntakePage() {
                 type="button"
                 onClick={handleLocationContinueClick}
                 disabled={!canContinueLocation}
-                className={`mt-[56px] w-full rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-colors ${
+                className={`mt-8 w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:mt-[56px] sm:px-6 sm:py-3.5 sm:text-[16px] ${
                   canContinueLocation ? "cursor-pointer bg-[#11110f] text-white" : "cursor-default bg-black/10 text-black/30"
                 }`}
               >
@@ -2041,24 +2056,24 @@ export default function IntakePage() {
                     <span className="sr-only">Loading location options</span>
                   </span>
                 ) : isLocationReady ? (
-                  "Continue"
+                  intake.continue
                 ) : (
-                  "Continue"
+                  intake.continue
                 )}
               </button>
             </div>
           ) : isMatchingStep ? (
             <div className="flex w-full max-w-[560px] flex-col items-center justify-center px-4 text-center">
-              <div className="relative flex h-40 w-40 items-center justify-center">
+              <div className="relative flex h-24 w-24 items-center justify-center sm:h-40 sm:w-40">
                 <span
-                  className={`absolute inset-0 rounded-full border-[4px] border-transparent border-t-[#5f7f4f] border-r-[#8ea57a] border-b-[#4b6942] transition-opacity duration-500 ${
+                  className={`absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#5f7f4f] border-r-[#8ea57a] border-b-[#4b6942] transition-opacity duration-500 sm:border-[4px] ${
                     matchingStage === "loading" ? "animate-spin opacity-100" : "opacity-0"
                   }`}
                   aria-hidden="true"
                 />
-                <span className="absolute flex h-32 w-32 items-center justify-center transition-all duration-500">
+                <span className="absolute flex h-16 w-16 items-center justify-center transition-all duration-500 sm:h-32 sm:w-32">
                   {matchingStage === "success" ? (
-                    <svg viewBox="0 0 20 20" fill="none" className="h-11 w-11 text-[#5f7f4f]" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" fill="none" className="h-7 w-7 text-[#5f7f4f] sm:h-11 sm:w-11" aria-hidden="true">
                       <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   ) : (
@@ -2069,27 +2084,27 @@ export default function IntakePage() {
                       height={90}
                       priority
                       unoptimized
-                      className="h-[90px] w-auto"
+                      className="h-12 w-auto sm:h-[90px]"
                     />
                   )}
                 </span>
               </div>
 
-              <p className="mt-10 max-w-[32ch] text-[16px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">
-                We’re matching you with a licensed physician.
+              <p className="mt-6 max-w-[32ch] text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82 sm:mt-10 sm:text-[16px]">
+                {intake.matching}
               </p>
             </div>
           ) : isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? (
-            <div className={`w-full max-w-[700px] transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
-              <div className={`flex min-h-[620px] w-full flex-col items-center justify-center gap-14 ${isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? "pb-0" : "pb-2"} pt-8 sm:min-h-[660px] sm:gap-16 sm:pt-12`}>
-                <div className={`mx-auto ${isPostCameraInterstitialStep ? "w-fit max-w-[34rem]" : isRecommendationInterstitialStep ? "w-full" : "w-full max-w-[34rem]"}`}>
-                  <div className="space-y-8 text-left sm:space-y-10">
+            <div className={`w-full min-w-0 max-w-[700px] transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
+              <div className={`flex w-full min-w-0 flex-col items-stretch gap-6 ${isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? "pb-0" : "pb-2"} sm:items-center sm:gap-16`}>
+                <div className={`mx-auto min-w-0 ${isPostCameraInterstitialStep ? "w-full max-w-[34rem]" : isRecommendationInterstitialStep ? "w-full" : "w-full max-w-[34rem]"}`}>
+                  <div className="space-y-4 text-left sm:space-y-10">
                     {isNextStepsInterstitialStep ? (
                       <div className="w-full">
                         <div className="relative">
-                          <h1 className="invisible whitespace-pre-line text-[34px] font-medium leading-[1.08] tracking-[-0.06em] text-[#c77e57] sm:text-[48px]">Almost done, here's \nwhat happens next:</h1>
-                          <h1 className="absolute inset-0 whitespace-pre-line text-[34px] font-medium leading-[1.08] tracking-[-0.06em] text-[#c77e57] sm:text-[48px]">
-                            {"Almost done, here's \nwhat happens next:".slice(0, nextStepsTitleVisibleCount)}
+                          <h1 className="invisible whitespace-pre-wrap break-words font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">{intake.nextSteps.title}</h1>
+                          <h1 className="absolute inset-0 whitespace-pre-wrap break-words font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                            {intake.nextSteps.title.slice(0, nextStepsTitleVisibleCount)}
                           </h1>
                         </div>
 
@@ -2104,8 +2119,8 @@ export default function IntakePage() {
                                 </svg>
                               </span>
                               <div className="flex-1">
-                                <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">Complete your treatment profile</p>
-                                <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">Add your delivery address and payment method.</p>
+                                <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">{intake.nextSteps.profileTitle}</p>
+                                <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.profileBody}</p>
                               </div>
                             </div>
                           </div>
@@ -2120,9 +2135,9 @@ export default function IntakePage() {
                               </svg>
                             </span>
                             <div className="flex-1">
-                              <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">Physician review</p>
-                              <p className="mt-1 text-[12px] font-semibold leading-[1.45] tracking-[-0.02em] text-[#c77e57]">Most reviews are completed within 12–24 hours.</p>
-                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">A licensed physician reviews your answers and photos.</p>
+                              <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">{intake.nextSteps.reviewTitle}</p>
+                              <p className="mt-1 text-[12px] font-semibold leading-[1.45] tracking-[-0.02em] text-[#c77e57]">{intake.nextSteps.reviewTime}</p>
+                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.reviewBody}</p>
                             </div>
                           </div>
 
@@ -2136,21 +2151,21 @@ export default function IntakePage() {
                               </svg>
                             </span>
                             <div className="flex-1">
-                              <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">Personalized treatment plan</p>
-                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">Available after physician approval.</p>
-                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">Receive your treatment recommendation, progress tracking tools, and follow-up guidance.</p>
+                              <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">{intake.nextSteps.planTitle}</p>
+                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.planWhen}</p>
+                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.planBody}</p>
                             </div>
                           </div>
 
                           <div className={`transition-all duration-500 ${nextStepsContainerIndex >= 4 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                            <p className="pt-2 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/46">You will only be charged if treatment is approved by your physician.</p>
+                            <p className="pt-2 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/46">{intake.nextSteps.chargeNote}</p>
                             <div className="mt-3 flex w-full justify-end">
                               <button
                                 type="button"
                                 onClick={() => advanceToStep(shippingInfoStepIndex)}
                                 className="inline-flex items-center rounded-full bg-[#1b1b1b] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40"
                               >
-                                Continue
+                                {intake.continue}
                               </button>
                             </div>
                           </div>
@@ -2162,14 +2177,14 @@ export default function IntakePage() {
                       <>
                       <div className={`overflow-hidden rounded-[22px] border border-black/5 bg-white/80 p-4 shadow-[0_10px_26px_rgba(0,0,0,0.04)] backdrop-blur-[2px] sm:p-6 transition-all duration-500 ${recommendationReveal ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
                         <div className="w-full max-w-[700px] mx-auto">
-                          <p className="mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57]">Step 2 out of 3</p>
-                          <h1 className="font-title font-medium leading-[1.02] tracking-[-0.07em] text-[#2b2a28] text-[34px] sm:text-[42px]">What physicians often consider</h1>
+                          <p className="mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57]">{intake.shipping.step2}</p>
+                          <h1 className="font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">{intake.recommend.title}</h1>
 
                           <div className="mt-4 flex items-start gap-4">
                             <img src={assignedDoctor.imageSrc} alt={assignedDoctor.name} className="h-20 w-20 rounded-full object-cover" />
                             <div>
                               <p className="text-[16px] leading-[1.55] tracking-[-0.02em] text-black/70">
-                                Based on the information you've provided, physicians reviewing similar cases often consider the following treatment options for male pattern hair loss.
+                                {intake.recommend.intro}
                               </p>
                               
                             </div>
@@ -2179,8 +2194,8 @@ export default function IntakePage() {
                           <div className="mt-6 rounded-[18px] border border-black/10 bg-white p-5 shadow-[0_6px_18px_rgba(0,0,0,0.04)] sm:p-6">
                             <div className="flex items-start justify-between gap-4">
                               <div>
-                                <h2 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">{recommendedTreatment.title}</h2>
-                                <p className="mt-1 text-[14px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatment.description}</p>
+                                <h2 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">{recommendedTreatmentCopy?.title}</h2>
+                                <p className="mt-1 text-[14px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatmentCopy?.description}</p>
                               </div>
                               <img src={recommendedTreatment.imageSrc} alt="Treatment" className="h-16 w-16 rounded-full object-cover" />
                             </div>
@@ -2192,7 +2207,7 @@ export default function IntakePage() {
                                     <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                 </span>
-                                <span>Lower systemic exposure than oral finasteride</span>
+                                <span>{intake.recommend.bullets[0]}</span>
                               </li>
                               <li className="flex items-start gap-3 text-[14px] leading-[1.5] text-[#2b2a28]">
                                 <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#c77e57]/10 text-[#c77e57]">
@@ -2200,7 +2215,7 @@ export default function IntakePage() {
                                     <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                 </span>
-                                <span>Clinical studies show improvements in hair density</span>
+                                <span>{intake.recommend.bullets[1]}</span>
                               </li>
                               <li className="flex items-start gap-3 text-[14px] leading-[1.5] text-[#2b2a28]">
                                 <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#c77e57]/10 text-[#c77e57]">
@@ -2208,23 +2223,23 @@ export default function IntakePage() {
                                     <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                 </span>
-                                <span>Physician review determines suitability</span>
+                                <span>{intake.recommend.bullets[2]}</span>
                               </li>
                             </ul>
 
                             <div className="mt-5 rounded-[14px] bg-[#faf7f2] p-4">
-                              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#c77e57]">Expected monthly cost</p>
+                              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#c77e57]">{intake.recommend.expectedCost}</p>
                               <p className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#2b2a28]">₺500–750 / month</p>
                             </div>
 
                             <div className="mt-4">
-                              <p className="text-[13px] font-semibold tracking-[-0.01em] text-[#2b2a28]">Included with Hiros</p>
+                              <p className="text-[13px] font-semibold tracking-[-0.01em] text-[#2b2a28]">{intake.recommend.included}</p>
                               <ul className="mt-3 space-y-2.5 text-[14px] text-[#2b2a28]">
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 7c2-2.5 5-2.5 7 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M8 10v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16" r="6" stroke="currentColor" strokeWidth="2"/><path d="M15 14l3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>Physician review</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/0 svg"><path d="M4 16l4-4 3 3 5-6 4 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 20h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>Progress tracking</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22c4-2 8-6 8-10a8 8 0 10-16 0c0 4 4 8 8 10z" stroke="currentColor" strokeWidth="2"/><path d="M12 8v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>Side-effect monitoring</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/><path d="M12 7v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>Follow-up support</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M6 7l1.5-3h9L18 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="4" y="7" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/></svg></span><span>Discreet pharmacy delivery</span></li>
+                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 7c2-2.5 5-2.5 7 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M8 10v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16" r="6" stroke="currentColor" strokeWidth="2"/><path d="M15 14l3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[0]}</span></li>
+                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/0 svg"><path d="M4 16l4-4 3 3 5-6 4 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 20h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[1]}</span></li>
+                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22c4-2 8-6 8-10a8 8 0 10-16 0c0 4 4 8 8 10z" stroke="currentColor" strokeWidth="2"/><path d="M12 8v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[2]}</span></li>
+                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/><path d="M12 7v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[3]}</span></li>
+                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M6 7l1.5-3h9L18 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="4" y="7" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/></svg></span><span>{intake.recommend.includedItems[4]}</span></li>
                               </ul>
                             </div>
                           </div>
@@ -2238,9 +2253,9 @@ export default function IntakePage() {
                                 </svg>
                               </div>
                               <div className="flex-1">
-                                <h2 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">{recommendedTreatment.title}</h2>
-                                <p className="mt-2 text-[14px] font-medium leading-[1.45] tracking-[-0.01em] text-black/70">{recommendedTreatment.description}</p>
-                                <p className="mt-3 text-[13px] font-medium leading-[1.45] text-black/60">A physician will carefully review your intake and determine the most appropriate next step for your situation.</p>
+                                <h2 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">{recommendedTreatmentCopy?.title}</h2>
+                                <p className="mt-2 text-[14px] font-medium leading-[1.45] tracking-[-0.01em] text-black/70">{recommendedTreatmentCopy?.description}</p>
+                                <p className="mt-3 text-[13px] font-medium leading-[1.45] text-black/60">{intake.recommend.reviewNote}</p>
                               </div>
                             </div>
                           </div>
@@ -2254,7 +2269,7 @@ export default function IntakePage() {
                                 checked={hasAcknowledgedPhysicianReview}
                                 onChange={(e) => setHasAcknowledgedPhysicianReview(e.target.checked)}
                               />
-                              <span>Your physician will review your answers and photos before determining whether treatment is appropriate for you.</span>
+                              <span>{intake.recommend.acknowledge}</span>
                             </label>
                             <button
                               type="button"
@@ -2262,15 +2277,15 @@ export default function IntakePage() {
                               disabled={!hasAcknowledgedPhysicianReview}
                               className="inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-[15px] font-semibold tracking-[-0.02em] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-50 bg-[#1b1b1b] text-white hover:bg-black disabled:hover:bg-[#1b1b1b]"
                             >
-                              Add payment method
+                              {intake.recommend.addPayment}
                             </button>
                             <button type="button" className="inline-flex w-full items-center justify-center rounded-full border border-black/12 bg-white px-5 py-3 text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28] hover:bg-black/[0.03]">
-                              Learn about other options
+                              {intake.recommend.learnOther}
                             </button>
                           </div>
 
                           <p className="mt-3 text-[12px] font-medium leading-[1.45] tracking-[-0.01em] text-black/46">
-                            No payment is collected unless treatment is approved.
+                            {intake.recommend.noCharge}
                           </p>
                         </div>
                       </div>
@@ -2303,13 +2318,13 @@ export default function IntakePage() {
                       </div>
                     ) : null}
                     {!(isNextStepsInterstitialStep || isRecommendationInterstitialStep) ? (
-                    <div className="relative max-w-[34rem]">
-                      <p className="invisible whitespace-pre-line text-[34px] font-medium leading-[1.08] tracking-[-0.06em] sm:text-[48px]">
+                    <div className="relative w-full min-w-0 max-w-[34rem]">
+                      <p className="invisible w-full whitespace-pre-wrap break-words font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
                         {activeInterstitialTextBlocks[0]}
                       </p>
-                      <p className="absolute inset-0 max-w-[34rem] text-[34px] font-medium leading-[1.08] tracking-[-0.06em] text-[#c77e57] sm:text-[48px]">
+                      <p className="absolute inset-0 w-full max-w-full font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
                         {visibleInterstitialTextBlocks[0].split("\n").map((line, lineIndex) => (
-                          <span key={`photo-check-primary-${lineIndex}`} className="block whitespace-pre">
+                          <span key={`photo-check-primary-${lineIndex}`} className="block whitespace-pre-wrap break-words">
                             {line === "" ? "\u00A0" : line}
                           </span>
                         ))}
@@ -2318,25 +2333,25 @@ export default function IntakePage() {
                     ) : null}
 
                     {!(isNextStepsInterstitialStep || isRecommendationInterstitialStep) ? (
-                    <div className="relative w-full max-w-[34rem]">
+                    <div className="relative w-full min-w-0 max-w-[34rem]">
                       <p
-                        className={`invisible w-full whitespace-pre-line font-medium ${
+                        className={`invisible w-full whitespace-pre-wrap break-words font-medium ${
                           isPostCameraInterstitialStep
-                            ? "text-[34px] leading-[1.08] tracking-[-0.06em] sm:text-[48px]"
-                            : "text-[22px] leading-[1.18] tracking-[-0.04em] sm:text-[30px]"
+                            ? "text-[22px] leading-[1.2] tracking-[-0.03em] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]"
+                            : "text-[15px] leading-[1.4] tracking-[-0.03em] sm:text-[22px] sm:leading-[1.18] sm:tracking-[-0.04em]"
                         }`}
                       >
                         {activeInterstitialTextBlocks[1]}
                       </p>
                       <p
-                        className={`absolute inset-0 w-full max-w-[34rem] whitespace-pre-line font-medium text-[#c77e57] ${
+                        className={`absolute inset-0 w-full max-w-full whitespace-pre-wrap break-words font-medium text-[#c77e57] ${
                           isPostCameraInterstitialStep
-                            ? "text-[34px] leading-[1.08] tracking-[-0.06em] sm:text-[48px]"
-                            : "text-[22px] leading-[1.18] tracking-[-0.04em] sm:text-[30px]"
+                            ? "text-[22px] leading-[1.2] tracking-[-0.03em] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]"
+                            : "text-[15px] leading-[1.4] tracking-[-0.03em] sm:text-[22px] sm:leading-[1.18] sm:tracking-[-0.04em]"
                         }`}
                       >
                         {visibleInterstitialTextBlocks[1].split("\n").map((line, lineIndex) => (
-                          <span key={`photo-check-secondary-${lineIndex}`} className="block whitespace-pre">
+                          <span key={`photo-check-secondary-${lineIndex}`} className="block whitespace-pre-wrap break-words">
                             {line === "" ? "\u00A0" : line}
                           </span>
                         ))}
@@ -2345,8 +2360,8 @@ export default function IntakePage() {
                     ) : null}
                   </div>
 
-                  {!isNextStepsInterstitialStep ? (
-                  <div className={`flex ${isFinalReviewInterstitialStep ? "min-h-[56px] mt-[40px]" : "min-h-[72px] mt-[56px]"} items-end justify-start w-full`}>
+                  {!isNextStepsInterstitialStep && !isRecommendationInterstitialStep ? (
+                  <div className={`flex ${isFinalReviewInterstitialStep ? "mt-8 min-h-[56px] sm:mt-[40px]" : "mt-8 min-h-[56px] sm:mt-[56px] sm:min-h-[72px]"} w-full items-end justify-start`}>
                     {isPreAuthInterstitialStep ? (
                       <button
                         type="button"
@@ -2354,7 +2369,7 @@ export default function IntakePage() {
                         disabled={!isInterstitialButtonVisible}
                         aria-hidden={!isInterstitialButtonVisible}
                         tabIndex={isInterstitialButtonVisible ? 0 : -1}
-                        className={`w-full max-w-[500px] self-start rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-all duration-300 ${
+                        className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2365,7 +2380,7 @@ export default function IntakePage() {
                     ) : isFinalReviewInterstitialStep ? (
                       <Link
                         href="/dashboard"
-                        className={`w-full max-w-[500px] self-start rounded-full px-6 py-4 text-center text-[16px] font-medium tracking-[-0.03em] transition-all duration-300 ${
+                        className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-center text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2380,7 +2395,7 @@ export default function IntakePage() {
                         disabled={!isInterstitialButtonVisible}
                         aria-hidden={!isInterstitialButtonVisible}
                         tabIndex={isInterstitialButtonVisible ? 0 : -1}
-                        className={`w-full max-w-[500px] self-start rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-all duration-300 ${
+                        className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2396,13 +2411,13 @@ export default function IntakePage() {
             </div>
           ) : isCameraPrepStep ? (
             <div className={`w-full ${isShippingInfoStep ? "max-w-[980px]" : "max-w-[700px]"} transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
-              <div className="flex min-h-[620px] w-full flex-col items-center justify-center gap-14 pb-2 pt-8 sm:min-h-[660px] sm:gap-16 sm:pt-12">
-                <div className="w-full max-w-[34rem] text-left">
-                  <h1 className="text-[34px] font-medium leading-[1.08] tracking-[-0.06em] text-[#c77e57] sm:text-[48px]">
-                    Let's get you ready.
+              <div className="flex w-full min-w-0 flex-col items-stretch gap-6 pb-2 sm:items-center sm:gap-16">
+                <div className="w-full min-w-0 max-w-[34rem] text-left">
+                  <h1 className="font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                    {intake.cameraPrep.title}
                   </h1>
 
-                  <div className="mt-10 space-y-6 sm:mt-12 sm:space-y-7">
+                  <div className="mt-6 space-y-4 sm:mt-12 sm:space-y-7">
                     {cameraPrepPoints.map((prepPoint, index) => {
                       const isVisible = index < cameraPrepVisiblePointCount;
 
@@ -2434,22 +2449,22 @@ export default function IntakePage() {
                     disabled={!isCameraPrepButtonVisible}
                     aria-hidden={!isCameraPrepButtonVisible}
                     tabIndex={isCameraPrepButtonVisible ? 0 : -1}
-                    className={`w-full max-w-[500px] self-start rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-all duration-300 ${
+                    className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                       isCameraPrepButtonVisible
                         ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                         : "translate-y-2 bg-black/10 text-black/30 opacity-0"
                     }`}
                   >
-                    I am ready
+                    {intake.cameraPrep.ready}
                   </button>
                 </div>
               </div>
             </div>
           ) : isCameraCaptureStep ? (
-            <div className={`w-full max-w-[1080px] transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
-              <div className="w-full">
-                <div className="mx-auto w-full overflow-hidden rounded-[30px] bg-[#ece4d7] shadow-[0_24px_60px_rgba(0,0,0,0.12)] sm:w-[60vw] sm:max-w-[820px]">
-                  <div className="relative h-[74vh] min-h-[640px] max-h-[900px] w-full bg-[#e7ddcf]">
+            <div className={`flex h-full min-h-0 w-full max-w-[1080px] flex-col transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
+              <div className="flex min-h-0 w-full flex-1 flex-col sm:flex-none">
+                <div className="mx-auto flex min-h-0 w-full flex-1 overflow-hidden rounded-[24px] bg-[#ece4d7] shadow-[0_24px_60px_rgba(0,0,0,0.12)] sm:w-[60vw] sm:max-w-[820px] sm:flex-none sm:rounded-[30px]">
+                  <div className="relative min-h-0 w-full flex-1 bg-[#e7ddcf] sm:h-[74vh] sm:min-h-[640px] sm:max-h-[900px] sm:flex-none">
                     {capturedCameraImage ? (
                       <img src={capturedCameraImage} alt="Captured face preview" className="h-full w-full object-cover" />
                     ) : (
@@ -2470,13 +2485,21 @@ export default function IntakePage() {
                     {isCameraLoading ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#e7ddcf] text-center text-[#7a6c5d]">
                         <span className="h-8 w-8 animate-spin rounded-full border-2 border-[#c77e57]/30 border-t-[#c77e57]" aria-hidden="true" />
-                        <p className="px-6 text-[15px] font-medium tracking-[-0.02em]">Opening your camera…</p>
+                        <p className="px-6 text-[15px] font-medium tracking-[-0.02em]">{intake.camera.opening}</p>
                       </div>
                     ) : null}
 
                     {cameraError ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-[#e7ddcf] px-8 text-center">
-                        <p className="max-w-[22rem] text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-[#7a6c5d]">{cameraError}</p>
+                        <p className="max-w-[22rem] text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-[#7a6c5d]">
+                          {cameraError === "Camera preview is not supported on this device or browser."
+                            ? intake.camera.unsupported
+                            : cameraError === "We couldn’t access your camera. Please allow camera access in your browser settings."
+                              ? intake.camera.access
+                              : cameraError === "We couldn’t capture your photo. Please try again."
+                                ? intake.camera.captureFail
+                                : cameraError}
+                        </p>
                       </div>
                     ) : null}
 
@@ -2495,7 +2518,7 @@ export default function IntakePage() {
                         <div className="mx-auto flex w-full max-w-[360px] flex-col items-center gap-4">
                           {cameraCapturePhase === "right" && !cameraError && !capturedCameraImage ? (
                             <div className="camera-down-arrow-flow flex items-center text-white/82 [filter:drop-shadow(0_2px_10px_rgba(0,0,0,0.24))]">
-                              <svg viewBox="0 0 24 24" fill="currentColor" className="h-28 w-28 sm:h-32 sm:w-32" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" fill="currentColor" className="h-16 w-16 sm:h-32 sm:w-32" aria-hidden="true">
                                 <path d="M11.25 4a.75.75 0 0 1 1.5 0v10.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V4Z" />
                               </svg>
                             </div>
@@ -2518,7 +2541,7 @@ export default function IntakePage() {
                   type="button"
                   onClick={handleCameraCaptureContinue}
                   disabled={!canContinueCameraCapture}
-                  className={`mx-auto mt-6 block w-full max-w-[360px] rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-colors sm:max-w-[380px] ${
+                  className={`mx-auto mt-4 block w-full max-w-[360px] shrink-0 rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:mt-6 sm:max-w-[380px] sm:px-6 sm:py-3.5 sm:text-[16px] ${
                     canContinueCameraCapture ? "bg-[#11110f] text-white" : "bg-black/10 text-black/30"
                   }`}
                 >
@@ -2531,7 +2554,7 @@ export default function IntakePage() {
                     onClick={handleCameraRetake}
                     className="mx-auto mt-3 block text-[14px] font-medium tracking-[-0.02em] text-black/68 underline underline-offset-[3px] transition-colors hover:text-black/82"
                   >
-                    Retake photo
+                    {intake.camera.retake}
                   </button>
                 ) : null}
               </div>
@@ -2543,9 +2566,9 @@ export default function IntakePage() {
                   <div className={`mb-[26px] grid grid-cols-[1fr_auto] items-stretch gap-3 overflow-hidden rounded-2xl border border-[#CCD5C8] bg-[#E7EDE7] p-3.5 text-[#2D3A2F] transition-all duration-300 sm:gap-4 sm:p-4 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
                     <div className="min-w-0 flex items-center">
                       <div>
-                        <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] sm:text-[16px] mb-0.5">Physician review and approval</div>
+                        <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] sm:text-[16px] mb-0.5">{intake.shipping.bannerTitle}</div>
                         <p className="text-[13px] leading-snug text-[#2D3A2F]/90 sm:text-[14px]">
-                          {currentStep!.description}
+                          {stepDescription}
                         </p>
                       </div>
                     </div>
@@ -2558,12 +2581,12 @@ export default function IntakePage() {
                       />
                     </div>
                   </div>
-                  <p className={`mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>Step 1 out of 3</p>
-                  <h1 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[20ch]"} mb-2 font-title font-medium leading-[1.02] tracking-[-0.07em] text-[#2b2a28] text-[34px] sm:text-[42px] transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    {currentStep!.title}
+                  <p className={`mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>{intake.shipping.step1}</p>
+                  <h1 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[20ch]"} mb-2 font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em] transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
+                    {stepTitle}
                   </h1>
                   <p className={`mb-4 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-black/55 transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    We’ll only use these details if treatment is approved.
+                    {intake.shipping.onlyIfApproved}
                   </p>
                   <div className={`transition-all duration-300 ${shippingRevealIndex >= 3 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
                     <ShippingForm
@@ -2572,7 +2595,7 @@ export default function IntakePage() {
                       onContinue={() => advanceToStep(recommendationStepIndex >= 0 ? recommendationStepIndex : shippingInfoStepIndex + 1)}
                     />
                     <p className="mt-4 text-[12px] leading-[1.4] tracking-[-0.01em] text-black/55">
-                      *Delivery is available for eligible treatments through participating pharmacy partners.
+                      {intake.shipping.deliveryNote}
                     </p>
                   </div>
                 </>
@@ -2581,9 +2604,9 @@ export default function IntakePage() {
                   <div className={`mb-[26px] grid grid-cols-[1fr_auto] items-stretch gap-3 overflow-hidden rounded-2xl border border-[#CCD5C8] bg-[#E7EDE7] p-3.5 text-[#2D3A2F] transition-all duration-300 sm:gap-4 sm:p-4 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
                     <div className="min-w-0 flex items-center">
                       <div>
-                        <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] sm:text-[16px] mb-0.5">Physician review and approval</div>
+                        <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] sm:text-[16px] mb-0.5">{intake.shipping.bannerTitle}</div>
                         <p className="mt-0.5 text-[14px] leading-snug text-[#2D3A2F]/80">
-                          Your case will be reviewed by a licensed physician before any payment is collected. Most reviews are completed within 24 hours.
+                          {intake.payment.bannerBody}
                         </p>
                       </div>
                     </div>
@@ -2596,32 +2619,30 @@ export default function IntakePage() {
                       />
                     </div>
                   </div>
-                  <p className={`mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>Step 3 out of 3</p>
-                  <h1 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[16ch]"} mb-6 font-title text-[42px] font-medium leading-[1.02] tracking-[-0.07em] text-[#2b2a28] sm:text-[50px] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    You're almost done
+                  <p className={`mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>{intake.shipping.step3}</p>
+                  <h1 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[16ch]"} mb-6 font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
+                    {intake.payment.almostDone}
                   </h1>
                   <div className={`mb-4 transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
                     <div className="rounded-[22px] border border-black/10 bg-white shadow-[0_16px_40px_rgba(0,0,0,0.06)]">
                       <div className="px-6 py-5">
                         <h2 className="font-title text-[22px] font-medium leading-[1.1] tracking-[-0.04em] text-[#2b2a28]">
-                          {shippingFormData.firstName && shippingFormData.firstName.trim().length > 0
-                            ? `${shippingFormData.firstName}'s treatment overview`
-                            : 'Your treatment overview'}
+                          {intake.payment.overviewTitle(shippingFormData.firstName)}
                         </h2>
                       </div>
                       <div className="px-6 pb-6">
                         <div className="overflow-hidden rounded-[18px] border border-black/10">
                           <div className="bg-[#945f41] px-5 py-3 text-[13px] font-semibold tracking-[-0.01em] text-white sm:px-6 sm:py-3.5">
-                            {recommendedTreatment?.type === "review" ? "Physician review recommended" : "Most commonly considered treatment"}
+                            {recommendedTreatment?.type === "review" ? intake.payment.reviewRecommended : intake.payment.mostCommon}
                           </div>
                           {recommendedTreatment?.type !== "review" ? (
                           <div className="flex items-center justify-between gap-4 bg-[#fbfaf5] px-5 py-4 sm:px-6">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <p className="text-[18px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#2b2a28]">{recommendedTreatment?.title || "Topical Finasteride + Minoxidil"}</p>
-                                <span className="shrink-0 rounded-full bg-[#e1e9e1] px-2.5 py-0.5 text-[11px] font-semibold leading-none text-[#2D3A2F]">Recommended</span>
+                                <p className="text-[18px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#2b2a28]">{recommendedTreatmentCopy.title}</p>
+                                <span className="shrink-0 rounded-full bg-[#e1e9e1] px-2.5 py-0.5 text-[11px] font-semibold leading-none text-[#2D3A2F]">{intake.payment.recommended}</span>
                               </div>
-                              <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatment?.description || "Evidence-backed combination for male pattern hair loss."}</p>
+                              <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatmentCopy.description}</p>
                             </div>
                             <img src={recommendedTreatment?.imageSrc || "/treatment-bottle.png"} alt="Treatment" className="h-16 w-16 rounded-[12px] object-cover" />
                           </div>
@@ -2635,8 +2656,8 @@ export default function IntakePage() {
                                 </svg>
                               </div>
                               <div className="flex-1">
-                                <p className="text-[16px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#2b2a28]">{recommendedTreatment?.title}</p>
-                                <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/70">{recommendedTreatment?.description}</p>
+                                <p className="text-[16px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#2b2a28]">{recommendedTreatmentCopy.title}</p>
+                                <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/70">{recommendedTreatmentCopy.description}</p>
                               </div>
                             </div>
                           </div>
@@ -2644,18 +2665,16 @@ export default function IntakePage() {
                         </div>
 
                         <div className="mt-6">
-                          <p className="text-[14px] font-semibold tracking-[-0.02em] text-[#2b2a28]">Included with Hiros</p>
+                          <p className="text-[14px] font-semibold tracking-[-0.02em] text-[#2b2a28]">{intake.payment.included}</p>
                           <ul className="mt-3 space-y-2 text-[14px] leading-[1.5] text-[#2b2a28]">
-                            <li className="flex items-start gap-2"><span>✓</span><span>Physician review by a licensed physician</span></li>
-                            <li className="flex items-start gap-2"><span>✓</span><span>Progress tracking and photo comparisons</span></li>
-                            <li className="flex items-start gap-2"><span>✓</span><span>Side-effect monitoring and reporting</span></li>
-                            <li className="flex items-start gap-2"><span>✓</span><span>Treatment reminders and status updates</span></li>
-                            <li className="flex items-start gap-2"><span>✓</span><span>Discreet pharmacy delivery</span></li>
+                            {intake.payment.includedItems.map((item) => (
+                              <li key={item} className="flex items-start gap-2"><span>✓</span><span>{item}</span></li>
+                            ))}
                           </ul>
                         </div>
 
                         <div className="mt-6 border-t border-black/10 pt-5">
-                          <p className="text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28]">Preferred treatment plan (if approved)</p>
+                          <p className="text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28]">{intake.payment.preferredPlan}</p>
 
                           <div className="mt-4 space-y-3">
                             <button
@@ -2675,8 +2694,8 @@ export default function IntakePage() {
                                       aria-hidden="true"
                                     />
                                     <div>
-                                      <p className="text-[16px] font-semibold text-[#2b2a28]">{recommendedTreatment?.title || "Topical Finasteride + Minoxidil"}</p>
-                                      <p className="mt-1 text-[13px] leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatment?.type === "review" ? "Subject to physician review" : "Most commonly considered for cases similar to yours."}</p>
+                                      <p className="text-[16px] font-semibold text-[#2b2a28]">{recommendedTreatmentCopy.title}</p>
+                                      <p className="mt-1 text-[13px] leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatment?.type === "review" ? intake.payment.subjectToReview : intake.payment.similarCases}</p>
                                     </div>
                                   </div>
                                   <div className="shrink-0 text-right text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28]">
@@ -2701,13 +2720,13 @@ export default function IntakePage() {
                                     }`}
                                     aria-hidden="true"
                                   />
-                                  <p className="text-[16px] font-semibold text-[#2b2a28]">Discuss other treatment options with my physician</p>
+                                  <p className="text-[16px] font-semibold text-[#2b2a28]">{intake.payment.discussOther}</p>
                                 </div>
                               </div>
                             </button>
 
                             <p className="text-[12px] leading-[1.45] tracking-[-0.01em] text-black/55">
-                              Final treatment recommendations are determined by your physician after reviewing your intake and photos.
+                              {intake.payment.finalNote}
                             </p>
                           </div>
                         </div>
@@ -2716,15 +2735,15 @@ export default function IntakePage() {
                   </div>
 
                   <div className={`mt-8 transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    <h2 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[20ch]"} mb-2 font-title text-[34px] font-medium leading-[1.02] tracking-[-0.07em] text-[#2b2a28] sm:text-[42px]`}>
-                      Select payment method
+                    <h2 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[20ch]"} mb-2 font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]`}>
+                      {intake.payment.title}
                     </h2>
                     <p className="mb-5 text-[16px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:text-[17px]">
-                      Add a payment method to complete your submission. No payment is collected until your physician reviews and approves treatment.
+                      {intake.payment.subtitle}
                     </p>
 
                     <div className="mb-2 flex items-center justify-between">
-                      <label className="text-[14px] font-semibold tracking-[-0.02em] text-[#2b2a28]">Credit or Debit Card</label>
+                      <label className="text-[14px] font-semibold tracking-[-0.02em] text-[#2b2a28]">{intake.payment.cardLabel}</label>
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-black/55">
                         <span className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-1.5 py-0.5">
                           <svg aria-hidden="true" width="14" height="10" viewBox="0 0 24 16" className="text-[#1a1f71]"><rect x="1" y="2" width="22" height="12" rx="2" fill="currentColor" opacity="0.1"/></svg>
@@ -2758,7 +2777,7 @@ export default function IntakePage() {
                       <input
                         type="text"
                         inputMode="numeric"
-                        placeholder="Card number"
+                        placeholder={intake.payment.cardNumber}
                         className="flex-1 rounded-[10px] bg-transparent px-2 py-2 text-[16px] font-medium tracking-[0.02em] text-[#262522] outline-none placeholder:text-black/35"
                       />
                       <button
@@ -2766,33 +2785,33 @@ export default function IntakePage() {
                         className="shrink-0 rounded-[12px] bg-[#2b2a28] px-3 py-2 text-[13px] font-semibold text-white hover:brightness-110"
                         onClick={() => {}}
                       >
-                        Autofill link
+                        {intake.payment.autofill}
                       </button>
                     </div>
 
                     <button
                       type="button"
-                      className="mt-5 w-full rounded-[20px] bg-[#0e1b24] py-4 text-[16px] font-semibold tracking-[-0.02em] text-white shadow-[0_10px_26px_rgba(0,0,0,0.08)] hover:brightness-110"
+                      className="mt-5 w-full rounded-[20px] bg-[#0e1b24] py-3 text-[15px] font-semibold tracking-[-0.02em] text-white shadow-[0_10px_26px_rgba(0,0,0,0.08)] hover:brightness-110 sm:py-4 sm:text-[16px]"
                       onClick={() => advanceToStep(finalReviewStepIndex)}
                     >
-                      Submit for physician review
+                      {intake.payment.submitReview}
                     </button>
 
                     
 
                     <p className="mt-4 text-center text-[12px] leading-[1.4] tracking-[-0.01em] text-black/55">
-                      Compounded semaglutide is not approved nor evaluated for safety, effectiveness, or quality by the FDA.
+                      {intake.payment.fdaNote}
                     </p>
                   </div>
                 </>
               ) : (
                 <>
-                  <h1 className="w-full max-w-full font-title font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] text-[22px] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em] lg:text-[50px]">
-                    {currentStep!.title}
+                  <h1 className="w-full max-w-full font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                    {stepTitle}
                   </h1>
-                  {currentStep!.description ? (
+                  {stepDescription ? (
                     <p className="mt-2.5 text-[13px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:mt-4 sm:text-[16px] lg:text-[17px]">
-                      {currentStep!.description}
+                      {stepDescription}
                     </p>
                   ) : null}
                 </>
@@ -2815,11 +2834,11 @@ export default function IntakePage() {
                     }`}
                   >
                     <span
-                      className={`flex min-h-[52px] w-full items-center rounded-[15px] px-4 py-3.5 text-left text-[15px] font-medium leading-[1.35] tracking-[-0.02em] text-[#1a1a1a] sm:min-h-[62px] sm:rounded-[14px] sm:px-6 sm:text-[16px] sm:tracking-[-0.03em] sm:text-[#262522] sm:shadow-[0_10px_26px_rgba(0,0,0,0.02)] sm:backdrop-blur-[2px] ${
+                      className={`flex min-h-[44px] w-full items-center rounded-[15px] px-4 py-2.5 text-left text-[14px] font-medium leading-[1.35] tracking-[-0.02em] text-[#1a1a1a] sm:min-h-[56px] sm:rounded-[14px] sm:px-6 sm:py-3.5 sm:text-[16px] sm:tracking-[-0.03em] sm:text-[#262522] sm:shadow-[0_10px_26px_rgba(0,0,0,0.02)] sm:backdrop-blur-[2px] ${
                         isCheckboxSelectionStep ? "justify-between" : ""
                       } ${isSelected ? "sm:bg-[#fffef9]" : "sm:bg-white/74 sm:group-hover:bg-white/84"}`}
                     >
-                      <span>{option}</span>
+                      <span>{intake.option(option)}</span>
                       {isCheckboxSelectionStep ? (
                         <span
                           className={`ml-4 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] transition-colors ${
@@ -2843,11 +2862,11 @@ export default function IntakePage() {
                   type="button"
                   onClick={handleCheckboxStepContinue}
                   disabled={!hasGoalSelections}
-                  className={`mt-7 w-full rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-colors ${
+                  className={`mt-7 w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:px-6 sm:py-3.5 sm:text-[16px] ${
                     hasGoalSelections ? "cursor-pointer bg-[#11110f] text-white" : "bg-black/10 text-black/30"
                   }`}
                 >
-                  Continue
+                  {intake.continue}
                 </button>
               ) : null}
 
@@ -2855,9 +2874,9 @@ export default function IntakePage() {
                 <button
                   type="button"
                   onClick={handleSelectedAnswerContinue}
-                  className="mt-7 w-full rounded-full bg-[#11110f] px-6 py-4 text-[16px] font-medium tracking-[-0.03em] text-white transition-colors"
+                  className="mt-7 w-full rounded-full bg-[#11110f] px-5 py-3 text-[15px] font-medium tracking-[-0.03em] text-white transition-colors sm:px-6 sm:py-3.5 sm:text-[16px]"
                 >
-                  Continue
+                  {intake.continue}
                 </button>
               ) : null}
 
@@ -2868,10 +2887,8 @@ export default function IntakePage() {
                       {!needsFinalNotesText && !needsPreviousTreatmentsText ? (
                         <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">
                           {needsPreviousTreatmentsText
-                            ? "Tell us briefly what you’ve tried."
-                            : needsMedicationText
-                              ? "Please tell us briefly."
-                              : "Please tell us briefly."}
+                            ? intake.followUp.triedBriefly
+                            : intake.followUp.tellUs}
                         </p>
                       ) : null}
                       <textarea
@@ -2884,12 +2901,12 @@ export default function IntakePage() {
                         }
                         rows={4}
                         placeholder={needsFinalNotesText
-                          ? "Optional — for example symptoms, concerns, or anything else you think may be relevant."
+                          ? intake.followUp.notesPlaceholder
                           : needsPreviousTreatmentsText
-                            ? "Describe what you’ve tried"
+                            ? intake.followUp.treatmentsPlaceholder
                             : needsMedicationText
-                              ? "Add your current medications or supplements"
-                              : "Add your medical conditions"}
+                              ? intake.followUp.medicationPlaceholder
+                              : intake.followUp.conditionsPlaceholder}
                         className="mt-3 w-full resize-none rounded-[18px] border border-black/10 bg-[#fffef9] px-4 py-3 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-[#262522] outline-none placeholder:text-black/28"
                       />
                     </div>
@@ -2898,12 +2915,12 @@ export default function IntakePage() {
                   {needsPreviousTreatmentsText && false ? (
                     <div className="w-full space-y-5">
                       <div ref={treatmentTypesDropdownRef} className="w-full">
-                        <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">Which types have you tried?</p>
+                        <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">{intake.followUp.typesTried}</p>
                         <div className="mt-3 overflow-hidden rounded-[22px] border border-black/10 bg-white/72 shadow-[0_10px_26px_rgba(0,0,0,0.02)] backdrop-blur-[2px]">
                           <button
                             type="button"
                             onClick={() => setIsTreatmentTypesDropdownOpen((currentValue) => !currentValue)}
-                            className="flex min-h-[62px] w-full items-center justify-between gap-4 bg-[#fffef9] px-5 text-left sm:px-6"
+                            className="flex min-h-[48px] w-full items-center justify-between gap-4 bg-[#fffef9] px-5 text-left sm:min-h-[56px] sm:px-6"
                             aria-expanded={isTreatmentTypesDropdownOpen}
                           >
                             <span className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[-0.03em] text-[#262522]">{treatmentSelectionSummary}</span>
@@ -2935,7 +2952,7 @@ export default function IntakePage() {
                                     }
                                     className="flex w-full items-center justify-between gap-4 bg-transparent px-5 py-4 text-left text-[#262522] transition-colors hover:bg-[#fbfaf5] sm:px-6"
                                   >
-                                    <span className="text-[16px] font-medium leading-[1.35] tracking-[-0.03em]">{detailOption}</span>
+                                    <span className="text-[16px] font-medium leading-[1.35] tracking-[-0.03em]">{intake.option(detailOption)}</span>
                                     <span
                                       className={`ml-4 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] transition-colors ${
                                         isSelected ? "bg-gradient-to-br from-[#c98c72] to-[#b77a61] text-white" : "border border-[#b77a61] bg-transparent text-transparent"
@@ -2956,24 +2973,24 @@ export default function IntakePage() {
 
                       {isOtherTreatmentSelected ? (
                         <div className="w-full">
-                          <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">Add details for other treatments</p>
+                          <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">{intake.followUp.otherDetails}</p>
                           <input
                             type="text"
                             value={treatmentOtherDetail}
                             onChange={(event) => setTreatmentOtherDetail(event.target.value)}
-                            placeholder="Describe the other treatment"
+                            placeholder={intake.followUp.otherPlaceholder}
                             className="mt-3 w-full rounded-[18px] border border-black/10 bg-[#fffef9] px-4 py-3 text-[15px] font-medium tracking-[-0.02em] text-[#262522] outline-none placeholder:text-black/28"
                           />
                         </div>
                       ) : null}
 
                       <div ref={treatmentSideEffectsDropdownRef} className="w-full">
-                        <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">How were the side effects overall?</p>
+                        <p className="text-[14px] font-medium tracking-[-0.02em] text-black/56">{intake.followUp.sideEffects}</p>
                         <div className="mt-3 overflow-hidden rounded-[22px] border border-black/10 bg-white/72 shadow-[0_10px_26px_rgba(0,0,0,0.02)] backdrop-blur-[2px]">
                           <button
                             type="button"
                             onClick={() => setIsTreatmentSideEffectsDropdownOpen((currentValue) => !currentValue)}
-                            className="flex min-h-[62px] w-full items-center justify-between gap-4 bg-[#fffef9] px-5 text-left sm:px-6"
+                            className="flex min-h-[48px] w-full items-center justify-between gap-4 bg-[#fffef9] px-5 text-left sm:min-h-[56px] sm:px-6"
                             aria-expanded={isTreatmentSideEffectsDropdownOpen}
                           >
                             <span className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[-0.03em] text-[#262522]">{treatmentSideEffectSummary}</span>
@@ -2999,7 +3016,7 @@ export default function IntakePage() {
                                   }}
                                   className="flex w-full items-center bg-transparent px-5 py-4 text-left text-[#262522] transition-colors hover:bg-[#fbfaf5] sm:px-6"
                                 >
-                                  <span className="text-[16px] font-medium leading-[1.35] tracking-[-0.03em]">{sideEffectOption}</span>
+                                  <span className="text-[16px] font-medium leading-[1.35] tracking-[-0.03em]">{intake.option(sideEffectOption)}</span>
                                 </button>
                               ))}
                             </div>
@@ -3018,11 +3035,11 @@ export default function IntakePage() {
                   type="button"
                   onClick={handleMedicalFollowUpContinue}
                   disabled={!canContinueMedicalFollowUp}
-                  className={`mt-5 w-full rounded-full px-6 py-4 text-[16px] font-medium tracking-[-0.03em] transition-colors ${
+                  className={`mt-5 w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:px-6 sm:py-3.5 sm:text-[16px] ${
                     canContinueMedicalFollowUp ? "bg-[#11110f] text-white" : "bg-black/10 text-black/30"
                   }`}
                 >
-                  {currentStep?.id === "final-notes" ? "Submit intake" : "Continue"}
+                  {currentStep?.id === "final-notes" ? intake.submitIntake : intake.continue}
                 </button>
               ) : null}
 
@@ -3040,7 +3057,7 @@ export default function IntakePage() {
             <div className={`fixed bottom-10 right-6 z-[70] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.2)] transition-all duration-220 ease-out ${isDoctorPopupVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.98] opacity-0"}`}>
               <div className="flex items-start justify-between border-b border-black/8 bg-[#fbfaf5] px-5 py-4">
                 <div>
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#848484]">Assigned physician</p>
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#848484]">{intake.doctor.assignedLabel}</p>
                   <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{assignedDoctor.name}</h3>
                 </div>
                 <button
@@ -3062,15 +3079,15 @@ export default function IntakePage() {
 
               <div className="space-y-4 px-5 pb-6 pt-1">
                 <div>
-                  <p className="text-[15px] font-medium tracking-[-0.02em] text-black/55">{assignedDoctor.role}</p>
-                  <p className="mt-3 text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">{assignedDoctor.intro}</p>
+                  <p className="text-[15px] font-medium tracking-[-0.02em] text-black/55">{intake.doctor.role}</p>
+                  <p className="mt-3 text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">{intake.doctor.intro}</p>
                 </div>
 
                 {shouldShowDoctorPopupAbout ? (
                   <div className="rounded-[22px] bg-[#f4f0e7] px-5 py-5">
-                    <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">About</p>
+                    <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.doctor.about}</p>
                     <ul className="mt-3 space-y-2 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
-                      {assignedDoctor.details.map((detail) => (
+                      {intake.doctor.details.map((detail) => (
                         <li key={detail}>{detail}</li>
                       ))}
                     </ul>
@@ -3084,20 +3101,20 @@ export default function IntakePage() {
             <button
               type="button"
               onClick={() => openDoctorPopup(true)}
-              className={`fixed bottom-6 right-6 z-[65] w-full max-w-[340px] rounded-[24px] bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942] p-[1.5px] text-left shadow-[0_20px_50px_rgba(0,0,0,0.16)] transition-all duration-500 ease-out ${
+              className={`fixed bottom-6 left-1/2 z-[65] w-[calc(100%-2rem)] max-w-[340px] -translate-x-1/2 rounded-[24px] bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942] p-[1.5px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.16)] transition-all duration-500 ease-out sm:left-auto sm:right-6 sm:w-full sm:translate-x-0 sm:text-left ${
                 isDoctorAssignmentNoticeVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
               }`}
               aria-hidden={!isDoctorAssignmentNoticeVisible}
               tabIndex={isDoctorAssignmentNoticeVisible ? 0 : -1}
             >
-              <span className="flex items-start gap-3 rounded-[22px] bg-white/95 px-5 py-4 backdrop-blur-sm">
+              <span className="flex items-center justify-center gap-3 rounded-[22px] bg-white/95 px-5 py-4 text-center backdrop-blur-sm sm:items-start sm:justify-start sm:text-left">
                 <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f] text-white shadow-[0_6px_14px_rgba(95,127,79,0.25)]">
                   <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
                     <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
                 <p className="text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]">
-                  <span className="font-semibold">{assignedDoctor.name}</span> has been assigned to review your medical intake.
+                  <span className="font-semibold">{assignedDoctor.name}</span> {intake.doctor.assigned}
                 </p>
               </span>
             </button>

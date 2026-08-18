@@ -1,91 +1,21 @@
+"use client";
+
 import Image from "next/image";
 import Header from "@/components/Header";
 import PrivacyCarousel from "@/components/PrivacyCarousel";
 import FloatingChat from "@/components/FloatingChat";
 import { HOME_PAGE_GUTTER_CLASS, HOME_PAGE_PEEK_CAROUSEL_CLASS } from "@/constants/homeHeaderLayout";
+import { useHomeCopy } from "@/i18n/LanguageProvider";
 
 const assetVersion = "20260520-1637";
 
-const faqs = [
-  {
-    question: "Is this a real medical service?",
-    answer:
-      "Yes. Your information is reviewed by licensed physicians who determine the appropriate next step. Hiros provides a structured way to share your information clearly and privately.",
-  },
-  {
-    question: "Do I have to commit to anything?",
-    answer:
-      "No. You can start with a simple intake and decide how to proceed. There’s no obligation to continue unless you choose to.",
-  },
-  {
-    question: "How is this different from going to a clinic?",
-    answer:
-      "Hiros helps you start privately, from your own space. Instead of booking first, you begin by sharing your situation clearly, so a physician can assess what’s appropriate before any next step.",
-  },
-  {
-    question: "Is my information kept private?",
-    answer:
-      "Yes. Your information is handled securely and only shared with licensed medical professionals involved in your care. You stay in control of what you share and when.",
-  },
-  {
-    question: "What happens after I complete the intake?",
-    answer:
-      "Your information is reviewed by a physician, who determines the appropriate next step. You’ll receive clear guidance on how to proceed, based on your situation.",
-  },
-];
+function HomeContent() {
+  const { copy } = useHomeCopy();
 
-const heroCards = [
-  {
-    href: "/intake?condition=hair-loss",
-    title: "Hair loss",
-    badge: "Online intake",
-    description: "Get guidance based on your situation",
-  },
-  {
-    href: "/intake?condition=mental-health",
-    title: "Help me choose",
-    badge: null,
-    description: "Not sure what's right? We'll guide you",
-  },
-];
-
-const careCards = [
-  {
-    key: "understand-science",
-    overlaySrc: `/overlay1.png?v=${assetVersion}`,
-    title: (
-      <>
-        Understand the science
-        <br />
-        <span className="inline-block bg-gradient-to-r from-[#60382b] via-[#6a4132] to-[#765040] bg-clip-text pr-2 -mr-2 text-transparent">
-          behind your care
-        </span>
-      </>
-    ),
-    description:
-      "Understand what your plan is based on, in clear, simple terms.",
-  },
-  {
-    key: "stay-in-control",
-    overlaySrc: `/overlay2.png?v=${assetVersion}`,
-    title: (
-      <>
-        Designed for
-        <br />
-        <span className="inline-block bg-gradient-to-r from-[#60382b] via-[#6a4132] to-[#765040] bg-clip-text pr-2 -mr-2 text-transparent">
-          sensitive concerns
-        </span>
-      </>
-    ),
-    description:
-      "Answer a few questions and get clarity on your next step.",
-  },
-];
-
-export default function Home() {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#fbfaf5] text-[#11110f]">
+    <>
       <Header />
+      <main className="min-h-screen overflow-x-clip bg-[#fbfaf5] text-[#11110f]">
       <section className="relative z-30 -mt-16 pb-0">
         <div className="relative">
           <div id="start" className="relative min-h-0 w-full overflow-hidden rounded-b-[34px] rounded-t-[0px] bg-[#718864] bg-[url('/hiros_hero_background.png')] bg-cover bg-[position:78%_center] sm:min-h-[700px] sm:bg-[position:20%_center] sm:bg-[length:100%_100%]">
@@ -94,17 +24,17 @@ export default function Home() {
               <div className="text-left">
                 <h1 className="font-title text-[36px] font-normal leading-[1.08] tracking-[-0.06em] text-[#1f241b] sm:text-[48px] lg:text-[64px] lg:leading-[1.1] lg:tracking-[-0.07em]">
                   <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#6a8255] bg-clip-text text-transparent">
-                    Skip the conversation.
+                    {copy.hero.titleLine1}
                   </span>
                   <br />
-                  Start care privately.
+                  {copy.hero.titleLine2}
                 </h1>
                 <p className="mt-4 max-w-xl text-[15px] font-medium leading-[1.45] text-[#1f241b]/80 sm:mt-6 sm:text-lg">
-                  Answer a few questions. A licensed physician reviews your case and guides your next step.
+                  {copy.hero.subtitle}
                 </p>
               </div>
               <div className="mt-8 flex w-full max-w-3xl flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-6">
-                  {heroCards.map((card) => (
+                  {copy.hero.cards.map((card) => (
                     <a
                       key={card.href}
                       href={card.href}
@@ -131,7 +61,7 @@ export default function Home() {
                   ))}
                 </div>
               <p className="mt-5 text-[13px] text-[#1f241b]/60 sm:mt-6 sm:text-sm">
-                Reviewed by licensed physicians · Trusted by 400+ patients
+                {copy.hero.socialProof}
               </p>
             </div>
           </div>
@@ -142,10 +72,10 @@ export default function Home() {
         <div className="max-w-7xl">
           <div className="mb-8 flex items-center justify-between sm:mb-10">
             <h2 className="font-title max-w-5xl text-[32px] font-normal leading-[1.05] tracking-[-0.06em] sm:text-[44px] lg:text-[55px] lg:leading-[1] lg:tracking-[-0.07em]">
-              Some things are easier
+              {copy.about.titleLine1}
               <br />
               <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#9aa786] bg-clip-text pr-2 -mr-2 text-transparent">
-                handled privately
+                {copy.about.titleLine2}
               </span>
             </h2>
           </div>
@@ -157,14 +87,14 @@ export default function Home() {
         <div className="max-w-7xl">
           <div className="lg:ml-auto lg:max-w-[54rem]">
             <h2 className="font-title mb-8 max-w-5xl text-[32px] font-normal leading-[1.05] tracking-[-0.06em] sm:mb-12 sm:text-[44px] lg:text-[55px] lg:leading-[1] lg:tracking-[-0.07em]">
-              Get clinician-reviewed treatment without clinic visits
+              {copy.how.title}
             </h2>
             <div className={HOME_PAGE_PEEK_CAROUSEL_CLASS}>
               <div className="flex w-max gap-3 lg:grid lg:w-full lg:grid-cols-2 lg:gap-6">
-                {careCards.map((card) => (
+                {copy.how.cards.map((card) => (
                   <article key={card.key} className="relative flex h-[22rem] w-[78vw] min-w-[78vw] snap-start flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-white/24 via-white/16 to-white/10 px-6 pb-8 pt-16 backdrop-blur lg:w-auto lg:min-w-0 lg:rounded-2xl lg:px-10 lg:pb-10 lg:pt-[94px]">
                     <Image
-                      src={card.overlaySrc}
+                      src={card.key === "understand-science" ? `/overlay1.png?v=${assetVersion}` : `/overlay2.png?v=${assetVersion}`}
                       alt=""
                       fill
                       unoptimized
@@ -176,10 +106,16 @@ export default function Home() {
                       className="pointer-events-none object-cover brightness-105 contrast-110 saturate-110"
                     />
                     <div className="relative z-10">
-                      <h3 className="mb-4 text-[24px] font-semibold leading-[1.05] tracking-[-0.05em] sm:mb-6 sm:text-[28px]">{card.title}</h3>
+                      <h3 className="mb-4 text-[24px] font-semibold leading-[1.05] tracking-[-0.05em] sm:mb-6 sm:text-[28px]">
+                        {card.titleLine1}
+                        <br />
+                        <span className="inline-block bg-gradient-to-r from-[#60382b] via-[#6a4132] to-[#765040] bg-clip-text pr-2 -mr-2 text-transparent">
+                          {card.titleLine2}
+                        </span>
+                      </h3>
                       <p className="max-w-[75%] text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-white/80 sm:text-[17px]">{card.description}</p>
                     </div>
-                    <a href="#" className="relative z-10 ml-auto w-fit rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{card.key === "understand-science" ? "Learn more" : "Start intake"}</a>
+                    <a href="#" className="relative z-10 ml-auto w-fit rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{card.cta}</a>
                   </article>
                 ))}
               </div>
@@ -192,14 +128,14 @@ export default function Home() {
         <div className="grid max-w-7xl grid-cols-1 gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:gap-20">
           <div>
             <h2 className="font-title mb-6 text-[32px] font-normal leading-[1.05] tracking-[-0.06em] sm:text-[44px] lg:text-[55px] lg:leading-[1] lg:tracking-[-0.07em]">
-              Things you might
+              {copy.faq.titleLine1}
               <br />
-              wonder
+              {copy.faq.titleLine2}
             </h2>
-            <a href="#" className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">See treatments</a>
+            <a href="#" className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{copy.faq.cta}</a>
           </div>
           <div className="divide-y divide-black/10">
-            {faqs.map((faq) => (
+            {copy.faq.items.map((faq) => (
               <details key={faq.question} className="group py-5">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium sm:text-base">
                   {faq.question}
@@ -262,11 +198,7 @@ export default function Home() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3 sm:gap-14">
-            {[
-              ["Services", "Digital Accessibility", "Hair Services", "Concerns", "Website Consulting", "Web Design"],
-              ["Explore", "About us", "FAQs", "Contact Us", "Start Project", "Work"],
-              ["Social", "Twitter", "LinkedIn", "Privacy Policy", "Accessibility", "Company Number"],
-            ].map(([heading, ...links]) => (
+            {copy.footer.columns.map(([heading, ...links]) => (
               <div key={heading}>
                 <h3 className="mb-4 font-semibold text-[#848484]">{heading}</h3>
                 <ul className="space-y-2 text-[16px] font-bold text-white">
@@ -279,15 +211,7 @@ export default function Home() {
           </div>
         </div>
         <div className="mt-12 flex max-w-7xl flex-wrap gap-x-6 gap-y-3 text-[13px] font-medium text-white/80 sm:mt-20 sm:gap-x-8 sm:text-sm">
-          {[
-            "LegitScript approved",
-            "Terms & conditions",
-            "Privacy policy",
-            "Sitemap",
-            "Telehealth Consent & Open Payments",
-            "Consumer Health Data Privacy Policy",
-            "Your privacy choices",
-          ].map((link) => (
+          {copy.footer.links.map((link) => (
             <a key={link} href="#" className="transition-colors hover:text-white">
               {link}
             </a>
@@ -330,5 +254,10 @@ export default function Home() {
         }
       `}</style>
     </main>
+    </>
   );
+}
+
+export default function Home() {
+  return <HomeContent />;
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Geist, Geist_Mono } from "next/font/google";
+import AppProviders from "@/components/AppProviders";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,7 +20,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: "Hiros",
-  description: "Private access to care without the friction.",
+  description: "Kliniğe gitmeden, özel sağlık erişimi.",
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     shortcut: "/favicon.svg",
@@ -33,10 +34,12 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full min-w-0 max-w-full flex-col overflow-x-clip">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

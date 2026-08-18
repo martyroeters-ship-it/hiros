@@ -57,12 +57,12 @@ const cardSecondaryInner = "rounded-[12px] border border-[#f0ebe2] bg-[#f6f5f2]"
 
 export default function DashboardPage() {
   return (
-    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1.1fr)_minmax(0,0.84fr)_minmax(0,0.84fr)] gap-3">
+    <div className="grid min-h-0 gap-3 lg:h-full lg:grid-rows-[auto_minmax(0,1.1fr)_minmax(0,0.84fr)_minmax(0,0.84fr)]">
       {/* Header */}
       <div className="flex shrink-0 items-start justify-between gap-4">
         <div>
-          <h1 className={`${titleLg} text-[34px] leading-[1.08]`}><Greeting /> 👋</h1>
-          <p className="mt-1 text-[14px] text-[#6b7568]">Everything is on track. We&apos;ll keep you updated.</p>
+          <h1 className={`${titleLg} text-[24px] leading-[1.12] lg:text-[34px] lg:leading-[1.08]`}><Greeting /> 👋</h1>
+          <p className="mt-1 text-[13px] text-[#6b7568] lg:text-[14px]">Everything is on track. We&apos;ll keep you updated.</p>
         </div>
         <button
           type="button"
@@ -80,13 +80,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Status + Notifications */}
-      <div className="grid min-h-0 grid-cols-[1.55fr_1fr] gap-3">
+      <div className="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-[1.55fr_1fr]">
         <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] bg-[#1f4033] p-4 text-white shadow-[0_8px_32px_rgba(31,64,51,0.18)] transition-transform duration-200 hover:scale-[1.003]">
-          <div className="flex min-h-0 flex-1 gap-4">
-            <div className="flex min-w-[170px] flex-col justify-between">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+            <div className="flex min-w-0 flex-col justify-between lg:min-w-[170px]">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/55">Current status</p>
-                <p className={`${titleMd} mt-1 text-[24px] leading-tight text-white`}>Preparing your treatment</p>
+                <p className={`${titleMd} mt-1 text-[20px] leading-tight text-white lg:text-[24px]`}>Preparing your treatment</p>
                 <p className="mt-2 flex items-center gap-2 text-[13px] font-medium text-white/90">
                   <span className="h-2 w-2 shrink-0 rounded-full bg-[#a8c49a]" />
                   Step 3 of 5
@@ -166,8 +166,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Doctor + Treatment + Next up */}
-      <div className="grid min-h-0 grid-cols-3 gap-3">
-        <section className={`relative flex h-full min-h-0 flex-col overflow-hidden pb-[4rem] ${cardSecondaryShell}`}>
+      <div className="grid min-h-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <section className={`relative flex h-full min-h-0 flex-col overflow-hidden ${cardSecondaryShell}`}>
           <h2 className={`relative z-[1] ${cardSecondaryTitle}`}>Your doctor</h2>
           <div className="relative mt-1.5 min-h-[80px]">
             <div className="absolute left-0 top-0 z-0 h-[80px] w-[80px] overflow-hidden rounded-full bg-[#eee9df]">
@@ -182,7 +182,7 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
-          <div className="absolute bottom-4 left-3 right-3 z-10 grid grid-cols-3 gap-1">
+          <div className="mt-auto grid grid-cols-3 gap-1 pt-3">
             {[
               { label: "Message", icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
               { label: "Book call", icon: "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" },
@@ -204,7 +204,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className={`relative flex h-full min-h-0 flex-col overflow-hidden pb-[4rem] ${cardSecondaryShell}`}>
+        <section className={`relative flex h-full min-h-0 flex-col overflow-hidden ${cardSecondaryShell}`}>
           <h2 className={cardSecondaryTitle}>Your treatment</h2>
           <div className="mt-1.5">
             <p className={progressSubTitle}>Topical Finasteride 0.25%</p>
@@ -228,7 +228,7 @@ export default function DashboardPage() {
           </div>
           <button
             type="button"
-            className="absolute bottom-4 left-3 right-3 flex items-center justify-between rounded-full border border-[#f0ebe2] bg-[#f6f5f2] px-3.5 py-2 text-[11px] font-semibold text-[#3d4540] transition-colors hover:bg-[#f0ede8]"
+            className="mt-3 flex items-center justify-between rounded-full border border-[#f0ebe2] bg-[#f6f5f2] px-3.5 py-2 text-[11px] font-semibold text-[#3d4540] transition-colors hover:bg-[#f0ede8] lg:mt-auto"
           >
             Learn why this was prescribed
             <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 shrink-0" stroke="currentColor" strokeWidth="2">
@@ -254,13 +254,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Progress + Support */}
-      <div className="grid min-h-0 grid-cols-[1.65fr_0.9fr] gap-3">
+      <div className="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-[1.65fr_0.9fr]">
         <section className="flex min-h-0 flex-col overflow-hidden rounded-[20px] bg-[#f4f1ec] p-3 shadow-[0_1px_6px_rgba(31,51,41,0.03)] transition-transform duration-200 hover:scale-[1.003]">
           <div className="shrink-0">
             <h2 className="font-title text-[16px] font-medium tracking-[0.01em] text-[#3d4540]">Today's check-in</h2>
             <p className="mt-0.5 text-[11px] text-[#8a9288]">Small daily updates for your physician</p>
           </div>
-          <div className="mt-2 grid min-h-0 flex-1 grid-cols-3 gap-1.5">
+          <div className="mt-2 grid min-h-0 flex-1 grid-cols-1 gap-1.5 sm:grid-cols-3">
             <DoseCheckCard titleClassName={progressSubTitle} cardClassName={progressInner} />
 
             <CheckInCard titleClassName={progressSubTitle} cardClassName={progressInner} compact />
@@ -284,12 +284,12 @@ export default function DashboardPage() {
         </section>
 
         <section className="relative min-h-0 overflow-hidden rounded-[24px] bg-[#ebe6dc] shadow-[0_2px_16px_rgba(31,51,41,0.05)] transition-transform duration-200 hover:scale-[1.003]">
-          <div className="relative z-10 flex h-full flex-col justify-center p-4 pr-[38%]">
+          <div className="relative z-10 flex h-full flex-col justify-center p-4 lg:pr-[38%]">
             <h2 className={`${titleMd} text-[22px] leading-tight`}>We&apos;re with you<br />all the way</h2>
             <p className="mt-2 text-[13px] leading-snug text-[#5a6458]">Questions? Our care team is here<br />to help.</p>
             <MessageUsButton />
           </div>
-          <div className="absolute bottom-0 right-0 top-0 w-[42%] overflow-hidden">
+          <div className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-[42%] overflow-hidden lg:block">
             <Image src="/plant.png" alt="" fill className="object-cover object-center" sizes="200px" />
             <div className="absolute inset-0 bg-[#ebe6dc]/40" />
             <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#ebe6dc] to-transparent" />

@@ -22,29 +22,29 @@ function TopBar({ caseItem }: { caseItem: PatientCase }) {
   const styles = riskStyles[caseItem.risk];
   return (
     <header className="sticky top-0 z-30 border-b border-black/5 bg-white/85 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
-        <div className="flex items-center gap-4">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <Link
             href="/doctor"
-            className="flex items-center gap-2 rounded-full px-2.5 py-1.5 text-[13.5px] font-semibold text-black/55 transition hover:bg-black/[0.04] hover:text-[#2b2a28]"
+            className="flex items-center gap-2 rounded-full px-2 py-1.5 text-[13.5px] font-semibold text-black/55 transition hover:bg-black/[0.04] hover:text-[#2b2a28] sm:px-2.5"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
               <path d="M15 6 9 12l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Back
           </Link>
-          <div className="flex items-center gap-2.5">
-            <span className="font-[var(--font-geist-mono)] text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+            <span className="truncate font-[var(--font-geist-mono)] text-[13px] font-semibold tracking-[-0.01em] text-[#1f241b] sm:text-[15px]">
               {caseItem.id}
             </span>
-            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${styles.badge}`}>
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${styles.badge}`}>
               {caseItem.risk}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-2 text-[13px] font-medium text-[#2b2a28] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-black/[0.02]">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+          <button className="hidden items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-2 text-[13px] font-medium text-[#2b2a28] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-black/[0.02] md:flex">
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
               <path d="M12 5c4.5 0 8 4 9 7-1 3-4.5 7-9 7s-8-4-9-7c1-3 4.5-7 9-7Z" stroke="currentColor" strokeWidth="1.6" />
               <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.6" />
@@ -1190,7 +1190,7 @@ export default function CaseDetailPage() {
     <div className="min-h-screen w-full bg-[#f4f5f3] font-[var(--font-dm-sans)] text-[#2b2a28]">
       <TopBar caseItem={caseItem} />
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
         {/* Sub tabs */}
         <div className="mb-6 flex items-center gap-2.5">
           {(["review", "record"] as const).map((t) => {
@@ -1229,16 +1229,16 @@ export default function CaseDetailPage() {
                 </div>
               }
             >
-              <div className="mb-5 flex flex-wrap items-center gap-3 rounded-[14px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3.5">
-                <span className={`h-9 w-1.5 rounded-full ${styles.bar}`} />
-                <div className="flex-1">
+              <div className="mb-5 flex flex-col gap-3 rounded-[14px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3.5 sm:flex-row sm:flex-wrap sm:items-center">
+                <span className={`h-1.5 w-9 rounded-full sm:h-9 sm:w-1.5 ${styles.bar}`} />
+                <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">{caseItem.firstName}</p>
                   <p className="text-[12.5px] font-medium text-black/45">
                     Patient · {caseItem.ageRange === "Not provided" ? "Age unknown" : `${caseItem.ageRange} years`}
                   </p>
                   <p className="mt-2 text-[12px] leading-[1.5] text-black/55">{generateIntakeSummary(caseItem)}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-[12px] font-medium text-black/40">Triage score</p>
                   <p className="text-[15px] font-bold text-[#1f241b]">
                     {caseItem.agaScore}/20{" "}

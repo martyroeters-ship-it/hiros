@@ -50,7 +50,7 @@ export default function SettingsPage() {
     <div className="overflow-y-auto pb-6 pr-1">
       <div className="mb-6">
         <p className="text-[12px] font-medium text-[#8a9288]">Preferences</p>
-        <h1 className="font-title text-[28px] font-medium tracking-[-0.03em] text-[#1f3329]">Settings</h1>
+        <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">Settings</h1>
       </div>
 
       <div className="flex flex-col gap-6">

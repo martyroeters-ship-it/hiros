@@ -49,7 +49,7 @@ export default function ProgressPage() {
       <div className="flex items-baseline justify-between">
         <div>
           <p className="text-[11px] font-medium text-[#8a9288]">Your journey</p>
-          <h1 className="font-title text-[28px] font-medium tracking-[-0.03em] text-[#1f3329]">Progress</h1>
+          <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">Progress</h1>
         </div>
         <span className="rounded-full bg-[#dce8d6] px-3 py-1 text-[12px] font-semibold text-[#3d5c35]">Month 3</span>
       </div>
@@ -65,7 +65,7 @@ export default function ProgressPage() {
           <span className="text-[12px] text-[#8a9288]">3 months in</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-4 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {MONTHS.map((m) => (
             <div key={m.label} className="flex flex-col gap-2">
               <div className="relative w-full overflow-hidden rounded-[14px] bg-[#edeae5]" style={{ aspectRatio: "3/4" }}>
@@ -102,7 +102,7 @@ export default function ProgressPage() {
       </div>
 
       {/* ── 2 + 3: Consistency + Physician Notes ── */}
-      <div className="grid grid-cols-[1fr_1.2fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.2fr]">
 
         {/* Treatment Consistency */}
         <div className={`${card} p-5`}>

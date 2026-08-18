@@ -30,7 +30,7 @@ export default function ProfilePage() {
     <div className="overflow-y-auto pb-6 pr-1">
       <div className="mb-6">
         <p className="text-[12px] font-medium text-[#8a9288]">Your profile</p>
-        <h1 className="font-title text-[28px] font-medium tracking-[-0.03em] text-[#1f3329]">Account</h1>
+        <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">Account</h1>
       </div>
 
       {/* Profile card */}
