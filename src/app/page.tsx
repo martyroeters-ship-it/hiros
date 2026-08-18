@@ -34,31 +34,41 @@ function HomeContent() {
                 </p>
               </div>
               <div className="mt-8 flex w-full max-w-3xl flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-6">
-                  {copy.hero.cards.map((card) => (
+                  {copy.hero.cards.map((card) => {
+                    const isHairLoss = card.href.includes("hair-loss");
+
+                    return (
                     <a
                       key={card.href}
                       href={card.href}
-                      className="group relative flex min-h-[92px] w-full items-center rounded-[28px] bg-gradient-to-br from-[#a3b494] to-[#8fa07d] px-5 py-5 text-left transition-[background,transform] duration-200 transform-gpu hover:scale-[1.01] hover:from-[#97a888] hover:to-[#7f9870] lg:h-[168px] lg:min-h-0 lg:flex-col lg:items-start lg:rounded-2xl lg:px-6 lg:py-6"
+                      className={`group relative flex min-h-[92px] w-full items-center overflow-hidden rounded-[28px] border border-[rgba(80,90,70,0.20)] px-5 py-5 text-left shadow-[0_4px_16px_rgba(40,45,35,0.035)] transition-[background,transform] duration-200 transform-gpu hover:scale-[1.01] lg:h-[168px] lg:min-h-0 lg:flex-col lg:items-start lg:rounded-2xl lg:px-6 lg:py-6 ${
+                        isHairLoss ? "bg-[#F1F2EA] hover:bg-[#eceee5]" : "bg-[#F3F0E9] hover:bg-[#eeeae2]"
+                      }`}
                     >
                       <div className="flex w-full min-w-0 items-center justify-between gap-3 lg:items-end">
-                        <h3 className="text-[20px] font-medium leading-[1.1] tracking-[-0.03em] text-white lg:text-[26px]">{card.title}</h3>
+                        <h3 className="text-[20px] font-semibold leading-[1.1] tracking-[-0.03em] text-[#1f241b] lg:text-[26px]">{card.title}</h3>
                         <div className="flex shrink-0 items-center gap-3">
                           {card.badge ? (
-                            <span className="rounded-full bg-[#e6efe2] px-3 py-1 text-[11px] font-medium text-[#3f5f35] lg:-translate-y-1">{card.badge}</span>
+                            <span className="rounded-full bg-[#dce4d6] px-3 py-1 text-[11px] font-medium text-[#3f5f35] lg:-translate-y-1">{card.badge}</span>
                           ) : null}
-                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] text-white/80 lg:hidden" aria-hidden="true">
-                            <path d="M7 5l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2a412c] text-white lg:hidden">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" aria-hidden="true">
+                              <path d="M7 5l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
                         </div>
                       </div>
                       <div className="mt-auto hidden w-full items-end justify-between gap-3 lg:flex">
-                        <p className="text-[13px] font-normal text-white/90">{card.description}</p>
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px] shrink-0 text-white/80 transition-transform group-hover:translate-x-0.5">
-                          <path d="M7 5l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <p className="text-[13px] font-medium leading-[1.35] tracking-[-0.03em] text-[#1f241b]/70">{card.description}</p>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a412c] text-white transition-transform group-hover:translate-x-0.5">
+                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" aria-hidden="true">
+                            <path d="M7 5l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
                       </div>
                     </a>
-                  ))}
+                    );
+                  })}
                 </div>
               <p className="mt-5 text-[13px] text-[#1f241b]/60 sm:mt-6 sm:text-sm">
                 {copy.hero.socialProof}
