@@ -124,12 +124,11 @@ export const homeCopy = {
     },
     footer: {
       columns: [
-        ["Hizmetler", "Dijital Erişilebilirlik", "Saç Hizmetleri", "Konular", "Website Danışmanlığı", "Web Tasarım"],
-        ["Keşfet", "Hakkımızda", "SSS", "Bize Ulaşın", "Proje Başlat", "İşler"],
-        ["Sosyal", "Twitter", "LinkedIn", "Gizlilik Politikası", "Erişilebilirlik", "Şirket Numarası"],
+        ["Blog", "Saç kaybı neden olur", "Minoksidil ve finasterid", "Tedaviyi ertelemek", "Çoğu erkek bir yıl içinde bırakır"],
+        ["Yasal", "Gizlilik Politikası", "Şartlar ve Koşullar", "Tüketici Sağlık Verisi Gizlilik Politikası", "Tele-sağlık Onayı"],
+        ["Şirket", "Hakkımızda", "Bize Ulaşın", "SSS"],
       ],
       links: [
-        "LegitScript onaylı",
         "Şartlar & koşullar",
         "Gizlilik politikası",
         "Site haritası",
@@ -276,12 +275,11 @@ export const homeCopy = {
     },
     footer: {
       columns: [
-        ["Services", "Digital Accessibility", "Hair Services", "Concerns", "Website Consulting", "Web Design"],
-        ["Explore", "About us", "FAQs", "Contact Us", "Start Project", "Work"],
-        ["Social", "Twitter", "LinkedIn", "Privacy Policy", "Accessibility", "Company Number"],
+        ["Blog", "Why hair loss happens", "Minoxidil vs. finasteride", "Waiting to start treatment", "Why most men quit within a year"],
+        ["Legal", "Privacy Policy", "Terms & Conditions", "Consumer Health Data Privacy Policy", "Telehealth Consent"],
+        ["Company", "About Us", "Contact Us", "FAQs"],
       ],
       links: [
-        "LegitScript approved",
         "Terms & conditions",
         "Privacy policy",
         "Sitemap",
@@ -308,3 +306,47 @@ export const homeCopy = {
 } as const;
 
 export type HomeCopy = (typeof homeCopy)[Locale];
+
+export function footerLinkHref(label: string) {
+  if (label === "Terms & conditions" || label === "Terms & Conditions" || label === "Şartlar & koşullar" || label === "Şartlar ve Koşullar") {
+    return "/terms";
+  }
+
+  if (
+    label === "Privacy policy" ||
+    label === "Privacy Policy" ||
+    label === "Gizlilik politikası" ||
+    label === "Gizlilik Politikası" ||
+    label === "Your privacy choices" ||
+    label === "Sizin gizlilik tercihleriniz"
+  ) {
+    return "/privacy";
+  }
+
+  if (
+    label === "Telehealth Consent & Open Payments" ||
+    label === "Tele-sağlık Onayı & Açık Ödemeler" ||
+    label === "Telehealth Consent" ||
+    label === "Tele-sağlık Onayı"
+  ) {
+    return "/telehealth-consent";
+  }
+
+  if (label === "Consumer Health Data Privacy Policy" || label === "Tüketici Sağlık Verisi Gizlilik Politikası") {
+    return "/health-privacy";
+  }
+
+  if (label === "About Us" || label === "Hakkımızda") {
+    return "/about";
+  }
+
+  if (label === "FAQs" || label === "SSS") {
+    return "/faq";
+  }
+
+  if (label === "Contact Us" || label === "Bize Ulaşın") {
+    return "/contact";
+  }
+
+  return null;
+}
