@@ -19,9 +19,9 @@ const dmSans = DM_Sans({
 });
 
 const shareImage = {
-  url: "/og-image.png?v=96",
-  width: 96,
-  height: 96,
+  url: "/og-icon.png",
+  width: 256,
+  height: 256,
   alt: "Hiros",
 };
 

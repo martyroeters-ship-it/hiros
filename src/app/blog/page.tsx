@@ -8,6 +8,18 @@ import SiteFooter from "@/components/SiteFooter";
 export const metadata: Metadata = {
   title: "Clearer answers | Hiros",
   description: "Notes on hair loss, private care, and how the process works—from Hiros.",
+  openGraph: {
+    title: "Clearer answers | Hiros",
+    description: "Notes on hair loss, private care, and how the process works—from Hiros.",
+    images: [
+      {
+        url: "/og-icon.png",
+        width: 256,
+        height: 256,
+        alt: "Hiros",
+      },
+    ],
+  },
 };
 
 export default function BlogPage() {
