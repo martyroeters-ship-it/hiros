@@ -90,7 +90,7 @@ function FeaturedPrimary({ article }: { article: BlogArticle }) {
         label={article.title}
         className="group relative order-1 block aspect-[16/10] overflow-hidden rounded-[20px] bg-[#eeeae2] lg:col-start-1 lg:row-start-1"
       >
-        <Image src={article.image} alt="" fill unoptimized priority className="object-cover" sizes="(max-width: 1024px) 100vw, 70vw" />
+        <Image src={article.image} alt="" fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 70vw" />
       </ArticleShell>
       <ArticleShell article={article} className="group order-2 mt-5 lg:col-start-1 lg:row-start-2 lg:mt-6">
         <h2 className="text-[32px] font-medium leading-[1.05] tracking-[-0.04em] text-[#11110f] underline-offset-[6px] transition-colors group-hover:underline sm:text-[40px] lg:text-[44px] lg:tracking-[-0.05em]">
@@ -116,7 +116,7 @@ function FeaturedSecondary({ article }: { article: BlogArticle }) {
         <ArticleTags article={article} />
       </div>
       <div className="relative size-[104px] shrink-0 overflow-hidden rounded-[20px] bg-[#eeeae2] sm:size-[128px]">
-        <Image src={article.image} alt="" fill unoptimized className="object-cover" sizes="128px" />
+        <Image src={article.image} alt="" fill className="object-cover" sizes="128px" />
       </div>
     </ArticleShell>
   );
@@ -151,7 +151,7 @@ function ArticleCard({ article }: { article: BlogArticle }) {
   return (
     <ArticleShell article={article} className="group flex flex-col">
       <div className="relative aspect-[3/2] overflow-hidden rounded-[20px] bg-[#eeeae2]">
-        <Image src={article.image} alt="" fill unoptimized className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px" />
+        <Image src={article.image} alt="" fill className="object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px" />
       </div>
       <h3 className="mt-4 text-[28px] font-medium leading-[1em] tracking-[-0.03em] text-[#11110f] underline-offset-[5px] transition-colors group-hover:underline">
         {article.title}
