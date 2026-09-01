@@ -422,7 +422,7 @@ function RelatedArticles({
                   </p>
                 </div>
                 <div className="relative size-[88px] shrink-0 overflow-hidden rounded-[20px] bg-[#eeeae2] sm:size-[104px]">
-                  <Image src={article.image} alt="" fill unoptimized className="object-cover" sizes="104px" />
+                  <Image src={article.image} alt="" fill className="object-cover" sizes="104px" />
                 </div>
               </Link>
             </li>

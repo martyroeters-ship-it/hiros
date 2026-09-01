@@ -39,6 +39,21 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       alternateLocale: ["en_US"],
       type: "article",
       siteName: "Hiros",
+      url: `/blog/${slug}`,
+      images: [
+        {
+          url: "/og-image.png",
+          width: 1200,
+          height: 630,
+          alt: "Hiros",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: tr.title,
+      description: tr.excerpt,
+      images: ["/og-image.png"],
     },
   };
 }
