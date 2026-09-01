@@ -1,9 +1,10 @@
 "use client";
 
-import { useHomeCopy } from "@/i18n/LanguageProvider";
+import { useHomeCopy, useHydratedLocale } from "@/i18n/LanguageProvider";
 
 export default function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
-  const { copy, locale, setLocale } = useHomeCopy();
+  const { copy, setLocale } = useHomeCopy();
+  const locale = useHydratedLocale();
 
   return (
     <div

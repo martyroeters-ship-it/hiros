@@ -11,6 +11,25 @@ export const homeCopy = {
       login: "Giriş yap",
       menu: "Menüyü aç",
     },
+    siteMenu: {
+      title: "Menü",
+      close: "Menüyü kapat",
+      account: "Hesap",
+      exploreHeading: "Keşfet",
+      supportHeading: "Destek",
+      cta: "Değerlendirmeye başla",
+      explore: [
+        { href: "/intake?condition=hair-loss", label: "Saç dökülmesi" },
+        { href: "/#how", label: "Hiros nasıl çalışır" },
+        { href: "/blog", label: "Araştırma" },
+        { href: "/about", label: "Hiros hakkında" },
+      ],
+      support: [
+        { href: "/faq", label: "SSS" },
+        { href: "/contact", label: "Bize ulaşın" },
+        { href: "/privacy", label: "Gizlilik ve verileriniz" },
+      ],
+    },
     language: {
       aria: "Dil seçimi",
       tr: "TR",
@@ -80,6 +99,7 @@ export const homeCopy = {
           titleLine2: "bu bakımın ardında",
           description: "Planınızın neye dayandığını, net sade ve açık ifadelerle anlayın.",
           cta: "Daha fazla",
+          href: "/blog",
         },
         {
           key: "stay-in-control",
@@ -87,13 +107,15 @@ export const homeCopy = {
           titleLine2: "hassas konular",
           description: "Kısa birkaç soruyu yanıtlayın ve sonraki adımınızı netleştirin.",
           cta: "Forma başla",
+          href: "/intake?condition=hair-loss",
         },
       ],
     },
     faq: {
       titleLine1: "Aklınıza takılan",
       titleLine2: "sorular",
-      cta: "Tedavileri gör",
+      cta: "Tüm SSS'leri gör",
+      href: "/faq",
       items: [
         {
           question: "Bu gerçek bir tıbbi hizmet mi?",
@@ -124,7 +146,7 @@ export const homeCopy = {
     },
     footer: {
       columns: [
-        ["Blog", "Saç kaybı neden olur", "Minoksidil ve finasterid", "Tedaviyi ertelemek", "Çoğu erkek bir yıl içinde bırakır"],
+        ["Blog", "Saç kaybı neden olur", "Minoksidil ve finasterid", "Tedaviden neden kaçınılır", "Çoğu erkek bir yıl içinde bırakır"],
         ["Yasal", "Gizlilik Politikası", "Şartlar ve Koşullar", "Tüketici Sağlık Verisi Gizlilik Politikası", "Tele-sağlık Onayı"],
         ["Şirket", "Hakkımızda", "Bize Ulaşın", "SSS"],
       ],
@@ -161,6 +183,25 @@ export const homeCopy = {
       contact: "Contact",
       login: "Log in",
       menu: "Open menu",
+    },
+    siteMenu: {
+      title: "Menu",
+      close: "Close menu",
+      account: "Account",
+      exploreHeading: "Explore",
+      supportHeading: "Support",
+      cta: "Start assessment",
+      explore: [
+        { href: "/intake?condition=hair-loss", label: "Hair loss" },
+        { href: "/#how", label: "How Hiros works" },
+        { href: "/blog", label: "Research" },
+        { href: "/about", label: "About Hiros" },
+      ],
+      support: [
+        { href: "/faq", label: "FAQs" },
+        { href: "/contact", label: "Contact us" },
+        { href: "/privacy", label: "Privacy & your data" },
+      ],
     },
     language: {
       aria: "Language",
@@ -231,6 +272,7 @@ export const homeCopy = {
           titleLine2: "behind your care",
           description: "Understand what your plan is based on, in clear, simple terms.",
           cta: "Learn more",
+          href: "/blog",
         },
         {
           key: "stay-in-control",
@@ -238,13 +280,15 @@ export const homeCopy = {
           titleLine2: "sensitive concerns",
           description: "Answer a few questions and get clarity on your next step.",
           cta: "Start intake",
+          href: "/intake?condition=hair-loss",
         },
       ],
     },
     faq: {
       titleLine1: "Things you might",
       titleLine2: "wonder",
-      cta: "See treatments",
+      cta: "See all FAQs",
+      href: "/faq",
       items: [
         {
           question: "Is this a real medical service?",
@@ -275,7 +319,7 @@ export const homeCopy = {
     },
     footer: {
       columns: [
-        ["Blog", "Why hair loss happens", "Minoxidil vs. finasteride", "Waiting to start treatment", "Why most men quit within a year"],
+        ["Blog", "Why hair loss happens", "Minoxidil vs. finasteride", "Why some men avoid treatment", "Why most men quit within a year"],
         ["Legal", "Privacy Policy", "Terms & Conditions", "Consumer Health Data Privacy Policy", "Telehealth Consent"],
         ["Company", "About Us", "Contact Us", "FAQs"],
       ],
@@ -346,6 +390,22 @@ export function footerLinkHref(label: string) {
 
   if (label === "Contact Us" || label === "Bize Ulaşın") {
     return "/contact";
+  }
+
+  if (label === "Why hair loss happens" || label === "Saç kaybı neden olur") {
+    return "/blog/why-hair-loss-happens";
+  }
+
+  if (label === "Minoxidil vs. finasteride" || label === "Minoksidil ve finasterid") {
+    return "/blog/minoxidil-vs-finasteride";
+  }
+
+  if (label === "Why some men avoid treatment" || label === "Tedaviden neden kaçınılır") {
+    return "/blog/waiting-to-start-treatment";
+  }
+
+  if (label === "Why most men quit within a year" || label === "Çoğu erkek bir yıl içinde bırakır") {
+    return "/blog";
   }
 
   return null;

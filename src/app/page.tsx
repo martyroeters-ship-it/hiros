@@ -126,7 +126,7 @@ function HomeContent() {
                       </h3>
                       <p className="max-w-[75%] text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-white/80 sm:text-[17px]">{card.description}</p>
                     </div>
-                    <a href="#" className="relative z-10 ml-auto w-fit rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{card.cta}</a>
+                    <a href={card.href} className="relative z-10 ml-auto w-fit rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{card.cta}</a>
                   </article>
                 ))}
               </div>
@@ -143,7 +143,7 @@ function HomeContent() {
               <br />
               {copy.faq.titleLine2}
             </h2>
-            <a href="#" className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{copy.faq.cta}</a>
+            <a href={copy.faq.href} className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2a]">{copy.faq.cta}</a>
           </div>
           <div className="divide-y divide-black/10">
             {copy.faq.items.map((faq) => (

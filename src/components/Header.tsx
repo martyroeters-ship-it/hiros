@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
 import { useHomeCopy } from "@/i18n/LanguageProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import SiteMenu from "@/components/SiteMenu";
 
 export default function Header() {
   const { copy } = useHomeCopy();
@@ -127,11 +128,9 @@ export default function Header() {
             style={{ color: navTextColor }}
             className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-12 py-[2px] font-semibold leading-none text-[16px] lg:flex"
           >
+            <a href="/#how">{copy.nav.how}</a>
+            <Link href="/blog">{copy.nav.research}</Link>
             <Link href="/about">{copy.nav.about}</Link>
-            <a href="#specialisms">{copy.nav.specialisms}</a>
-            <a href="#how">{copy.nav.how}</a>
-            <a href="#research">{copy.nav.research}</a>
-            <Link href="/contact">{copy.nav.contact}</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
@@ -148,18 +147,7 @@ export default function Header() {
               {copy.nav.login}
             </Link>
             <LanguageSwitcher />
-            <button
-              type="button"
-              aria-label={copy.nav.menu}
-              style={{ color: navTextColor }}
-              className="flex items-center justify-center self-center p-0"
-            >
-              <span className="flex w-[16px] flex-col gap-[3px]">
-                <span className="block h-[1.5px] w-full rounded-full bg-current" />
-                <span className="block h-[1.5px] w-full rounded-full bg-current" />
-                <span className="block h-[1.5px] w-full rounded-full bg-current" />
-              </span>
-            </button>
+            <SiteMenu iconClassName={isClaySection ? "text-white" : "text-[#11110f]"} />
           </div>
         </div>
       </header>
