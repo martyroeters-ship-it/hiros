@@ -59,6 +59,17 @@ export function useHomeCopy() {
   return context;
 }
 
+export function useHydratedLocale(): Locale {
+  const { locale } = useHomeCopy();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  return hydrated ? locale : "tr";
+}
+
 export function useIntakeCopy() {
   const context = useContext(LanguageContext);
 

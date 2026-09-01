@@ -19,11 +19,21 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://hiros.com.tr"),
   title: "Hiros",
   description: "Kliniğe gitmeden, özel sağlık erişimi.",
-  icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    shortcut: "/favicon.svg",
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    url: "/",
+    siteName: "Hiros",
+    title: "Hiros",
+    description: "Kliniğe gitmeden, özel sağlık erişimi.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hiros",
+    description: "Kliniğe gitmeden, özel sağlık erişimi.",
   },
 };
 
