@@ -18,6 +18,13 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
 });
 
+const shareImage = {
+  url: "/og-image.png",
+  width: 1200,
+  height: 630,
+  alt: "Hiros",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://hiros.com.tr"),
   title: "Hiros",
@@ -29,11 +36,13 @@ export const metadata: Metadata = {
     siteName: "Hiros",
     title: "Hiros",
     description: "Kliniğe gitmeden, özel sağlık erişimi.",
+    images: [shareImage],
   },
   twitter: {
     card: "summary_large_image",
     title: "Hiros",
     description: "Kliniğe gitmeden, özel sağlık erişimi.",
+    images: [shareImage],
   },
 };
 
