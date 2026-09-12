@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { blogTopics } from "@/data/blogArticles";
 import { blogArticleUi, getBlogPostCopy, type BlogPost } from "@/data/blogPosts";
-import { homeCopy } from "@/i18n/homeCopy";
 import { useHydratedLocale } from "@/i18n/LanguageProvider";
+import { AuthNavLink } from "@/components/AuthNavLink";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import SiteMenu from "@/components/SiteMenu";
 
@@ -58,7 +58,6 @@ export default function BlogArticleHeader({
   const locale = useHydratedLocale();
   const articleCopy = getBlogPostCopy(post, locale);
   const ui = blogArticleUi[locale];
-  const nav = homeCopy[locale].nav;
   const [scrollingDown, setScrollingDown] = useState(false);
   const [progress, setProgress] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -220,14 +219,11 @@ export default function BlogArticleHeader({
             >
               {shareLabel}
             </button>
-            <Link
-              href="/dashboard"
+            <AuthNavLink
               className={`rounded-full border border-[#11110f] bg-white px-4 py-2 text-[12px] font-semibold leading-none text-[#11110f] ${
                 showArticleTitle ? "hidden sm:inline-flex" : "inline-flex"
               }`}
-            >
-              {nav.login}
-            </Link>
+            />
             <LanguageSwitcher compact />
             <SiteMenu />
           </div>

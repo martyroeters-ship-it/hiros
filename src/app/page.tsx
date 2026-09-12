@@ -8,8 +8,6 @@ import { HOME_PAGE_GUTTER_CLASS, HOME_PAGE_PEEK_CAROUSEL_CLASS } from "@/constan
 import { useHomeCopy } from "@/i18n/LanguageProvider";
 import SiteFooter from "@/components/SiteFooter";
 
-const assetVersion = "20260520-1637";
-
 function HomeContent() {
   const { copy } = useHomeCopy();
 
@@ -19,7 +17,7 @@ function HomeContent() {
       <main className="min-h-screen overflow-x-clip bg-[#fbfaf5] text-[#11110f]">
       <section className="relative z-30 -mt-16 pb-0">
         <div className="relative">
-          <div id="start" className="relative min-h-0 w-full overflow-hidden rounded-b-[34px] rounded-t-[0px] bg-[#718864] bg-[url('/hiros_hero_background.png')] bg-cover bg-[position:78%_center] sm:min-h-[700px] sm:bg-[position:20%_center] sm:bg-[length:100%_100%]">
+          <div id="start" className="relative min-h-0 w-full overflow-hidden rounded-b-[34px] rounded-t-[0px] bg-[#718864] bg-[url('/hiros_hero_background.webp')] bg-cover bg-[position:78%_center] sm:min-h-[700px] sm:bg-[position:20%_center] sm:bg-[length:100%_100%]">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#fbfaf5_0%,#fbfaf5_38%,rgba(251,250,245,0.72)_58%,rgba(251,250,245,0.18)_78%,rgba(251,250,245,0)_100%)] sm:bg-[radial-gradient(ellipse_at_bottom_left,#fbfaf5_0%,#fbfaf5_18%,rgba(251,250,245,0.75)_30%,rgba(251,250,245,0.35)_43%,rgba(251,250,245,0)_58%)]" />
             <div className={`relative z-10 flex h-full w-full max-w-7xl flex-col justify-center pt-28 pb-12 sm:pt-40 sm:pb-20 ${HOME_PAGE_GUTTER_CLASS}`}>
               <div className="text-left">
@@ -94,7 +92,7 @@ function HomeContent() {
         </div>
       </section>
 
-      <section id="how" className={`relative overflow-hidden rounded-t-[34px] bg-[#b77a61] bg-[url('/stay_control_background.png')] bg-cover bg-[position:20%_center] py-16 text-white sm:py-24 ${HOME_PAGE_GUTTER_CLASS}`}>
+      <section id="how" className={`relative overflow-hidden rounded-t-[34px] bg-[#b77a61] bg-[url('/stay_control_background.webp')] bg-cover bg-[position:20%_center] py-16 text-white sm:py-24 ${HOME_PAGE_GUTTER_CLASS}`}>
         <div className="max-w-7xl">
           <div className="lg:ml-auto lg:max-w-[54rem]">
             <h2 className="font-title mb-8 max-w-5xl text-[32px] font-normal leading-[1.05] tracking-[-0.06em] sm:mb-12 sm:text-[44px] lg:text-[55px] lg:leading-[1] lg:tracking-[-0.07em]">
@@ -105,10 +103,10 @@ function HomeContent() {
                 {copy.how.cards.map((card) => (
                   <article key={card.key} className="relative flex h-[22rem] w-[78vw] min-w-[78vw] snap-start flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-white/24 via-white/16 to-white/10 px-6 pb-8 pt-16 backdrop-blur lg:w-auto lg:min-w-0 lg:rounded-2xl lg:px-10 lg:pb-10 lg:pt-[94px]">
                     <Image
-                      src={card.key === "understand-science" ? `/overlay1.png?v=${assetVersion}` : `/overlay2.png?v=${assetVersion}`}
+                      src={card.key === "understand-science" ? "/overlay1.webp" : "/overlay2.webp"}
                       alt=""
                       fill
-                      unoptimized
+                      sizes="(max-width: 1024px) 78vw, 432px"
                       style={
                         card.key === "stay-in-control"
                           ? { objectPosition: "center calc(50% + 10px)" }

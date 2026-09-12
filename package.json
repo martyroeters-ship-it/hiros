@@ -6,10 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:up": "node scripts/db-up.mjs",
+    "db:docker": "docker compose up -d postgres",
+    "db:docker:down": "docker compose down"
   },
   "dependencies": {
     "next": "16.2.6",
+    "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -18,8 +22,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "pg": "^8.23.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

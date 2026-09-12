@@ -1,0 +1,75 @@
+[data-doctor-theme="dark"] {
+  color-scheme: dark;
+  background-color: #141612 !important;
+  color: #e8e6e1;
+}
+
+[data-doctor-theme="dark"] header {
+  background-color: rgba(20, 22, 18, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-doctor-theme="dark"] header p,
+[data-doctor-theme="dark"] header button,
+[data-doctor-theme="dark"] header span {
+  color: #e8e6e1;
+}
+
+[data-doctor-theme="dark"] header .text-black\/45,
+[data-doctor-theme="dark"] header .text-black\/55 {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-doctor-theme="dark"] main,
+[data-doctor-theme="dark"] section,
+[data-doctor-theme="dark"] article,
+[data-doctor-theme="dark"] aside {
+  color: #e8e6e1;
+}
+
+[data-doctor-theme="dark"] .bg-white,
+[data-doctor-theme="dark"] .bg-white\/85,
+[data-doctor-theme="dark"] .bg-white\/90 {
+  background-color: #22251f !important;
+}
+
+[data-doctor-theme="dark"] .bg-\[\#f4f5f3\],
+[data-doctor-theme="dark"] .bg-\[\#f7f6f3\],
+[data-doctor-theme="dark"] .bg-\[\#fafbf9\],
+[data-doctor-theme="dark"] .bg-\[\#eef4ea\] {
+  background-color: #1c1e1a !important;
+}
+
+[data-doctor-theme="dark"] .text-\[\#1f241b\],
+[data-doctor-theme="dark"] .text-\[\#2b2a28\] {
+  color: #eceae4 !important;
+}
+
+[data-doctor-theme="dark"] .text-black\/35,
+[data-doctor-theme="dark"] .text-black\/40,
+[data-doctor-theme="dark"] .text-black\/45,
+[data-doctor-theme="dark"] .text-black\/50,
+[data-doctor-theme="dark"] .text-black\/55 {
+  color: rgba(255, 255, 255, 0.48) !important;
+}
+
+[data-doctor-theme="dark"] .border-black\/5,
+[data-doctor-theme="dark"] .border-black\/8,
+[data-doctor-theme="dark"] .border-black\/10,
+[data-doctor-theme="dark"] .border-black\/\[0\.05\],
+[data-doctor-theme="dark"] .border-black\/\[0\.06\] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-doctor-theme="dark"] input,
+[data-doctor-theme="dark"] textarea,
+[data-doctor-theme="dark"] select {
+  background-color: #1a1c18 !important;
+  color: #eceae4 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-doctor-theme="dark"] input::placeholder,
+[data-doctor-theme="dark"] textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}

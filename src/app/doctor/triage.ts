@@ -101,7 +101,7 @@ const SIDE_EFFECT_SCORE: Record<string, number> = {
 };
 
 /* Human-readable labels for the record / case review. */
-const QUESTION_LABELS: Record<string, string> = {
+export const QUESTION_LABELS: Record<string, string> = {
   "current-situation": "Reason for visit",
   "change-location": "Affected areas",
   timeline: "Reported onset",
@@ -360,7 +360,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
       type: "review",
       title: "Additional physician review recommended",
       description: "Based on your intake, a physician will need to review your case before recommending treatment.",
-      imageSrc: "/treatment-bottle.png",
+      imageSrc: "/treatment-bottle.webp",
     };
   }
 
@@ -451,7 +451,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
       type: "combo",
       title: "Topical Finasteride + Minoxidil",
       description: "Commonly considered when both prevention and regrowth are desired.",
-      imageSrc: "/treatment-bottle.png",
+      imageSrc: "/treatment-bottle.webp",
     };
   }
   
@@ -461,7 +461,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
       type: "finasteride",
       title: "Topical Finasteride",
       description: "Commonly considered for slowing or preventing further hair loss.",
-      imageSrc: "/treatment-bottle.png",
+      imageSrc: "/treatment-bottle.webp",
     };
   }
   
@@ -471,7 +471,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
       type: "minoxidil",
       title: "Topical Minoxidil",
       description: "Commonly considered when improving hair density is a primary goal.",
-      imageSrc: "/treatment-bottle.png",
+      imageSrc: "/treatment-bottle.webp",
     };
   }
 
@@ -480,7 +480,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
     type: "combo",
     title: "Topical Finasteride + Minoxidil",
     description: "Commonly considered for male pattern hair loss.",
-    imageSrc: "/treatment-bottle.png",
+    imageSrc: "/treatment-bottle.webp",
   };
 }
 

@@ -12,7 +12,7 @@ import {
   type PatientCase,
   type PatientPhoto,
 } from "../data";
-import { getStoredCase, subscribeStoredCases, updateStoredCase } from "../store";
+import { fetchCase, patchCaseTab, subscribeStoredCases } from "../store";
 import { generateIntakeSummary } from "../triage";
 import { useRouter } from "next/navigation";
 
@@ -25,7 +25,7 @@ function TopBar({ caseItem }: { caseItem: PatientCase }) {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <Link
-            href="/doctor"
+            href="/doctor/cases"
             className="flex items-center gap-2 rounded-full px-2 py-1.5 text-[13.5px] font-semibold text-black/55 transition hover:bg-black/[0.04] hover:text-[#2b2a28] sm:px-2.5"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -408,26 +408,20 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
   const toggle = (key: ActionKey) => setActive((cur) => (cur === key ? null : key));
 
   const handleApprove = () => {
-    updateStoredCase(caseItem.id, {
-      tab: "approved",
-      status: "Approved",
-    });
-    router.push("/doctor");
+    const treatment = treatmentType === "Other" ? otherTreatment.trim() : treatmentType;
+    void patchCaseTab(caseItem.id, "approved", {
+      treatmentType: treatment,
+      followUp: followUpSchedule,
+      note: approveNote,
+    }).then(() => router.push("/doctor/patients"));
   };
 
   const handleRequestInfo = () => {
-    updateStoredCase(caseItem.id, {
-      status: "Requested more info",
-    });
-    router.push("/doctor");
+    router.push("/doctor/cases");
   };
 
   const handleDecline = () => {
-    updateStoredCase(caseItem.id, {
-      tab: "declined",
-      status: "Declined",
-    });
-    router.push("/doctor");
+    void patchCaseTab(caseItem.id, "declined").then(() => router.push("/doctor/cases"));
   };
 
   const actionBtn = (key: ActionKey, idle: string, activeCls: string) =>
@@ -1156,7 +1150,9 @@ export default function CaseDetailPage() {
   const [highlightTriage, setHighlightTriage] = useState(false);
 
   useEffect(() => {
-    const load = () => setCaseItem(getStoredCase(params.caseId) ?? null);
+    const load = () => {
+      void fetchCase(params.caseId).then((item) => setCaseItem(item ?? null));
+    };
     load();
     return subscribeStoredCases(load);
   }, [params.caseId]);

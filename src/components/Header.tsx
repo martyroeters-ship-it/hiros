@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
 import { useHomeCopy } from "@/i18n/LanguageProvider";
+import { AuthNavLink } from "@/components/AuthNavLink";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import SiteMenu from "@/components/SiteMenu";
 
@@ -133,8 +134,8 @@ export default function Header() {
             <Link href="/about">{copy.nav.about}</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/dashboard"
+            <AuthNavLink
+              className="rounded-full border border-black/10 bg-white font-semibold leading-none text-[#11110f] shadow-sm"
               style={{
                 paddingLeft: `${buttonPaddingX}px`,
                 paddingRight: `${buttonPaddingX}px`,
@@ -142,10 +143,7 @@ export default function Header() {
                 paddingBottom: `${buttonPaddingY}px`,
                 fontSize: `${buttonFontSize}px`,
               }}
-              className="rounded-full border border-black/10 bg-white font-semibold leading-none text-[#11110f] shadow-sm"
-            >
-              {copy.nav.login}
-            </Link>
+            />
             <LanguageSwitcher />
             <SiteMenu iconClassName={isClaySection ? "text-white" : "text-[#11110f]"} />
           </div>
