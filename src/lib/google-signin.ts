@@ -48,11 +48,12 @@ function loadGis(): Promise<void> {
   return scriptPromise;
 }
 
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||
+  "939534131882-pp3dipvtdno9aoklhl81m8tiv3n1l4pt.apps.googleusercontent.com";
+
 export async function requestGoogleAccessToken(): Promise<string> {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
-  if (!clientId) {
-    throw new Error("Google sign-in is not configured yet.");
-  }
+  const clientId = GOOGLE_CLIENT_ID;
   await loadGis();
   const oauth2 = window.google?.accounts?.oauth2;
   if (!oauth2) {
