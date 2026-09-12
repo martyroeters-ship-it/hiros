@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { sql } from "./db";
+import { databaseUrl, sql } from "./db";
 
 let boot: Promise<void> | null = null;
 
@@ -51,6 +51,9 @@ async function applyIfNeeded() {
 }
 
 export async function ready() {
+  if (process.env.VERCEL && !databaseUrl) {
+    throw new Error("NO_DATABASE");
+  }
   if (!boot) {
     boot = applyIfNeeded().catch((error) => {
       boot = null;

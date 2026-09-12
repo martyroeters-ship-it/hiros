@@ -42,8 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json(user);
   } catch (error) {
     console.error(error);
+    const raw = error instanceof Error ? error.message : "";
+    const missingDb = /ECONNREFUSED|127\.0\.0\.1|NO_DATABASE/i.test(raw);
     return NextResponse.json(
-      { error: "Could not save your account. The live database is not connected yet." },
+      {
+        error: missingDb
+          ? "Could not save your account. The live database is not connected yet."
+          : "Could not sign in with Google.",
+      },
       { status: 500 },
     );
   }
