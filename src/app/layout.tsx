@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { DM_Sans, Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import AppProviders from "@/components/AppProviders";
 import "./globals.css";
 
@@ -60,7 +59,6 @@ export default function RootLayout({
       <body className="flex min-h-full min-w-0 max-w-full flex-col overflow-x-clip">
         <AppProviders>{children}</AppProviders>
       </body>
-      <Script src="https://google.com" strategy="beforeInteractive" />
     </html>
   );
 }

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ShippingForm, type ShippingFormData } from "./shipping-form";
 import { createCaseFromIntake } from "../doctor/store";
@@ -1843,6 +1844,7 @@ export default function IntakePage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f7f3ea] text-[#232320]">
+      <Script src="https://google.com" strategy="afterInteractive" />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-8%] top-[-12%] h-[26rem] w-[32rem] rounded-full bg-white/70 blur-3xl" />
         <div className="absolute right-[-8%] top-[-10%] h-[28rem] w-[34rem] rounded-full bg-white/60 blur-3xl" />
