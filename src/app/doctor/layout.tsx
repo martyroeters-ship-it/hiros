@@ -1,3 +1,5 @@
+import "./doctor-theme.css";
+
 export default function DoctorLayout({
   children,
 }: Readonly<{

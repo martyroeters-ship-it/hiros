@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { createAppointmentRequest, fetchAppointments } from "@/app/doctor/agenda/store";
+import type { VideoAppointment } from "@/app/doctor/agenda/types";
+
+const DEMO_PATIENT_CASE_ID = "00000000-0000-4000-a000-000000000c01";
 
 const REVIEWS = [
   {
@@ -26,6 +31,43 @@ const HOW_REVIEWS = [
 ];
 
 export default function DoctorPage() {
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [startsAt, setStartsAt] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [appointments, setAppointments] = useState<VideoAppointment[]>([]);
+
+  const loadVisits = () => {
+    void fetchAppointments(DEMO_PATIENT_CASE_ID).then(setAppointments).catch(() => setAppointments([]));
+  };
+
+  useEffect(() => {
+    loadVisits();
+  }, []);
+
+  const upcoming = appointments.filter((item) => item.status === "requested" || item.status === "scheduled");
+
+  const requestCall = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await createAppointmentRequest({
+        caseId: DEMO_PATIENT_CASE_ID,
+        startsAt: new Date(startsAt).toISOString(),
+        reason,
+        requestedBy: "patient",
+      });
+      setBookingOpen(false);
+      setReason("");
+      loadVisits();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not request a call");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="overflow-y-auto pb-6 pr-1">
 
@@ -42,7 +84,7 @@ export default function DoctorPage() {
           <div className="flex flex-col items-start gap-5 sm:flex-row">
             {/* Avatar */}
             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-white/15 sm:h-32 sm:w-32">
-              <Image src="/why_hiros_doctors.png" alt="Dr. Emre Yılmaz" fill className="object-cover object-top" />
+              <Image src="/why_hiros_doctors.webp" alt="Dr. Emre Yılmaz" fill className="object-cover object-top" />
             </div>
 
             <div className="flex-1">
@@ -82,16 +124,80 @@ export default function DoctorPage() {
             </Link>
             <button
               type="button"
+              onClick={() => setBookingOpen((open) => !open)}
               className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white py-2.5 text-[13px] font-semibold text-[#1f4033] transition-colors hover:bg-white/90"
             >
               <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
               </svg>
-              Book consultation
+              Request video call
             </button>
           </div>
+          {bookingOpen ? (
+            <div className="mt-4 space-y-3 rounded-[16px] bg-white/10 p-4">
+              <label className="block text-left text-[12px] font-semibold text-white/80">
+                Preferred time
+                <input
+                  type="datetime-local"
+                  value={startsAt}
+                  onChange={(e) => setStartsAt(e.target.value)}
+                  className="mt-1.5 h-11 w-full rounded-[12px] border-0 bg-white px-3.5 text-[13.5px] font-medium text-[#1f3329] outline-none"
+                />
+              </label>
+              <label className="block text-left text-[12px] font-semibold text-white/80">
+                Why would you like a call?
+                <input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="A flagged answer, a new symptom, something unclear…"
+                  className="mt-1.5 h-11 w-full rounded-[12px] border-0 bg-white px-3.5 text-[13.5px] font-medium text-[#1f3329] outline-none"
+                />
+              </label>
+              {error ? <p className="text-[12px] text-[#ffd0c8]">{error}</p> : null}
+              <button
+                type="button"
+                disabled={busy || !startsAt}
+                onClick={() => void requestCall()}
+                className="w-full rounded-full bg-white py-2.5 text-[13px] font-semibold text-[#1f4033] disabled:opacity-50"
+              >
+                Send request
+              </button>
+            </div>
+          ) : null}
         </div>
+
+        {upcoming.length > 0 ? (
+          <div className="rounded-[24px] bg-white p-5 shadow-[0_2px_16px_rgba(31,51,41,0.05)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9aa396]">Video visits</p>
+            <div className="mt-3 space-y-3">
+              {upcoming.map((item) => (
+                <div key={item.id} className="flex flex-col gap-2 rounded-[14px] bg-[#faf9f6] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[13.5px] font-semibold text-[#1f3329]">
+                      {new Date(item.startsAt).toLocaleString("en-GB", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <p className="text-[12px] text-[#6b7568]">
+                      {item.status === "requested" ? "Waiting for physician confirmation" : "Confirmed video call"}
+                      {item.reason ? ` · ${item.reason}` : ""}
+                    </p>
+                  </div>
+                  {item.status === "scheduled" ? (
+                    <Link href={`/call/${item.id}`} className="rounded-full bg-[#1f4033] px-3.5 py-2 text-center text-[12px] font-semibold text-white">
+                      Join call
+                    </Link>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* ── Two-column row ── */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr]">

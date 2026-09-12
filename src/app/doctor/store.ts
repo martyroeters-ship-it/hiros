@@ -1,88 +1,65 @@
-import { type PatientCase } from "./data";
+import { type PatientCase, type TabKey } from "./data";
+import type { IntakeSubmission } from "./triage";
 
-/**
- * Case persistence layer.
- *
- * For the demo this is backed by the browser's localStorage. For the MVP,
- * swap the bodies of these functions for API calls to a real database
- * (e.g. /api/cases backed by Supabase/Postgres) — the rest of the app
- * only depends on this interface.
- */
-
-const STORAGE_KEY = "hiros_cases_v1";
 const CHANGE_EVENT = "hiros-cases-changed";
 
-export function getStoredCases(): PatientCase[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    
-    // Migrate old cases that have submittedAgo instead of submittedAt
-    const migrated = parsed.map((c: any, index: number) => {
-      if (c.submittedAgo && !c.submittedAt) {
-        // Set timestamp to a few minutes ago based on position (newer cases first)
-        // This gives a reasonable estimate for demo purposes
-        const minutesAgo = (index + 1) * 2; // 2, 4, 6, 8 minutes ago etc.
-        return { ...c, submittedAt: Date.now() - (minutesAgo * 60 * 1000), submittedAgo: undefined };
-      }
-      return c;
-    });
-    
-    return migrated as PatientCase[];
-  } catch {
-    return [];
-  }
-}
+export type IntakePersistPayload = IntakeSubmission & {
+  lastName?: string;
+  postalCode?: string;
+  phone?: string;
+  province?: string;
+};
 
-export function addStoredCase(newCase: PatientCase): void {
+function notify() {
   if (typeof window === "undefined") return;
-  const all = getStoredCases();
-  all.unshift(newCase); // newest first
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // Storage quota exceeded (e.g. large base64 photos) — drop oldest and retry once.
-    const trimmed = all.slice(0, 20);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-    } catch {
-      /* give up silently in the demo */
-    }
-  }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-export function getStoredCase(id: string): PatientCase | undefined {
-  return getStoredCases().find((c) => c.id.toLowerCase() === id.toLowerCase());
+export async function fetchCases(): Promise<PatientCase[]> {
+  const res = await fetch("/api/cases", { cache: "no-store" });
+  if (!res.ok) throw new Error("Could not load cases");
+  return (await res.json()) as PatientCase[];
 }
 
-export function updateStoredCase(id: string, updates: Partial<PatientCase>): void {
-  if (typeof window === "undefined") return;
-  const all = getStoredCases();
-  const index = all.findIndex((c) => c.id.toLowerCase() === id.toLowerCase());
-  if (index === -1) return;
-  
-  all[index] = { ...all[index], ...updates };
-  
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-    window.dispatchEvent(new Event(CHANGE_EVENT));
-  } catch {
-    /* silently fail in demo */
+export async function fetchCase(id: string): Promise<PatientCase | undefined> {
+  const res = await fetch(`/api/cases/${id}`, { cache: "no-store" });
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error("Could not load case");
+  return (await res.json()) as PatientCase;
+}
+
+export async function createCaseFromIntake(input: IntakePersistPayload): Promise<PatientCase> {
+  const res = await fetch("/api/cases", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || "Could not save case");
   }
+  const created = (await res.json()) as PatientCase;
+  notify();
+  return created;
 }
 
-/** Subscribe to changes (same-tab dispatch + cross-tab storage events). */
+export async function patchCaseTab(
+  id: string,
+  tab: TabKey,
+  extras?: { treatmentType?: string; followUp?: string; note?: string },
+): Promise<void> {
+  const res = await fetch(`/api/cases/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tab, ...extras }),
+  });
+  if (!res.ok) throw new Error("Could not update case");
+  notify();
+}
+
 export function subscribeStoredCases(callback: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const handler = () => callback();
   window.addEventListener(CHANGE_EVENT, handler);
-  window.addEventListener("storage", handler);
-  return () => {
-    window.removeEventListener(CHANGE_EVENT, handler);
-    window.removeEventListener("storage", handler);
-  };
+  return () => window.removeEventListener(CHANGE_EVENT, handler);
 }

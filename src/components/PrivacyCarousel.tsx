@@ -13,11 +13,8 @@ export default function PrivacyCarousel() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-  const [imageVersion, setImageVersion] = useState(0);
 
   useEffect(() => {
-    setImageVersion(Date.now());
-
     const carousel = carouselRef.current;
 
     if (!carousel) {
@@ -130,49 +127,45 @@ export default function PrivacyCarousel() {
               {index === 0 ? (
                 <div className="pointer-events-none relative h-full w-full select-none">
                   <Image
-                    src={`/why_hiros_intake.png?v=${imageVersion}`}
+                    src="/why_hiros_intake.webp"
                     alt="Hiros intake flow"
                     fill
                     sizes="(max-width: 640px) 78vw, 390px"
                     className="pointer-events-none select-none object-cover object-center"
                     priority
-                    unoptimized
                     draggable={false}
                   />
                 </div>
               ) : index === 1 ? (
                 <div className="pointer-events-none relative h-full w-full select-none">
                   <Image
-                    src={`/why_hiros_doctors.png?v=${imageVersion}`}
+                    src="/why_hiros_doctors.webp"
                     alt="Hiros doctors review"
                     fill
                     sizes="(max-width: 640px) 78vw, 390px"
                     className="pointer-events-none select-none object-cover object-center"
-                    unoptimized
                     draggable={false}
                   />
                 </div>
               ) : index === 2 ? (
                 <div className="pointer-events-none relative h-full w-full select-none">
                   <Image
-                    src={`/why_hiros_progress.png?v=${imageVersion}`}
+                    src="/why_hiros_progress.webp"
                     alt="Hiros progress tracking"
                     fill
                     sizes="(max-width: 640px) 78vw, 390px"
                     className="pointer-events-none select-none object-cover object-center"
-                    unoptimized
                     draggable={false}
                   />
                 </div>
               ) : (
                 <div className="pointer-events-none relative h-full w-full select-none">
                   <Image
-                    src={`/why_hiros_steps.png?v=${imageVersion}`}
+                    src="/why_hiros_steps.webp"
                     alt="Hiros next steps overview"
                     fill
                     sizes="(max-width: 640px) 78vw, 390px"
                     className="pointer-events-none select-none object-cover object-center"
-                    unoptimized
                     draggable={false}
                   />
                 </div>

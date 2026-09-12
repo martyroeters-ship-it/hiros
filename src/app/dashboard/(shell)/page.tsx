@@ -126,7 +126,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2.5 rounded-[14px] bg-white/10 p-2.5">
                   <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/15">
-                    <Image src="/why_hiros_doctors.png" alt="Dr. Emre Yilmaz" fill className="object-cover object-top" sizes="36px" />
+                    <Image src="/why_hiros_doctors.webp" alt="Dr. Emre Yilmaz" fill className="object-cover object-top" sizes="36px" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] text-white/55">Reviewed by</p>
@@ -171,7 +171,7 @@ export default function DashboardPage() {
           <h2 className={`relative z-[1] ${cardSecondaryTitle}`}>Your doctor</h2>
           <div className="relative mt-1.5 min-h-[80px]">
             <div className="absolute left-0 top-0 z-0 h-[80px] w-[80px] overflow-hidden rounded-full bg-[#eee9df]">
-              <Image src="/why_hiros_doctors.png" alt="Dr. Emre Yilmaz" fill className="object-cover object-top" sizes="80px" />
+              <Image src="/why_hiros_doctors.webp" alt="Dr. Emre Yilmaz" fill className="object-cover object-top" sizes="80px" />
             </div>
             <div className="relative z-[1] pl-[92px]">
               <p className="text-[14px] font-semibold text-[#3d4540]">Dr. Emre Yilmaz</p>
@@ -290,7 +290,7 @@ export default function DashboardPage() {
             <MessageUsButton />
           </div>
           <div className="pointer-events-none absolute bottom-0 right-0 top-0 hidden w-[42%] overflow-hidden lg:block">
-            <Image src="/plant.png" alt="" fill className="object-cover object-center" sizes="200px" />
+            <Image src="/plant.webp" alt="" fill className="object-cover object-center" sizes="200px" />
             <div className="absolute inset-0 bg-[#ebe6dc]/40" />
             <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#ebe6dc] to-transparent" />
           </div>

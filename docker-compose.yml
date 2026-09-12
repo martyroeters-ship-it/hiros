@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hiros-postgres
+    environment:
+      POSTGRES_USER: hiros
+      POSTGRES_PASSWORD: hiros
+      POSTGRES_DB: hiros
+    ports:
+      - "5432:5432"
+    volumes:
+      - hiros_pgdata:/var/lib/postgresql/data
+      - ./db/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+      - ./db/seed/001_demo.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hiros -d hiros"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  hiros_pgdata:

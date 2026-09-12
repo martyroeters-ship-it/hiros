@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useSessionUser } from "@/lib/use-session-user";
 
 /* ─── shared primitives ──────────────────────────────────────────── */
 function SectionHeader({ label }: { label: string }) {
@@ -41,6 +43,8 @@ function ToggleRow({ label, enabled, onChange }: { label: string; enabled: boole
 
 /* ─── page ───────────────────────────────────────────────────────── */
 export default function SettingsPage() {
+  const router = useRouter();
+  const user = useSessionUser();
   const [notifications, setNotifications] = useState({ treatment: true, messages: true, photos: true, orders: true });
   const [physicianAccess, setPhysicianAccess] = useState(true);
   const [language, setLanguage] = useState<"en" | "tr">("en");
@@ -124,6 +128,25 @@ export default function SettingsPage() {
             </button>
           </Card>
         </div>
+
+        {user ? (
+          <div>
+            <SectionHeader label="Session" />
+            <Card>
+              <Row
+                label="Sign out"
+                chevron={false}
+                destructive
+                onClick={() => {
+                  void fetch("/api/auth/logout", { method: "POST" }).then(() => {
+                    router.push("/login");
+                    router.refresh();
+                  });
+                }}
+              />
+            </Card>
+          </div>
+        ) : null}
 
       </div>
     </div>

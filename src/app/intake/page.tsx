@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type MouseEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ShippingForm, type ShippingFormData } from "./shipping-form";
-import { addStoredCase } from "../doctor/store";
-import { buildCaseFromIntake, determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
+import { createCaseFromIntake } from "../doctor/store";
+import { determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
 import { useIntakeCopy } from "@/i18n/LanguageProvider";
+import { signInWithGoogle } from "@/lib/google-signin";
 
 type IntakeStep = {
   id: string;
@@ -257,7 +258,7 @@ const medicalSteps: IntakeStep[] = [
 const assignedDoctor = {
   name: "Dr. Emre Kaya",
   role: "Licensed physician",
-  imageSrc: "/why_hiros_doctors.png",
+  imageSrc: "/why_hiros_doctors.webp",
   intro: "Assigned to review your medical intake and help guide the next appropriate step based on the answers you share.",
   details: [
     "Focused on structured hair-loss intake review",
@@ -338,6 +339,13 @@ export default function IntakePage() {
   const [shippingRevealIndex, setShippingRevealIndex] = useState(0);
   const [recommendationReveal, setRecommendationReveal] = useState(false);
   const [shippingFlowStep, setShippingFlowStep] = useState<1 | 2>(1);
+  const [authMode, setAuthMode] = useState<"signup" | "login">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authConfirm, setAuthConfirm] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [signedInEmail, setSignedInEmail] = useState("");
   const advanceTimeoutRef = useRef<number | null>(null);
   const fadeTimeoutRef = useRef<number | null>(null);
   const locationReadyTimeoutRef = useRef<number | null>(null);
@@ -376,7 +384,20 @@ export default function IntakePage() {
   const recommendationStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "recommendation-interstitial");
   const prePhotoCheckStepIndex = Math.max(photoCheckStepIndex - 1, medicalStartIndex);
   const isAuthStep = currentStepIndex === authStepIndex;
+  const authPasswordTooShortLive =
+    authMode === "signup" && authPassword.length > 0 && authPassword.length < 8;
   const isLocationStep = currentStepIndex === locationStepIndex;
+
+  useEffect(() => {
+    if (!isAuthStep) return;
+    void fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const user = (await res.json()) as { email?: string };
+        if (user.email) setSignedInEmail(user.email);
+      })
+      .catch(() => undefined);
+  }, [isAuthStep]);
   const isMatchingStep = currentStepIndex === matchingStepIndex;
   const isMedicalStep = currentStepIndex >= medicalStartIndex && currentStepIndex <= medicalEndIndex;
   const isFirstMedicalStep = currentStepIndex === medicalStartIndex;
@@ -483,7 +504,7 @@ export default function IntakePage() {
     }
     hasSubmittedCaseRef.current = true;
 
-    const newCase = buildCaseFromIntake({
+    void createCaseFromIntake({
       answers: selectedAnswers,
       followUpText: medicalFollowUpText,
       treatmentSelections,
@@ -491,9 +512,14 @@ export default function IntakePage() {
       sideEffectsLevel: treatmentSideEffectsLevel,
       city: selectedCity,
       firstName: shippingFormData.firstName,
+      lastName: shippingFormData.lastName,
+      postalCode: shippingFormData.postalCode,
+      phone: shippingFormData.phone,
+      province: shippingFormData.province,
       photos: Object.values(capturedPhotos),
+    }).catch((error) => {
+      console.error(error);
     });
-    addStoredCase(newCase);
   }, [
     isFinalReviewInterstitialStep,
     selectedAnswers,
@@ -1659,16 +1685,65 @@ export default function IntakePage() {
     advanceToStep(nextStepIndex);
   };
 
-  const handleContinueWithEmailClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
+  const continuePastAuth = () => {
     setIsLocationDropdownOpen(Boolean(locationQuery.trim()));
     setReturnedStepIndexForContinue(null);
     setCurrentStepIndex(locationStepIndex);
   };
 
+  const handleAuthSubmit = async () => {
+    const email = authEmail.trim();
+    if (!email || !authPassword) {
+      setAuthError(intake.auth.requiredFields);
+      return;
+    }
+    if (authPassword.length < 8) {
+      setAuthError(intake.auth.passwordTooShort);
+      return;
+    }
+    if (authMode === "signup" && authPassword !== authConfirm) {
+      setAuthError(intake.auth.passwordMismatch);
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError("");
+    try {
+      const res = await fetch(authMode === "signup" ? "/api/auth/signup" : "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: authPassword }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string };
+      if (!res.ok) {
+        setAuthError(payload.error || (authMode === "signup" ? "Could not create account." : "Could not sign in."));
+        return;
+      }
+      setSignedInEmail(payload.email || email);
+      continuePastAuth();
+    } catch {
+      setAuthError(authMode === "signup" ? "Could not create account." : "Could not sign in.");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthBusy(true);
+    setAuthError("");
+    try {
+      const user = await signInWithGoogle();
+      if (user.email) setSignedInEmail(user.email);
+      continuePastAuth();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not sign in with Google.");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
   const handleLocationQueryChange = (value: string) => {
     setLocationQuery(value);
-    setIsLocationDropdownOpen(Boolean(value.trim()));
+    setIsLocationDropdownOpen(true);
 
     if (selectedCity && value !== selectedCity) {
       setSelectedCity(null);
@@ -1860,9 +1935,11 @@ export default function IntakePage() {
               </p>
 
               <div className="mx-auto mt-5 w-full max-w-[430px] space-y-2">
-                <a
-                  href="https://accounts.google.com/signin"
-                  className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84"
+                <button
+                  type="button"
+                  disabled={authBusy}
+                  onClick={() => void handleGoogleSignIn()}
+                  className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84 disabled:opacity-50"
                 >
                   <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
                     <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
@@ -1873,11 +1950,13 @@ export default function IntakePage() {
                     </svg>
                     <span>{intake.auth.google}</span>
                   </span>
-                </a>
+                </button>
 
-                <a
-                  href="#"
-                  className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84"
+                <button
+                  type="button"
+                  disabled
+                  title={intake.auth.comingSoon}
+                  className="block w-full cursor-not-allowed rounded-full border border-black/10 bg-white/50 p-[1.5px] opacity-55"
                 >
                   <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
                     <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
@@ -1885,7 +1964,8 @@ export default function IntakePage() {
                     </svg>
                     <span>{intake.auth.apple}</span>
                   </span>
-                </a>
+                </button>
+                {authError ? <p className="text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
               </div>
 
               <div className="mx-auto mt-4 flex w-full max-w-[430px] items-center gap-4 text-[14px] font-medium tracking-[-0.02em] text-black/38 sm:mt-6 sm:text-[15px]">
@@ -1894,20 +1974,113 @@ export default function IntakePage() {
                 <span className="h-px flex-1 bg-black/10" />
               </div>
 
-              <div className="mx-auto mt-6 w-full max-w-[430px]">
-                <a
-                  href="#"
-                  onClick={handleContinueWithEmailClick}
-                  className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84"
-                >
-                  <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
-                    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-                      <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.8" />
-                      <path d="M5.5 8 12 13l6.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span>{intake.auth.email}</span>
-                  </span>
-                </a>
+              <div className="mx-auto mt-6 w-full max-w-[430px] space-y-3">
+                {signedInEmail ? (
+                  <>
+                    <p className="text-center text-[14px] font-medium text-black/55">
+                      {intake.auth.signedInAs} <span className="font-semibold text-[#2b2a28]">{signedInEmail}</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={continuePastAuth}
+                      className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white"
+                    >
+                      {intake.auth.continueAs}
+                    </button>
+                  </>
+                ) : (
+                  <form
+                    className="space-y-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void handleAuthSubmit();
+                    }}
+                  >
+                    <label className="block text-[13px] font-semibold text-[#2b2a28]">
+                      {intake.auth.emailLabel}
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        className="mt-1.5 h-12 w-full rounded-[14px] border border-black/10 bg-white px-4 text-[15px] font-medium outline-none focus:border-[#8ea57a]"
+                      />
+                    </label>
+                    <label
+                      className={`block text-[13px] font-semibold ${
+                        authPasswordTooShortLive ? "text-[#c24b3a]" : "text-[#2b2a28]"
+                      }`}
+                    >
+                      {intake.auth.passwordLabel}
+                      <input
+                        type="password"
+                        autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        aria-invalid={authPasswordTooShortLive}
+                        aria-describedby={authPasswordTooShortLive ? "intake-password-min-length" : undefined}
+                        className={`mt-1.5 h-12 w-full rounded-[14px] border bg-white px-4 text-[15px] font-medium outline-none ${
+                          authPasswordTooShortLive
+                            ? "border-[#c24b3a] focus:border-[#c24b3a]"
+                            : "border-black/10 focus:border-[#8ea57a]"
+                        }`}
+                      />
+                      {authPasswordTooShortLive ? (
+                        <p
+                          id="intake-password-min-length"
+                          role="status"
+                          className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium leading-none text-[#c24b3a]"
+                        >
+                          <span
+                            className="inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border-[1.4px] border-current text-[10px] font-semibold"
+                            aria-hidden="true"
+                          >
+                            !
+                          </span>
+                          {intake.auth.passwordMinLength}
+                        </p>
+                      ) : null}
+                    </label>
+                    {authMode === "signup" ? (
+                      <label className="block text-[13px] font-semibold text-[#2b2a28]">
+                        {intake.auth.confirmLabel}
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          value={authConfirm}
+                          onChange={(e) => setAuthConfirm(e.target.value)}
+                          className="mt-1.5 h-12 w-full rounded-[14px] border border-black/10 bg-white px-4 text-[15px] font-medium outline-none focus:border-[#8ea57a]"
+                        />
+                      </label>
+                    ) : null}
+                    {authError ? <p className="text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                    <button
+                      type="submit"
+                      disabled={authBusy}
+                      className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white disabled:opacity-50"
+                    >
+                      {authBusy ? "…" : authMode === "signup" ? intake.auth.createAccount : intake.auth.signIn}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode(authMode === "signup" ? "login" : "signup");
+                        setAuthError("");
+                      }}
+                      className={`w-full text-center text-[13.5px] font-semibold ${
+                        authMode === "signup" ? "text-[#3f5f35]" : ""
+                      }`}
+                    >
+                      {authMode === "signup" ? (
+                        intake.auth.haveAccount
+                      ) : (
+                        <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#6a8255] bg-clip-text text-transparent">
+                          {intake.auth.needAccount}
+                        </span>
+                      )}
+                    </button>
+                  </form>
+                )}
               </div>
 
               <p className="mt-6 text-center text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/42">
@@ -2531,7 +2704,7 @@ export default function IntakePage() {
                     </div>
                     <div className="-my-3.5 -mr-3.5 h-auto w-[140px] self-stretch sm:-my-4 sm:-mr-4 sm:w-[170px]">
                       <img
-                        src="/delivery_intake.png"
+                        src="/delivery_intake.webp"
                         alt="Delivery"
                         className="h-full w-full object-cover"
                         loading="lazy"
@@ -2569,7 +2742,7 @@ export default function IntakePage() {
                     </div>
                     <div className="-my-3.5 -mr-3.5 h-auto w-[140px] self-stretch sm:-my-4 sm:-mr-4 sm:w-[170px]">
                       <img
-                        src="/hiros_intake_doctor.png"
+                        src="/hiros_intake_doctor.webp"
                         alt="Doctor"
                         className="h-full w-full object-cover"
                         loading="lazy"
@@ -2601,7 +2774,7 @@ export default function IntakePage() {
                               </div>
                               <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatmentCopy.description}</p>
                             </div>
-                            <img src={recommendedTreatment?.imageSrc || "/treatment-bottle.png"} alt="Treatment" className="h-16 w-16 rounded-[12px] object-cover" />
+                            <img src={recommendedTreatment?.imageSrc || "/treatment-bottle.webp"} alt="Treatment" className="h-16 w-16 rounded-[12px] object-cover" />
                           </div>
                           ) : (
                           <div className="bg-[#fdf3da] px-5 py-4 sm:px-6">

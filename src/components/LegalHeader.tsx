@@ -4,11 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
-import { useHomeCopy } from "@/i18n/LanguageProvider";
+import { AuthNavLink } from "@/components/AuthNavLink";
 import SiteMenu from "@/components/SiteMenu";
 
 export default function LegalHeader({ elevateOnScroll = false }: { elevateOnScroll?: boolean }) {
-  const { copy } = useHomeCopy();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -48,12 +47,7 @@ export default function LegalHeader({ elevateOnScroll = false }: { elevateOnScro
           />
         </Link>
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link
-            href="/dashboard"
-            className="rounded-full border border-[#11110f] bg-white px-4 py-2 text-[12px] font-semibold leading-none text-[#11110f]"
-          >
-            {copy.nav.login}
-          </Link>
+          <AuthNavLink className="rounded-full border border-[#11110f] bg-white px-4 py-2 text-[12px] font-semibold leading-none text-[#11110f]" />
           <SiteMenu />
         </div>
       </div>

@@ -76,7 +76,7 @@ export default function AboutPage() {
         </section>
 
         <section
-          className={`relative z-10 flex min-h-[640px] items-center overflow-hidden rounded-t-[34px] bg-[#6f8759] bg-[url('/header_banner4.png')] bg-cover bg-[position:72%_center] sm:min-h-[800px] ${HOME_PAGE_GUTTER_CLASS}`}
+          className={`relative z-10 flex min-h-[640px] items-center overflow-hidden rounded-t-[34px] bg-[#6f8759] bg-[url('/header_banner4.webp')] bg-cover bg-[position:72%_center] sm:min-h-[800px] ${HOME_PAGE_GUTTER_CLASS}`}
         >
           <div className="flex flex-col items-start">
             <h2 className="font-title max-w-[18ch] text-left text-[40px] font-normal leading-[1.02] tracking-[-0.06em] text-white sm:text-[56px] lg:text-[72px] lg:leading-[1] lg:tracking-[-0.07em]">

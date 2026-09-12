@@ -9,7 +9,48 @@ export const homeCopy = {
       research: "Araştırma",
       contact: "İletişim",
       login: "Giriş yap",
+      account: "Hesap",
       menu: "Menüyü aç",
+    },
+    authPage: {
+      title: "Hiros'a giriş yapın",
+      subtitle: "Değerlendirme sırasında oluşturduğunuz e-posta ile giriş yapın.",
+      createTitle: "Hiros hesabı oluşturun",
+      createSubtitle: "İlerlemenizi kaydetmek ve daha sonra devam etmek için bir e-posta hesabı oluşturun.",
+      signedIn: "Şu hesapla giriş yaptınız",
+      goToDashboard: "Panele git",
+      startIntake: "Değerlendirmeye başla",
+      signOut: "Çıkış yap",
+    },
+    loginDrawer: {
+      title: "Giriş",
+      createTitle: "Hesap oluştur",
+      close: "Kapat",
+      welcomeBack: "Tekrar hoş geldiniz",
+      createHeading: "Hesap oluşturun",
+      email: "E-posta",
+      password: "Şifre",
+      passwordMinLength: "En az 8 karakter olmalı.",
+      confirmPassword: "Şifreyi tekrar yazın",
+      forgotPassword: "Şifrenizi mi unuttunuz?",
+      forgotUnavailable: "Bu demoda henüz kullanılamıyor.",
+      logIn: "Giriş yap",
+      createAccount: "Hesap oluştur",
+      firstTime: "İlk kez misiniz?",
+      createAccountLink: "Hesap oluşturun",
+      haveAccount: "Zaten hesabınız var mı?",
+      logInLink: "Giriş yapın",
+      or: "veya",
+      google: "Google ile devam et",
+      apple: "Apple ile devam et",
+      comingSoon: "Bu demoda kullanılamıyor",
+      legal: {
+        beforeTerms: "E-posta, Google veya Apple ile hesap oluşturarak ",
+        terms: "Şartlar ve Koşullar",
+        beforePrivacy: "’ı kabul eder, ",
+        privacy: "Gizlilik Politikasını",
+        after: " onaylarım.",
+      },
     },
     siteMenu: {
       title: "Menü",
@@ -148,7 +189,7 @@ export const homeCopy = {
       columns: [
         ["Blog", "Saç kaybı neden olur", "Minoksidil ve finasterid", "Tedaviden neden kaçınılır", "Çoğu erkek bir yıl içinde bırakır"],
         ["Yasal", "Gizlilik Politikası", "Şartlar ve Koşullar", "Tüketici Sağlık Verisi Gizlilik Politikası", "Tele-sağlık Onayı"],
-        ["Şirket", "Hakkımızda", "Bize Ulaşın", "SSS"],
+        ["Şirket", "Hakkımızda", "Blog", "Bize Ulaşın", "SSS"],
       ],
       links: [
         "Şartlar & koşullar",
@@ -182,7 +223,48 @@ export const homeCopy = {
       research: "Research",
       contact: "Contact",
       login: "Log in",
+      account: "Account",
       menu: "Open menu",
+    },
+    authPage: {
+      title: "Sign in to Hiros",
+      subtitle: "Use the email you created during your intake.",
+      createTitle: "Create a Hiros account",
+      createSubtitle: "Create an email account to save your progress and come back later.",
+      signedIn: "You are signed in as",
+      goToDashboard: "Go to dashboard",
+      startIntake: "Start assessment",
+      signOut: "Sign out",
+    },
+    loginDrawer: {
+      title: "Login",
+      createTitle: "Create an account",
+      close: "Close",
+      welcomeBack: "Welcome back",
+      createHeading: "Create an account",
+      email: "Email",
+      password: "Password",
+      passwordMinLength: "Must be a minimum of 8 characters",
+      confirmPassword: "Confirm password",
+      forgotPassword: "Forgot your password?",
+      forgotUnavailable: "Not available in this demo.",
+      logIn: "Log in",
+      createAccount: "Create account",
+      firstTime: "First time here?",
+      createAccountLink: "Create an account",
+      haveAccount: "Already have an account?",
+      logInLink: "Log in",
+      or: "or",
+      google: "Continue with Google",
+      apple: "Continue with Apple",
+      comingSoon: "Not available in this demo",
+      legal: {
+        beforeTerms: "By creating an account using email, Google or Apple, I agree to the ",
+        terms: "Terms & Conditions",
+        beforePrivacy: " and acknowledge the ",
+        privacy: "Privacy Policy",
+        after: ".",
+      },
     },
     siteMenu: {
       title: "Menu",
@@ -321,7 +403,7 @@ export const homeCopy = {
       columns: [
         ["Blog", "Why hair loss happens", "Minoxidil vs. finasteride", "Why some men avoid treatment", "Why most men quit within a year"],
         ["Legal", "Privacy Policy", "Terms & Conditions", "Consumer Health Data Privacy Policy", "Telehealth Consent"],
-        ["Company", "About Us", "Contact Us", "FAQs"],
+        ["Company", "About Us", "Blog", "Contact Us", "FAQs"],
       ],
       links: [
         "Terms & conditions",
@@ -390,6 +472,10 @@ export function footerLinkHref(label: string) {
 
   if (label === "Contact Us" || label === "Bize Ulaşın") {
     return "/contact";
+  }
+
+  if (label === "Blog") {
+    return "/blog";
   }
 
   if (label === "Why hair loss happens" || label === "Saç kaybı neden olur") {

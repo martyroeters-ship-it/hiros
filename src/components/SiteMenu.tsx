@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useHomeCopy } from "@/i18n/LanguageProvider";
+import { useSessionUser } from "@/lib/use-session-user";
+import { useLoginDrawer } from "@/components/LoginDrawer";
 
 function Chevron() {
   return (
@@ -16,6 +18,8 @@ function Chevron() {
 
 export default function SiteMenu({ iconClassName = "text-[#11110f]" }: { iconClassName?: string }) {
   const { copy } = useHomeCopy();
+  const session = useSessionUser();
+  const loginDrawer = useLoginDrawer();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -75,22 +79,44 @@ export default function SiteMenu({ iconClassName = "text-[#11110f]" }: { iconCla
                 {menu.title}
               </p>
               <div className="flex items-center gap-4">
-                <Link
-                  href="/dashboard"
-                  aria-label={menu.account}
-                  className="flex h-8 w-8 items-center justify-center text-black"
-                  onClick={() => setOpen(false)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" className="h-[22px] w-[22px]" aria-hidden="true">
-                    <circle cx="12" cy="8" r="3.15" stroke="currentColor" strokeWidth="1.6" />
-                    <path
-                      d="M5.4 19.2c.85-3.05 3.35-4.7 6.6-4.7s5.75 1.65 6.6 4.7"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </Link>
+                {session ? (
+                  <Link
+                    href="/dashboard"
+                    aria-label={menu.account}
+                    className="flex h-8 w-8 items-center justify-center text-black"
+                    onClick={() => setOpen(false)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-[22px] w-[22px]" aria-hidden="true">
+                      <circle cx="12" cy="8" r="3.15" stroke="currentColor" strokeWidth="1.6" />
+                      <path
+                        d="M5.4 19.2c.85-3.05 3.35-4.7 6.6-4.7s5.75 1.65 6.6 4.7"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={menu.account}
+                    className="flex h-8 w-8 items-center justify-center text-black"
+                    onClick={() => {
+                      setOpen(false);
+                      loginDrawer?.openLogin();
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className="h-[22px] w-[22px]" aria-hidden="true">
+                      <circle cx="12" cy="8" r="3.15" stroke="currentColor" strokeWidth="1.6" />
+                      <path
+                        d="M5.4 19.2c.85-3.05 3.35-4.7 6.6-4.7s5.75 1.65 6.6 4.7"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={menu.close}
