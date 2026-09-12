@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import { useHomeCopy, useIntakeCopy } from "@/i18n/LanguageProvider";
@@ -181,8 +182,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fbfaf5]" />}>
-      <LoginForm />
-    </Suspense>
+    <>
+      <Script src="https://google.com" strategy="afterInteractive" />
+      <Suspense fallback={<div className="min-h-screen bg-[#fbfaf5]" />}>
+        <LoginForm />
+      </Suspense>
+    </>
   );
 }
