@@ -1,5 +1,6 @@
 import path from "path";
 import { sql } from "./db";
+import { ready } from "./ensure-db";
 import type {
   ComplianceStatus,
   PatientAlert,
@@ -175,6 +176,7 @@ const rosterSelect = sql`
 `;
 
 async function loadRosterRows(caseId?: string): Promise<RosterRow[]> {
+  await ready();
   if (caseId) {
     return sql<RosterRow[]>`
       select ${rosterSelect}
@@ -411,6 +413,7 @@ export type ConversationThread = {
 };
 
 export async function listConversations(): Promise<ConversationSummary[]> {
+  await ready();
   const rows = await sql<
     {
       case_id: string;
