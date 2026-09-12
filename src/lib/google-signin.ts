@@ -85,7 +85,11 @@ export async function signInWithGoogle(): Promise<{ email?: string }> {
   });
   const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string };
   if (!res.ok) {
-    throw new Error(payload.error || "Could not sign in with Google.");
+    const raw = payload.error || "";
+    if (/ECONNREFUSED|127\.0\.0\.1|NO_DATABASE|connect/i.test(raw)) {
+      throw new Error("Could not save your account. The live database is not connected yet.");
+    }
+    throw new Error(raw || "Could not sign in with Google.");
   }
   return payload;
 }
