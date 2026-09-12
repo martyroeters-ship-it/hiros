@@ -48,9 +48,9 @@ function loadGis(): Promise<void> {
   return scriptPromise;
 }
 
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||
-  "939534131882-pp3dipvtdno9aoklhl81m8tiv3n1l4pt.apps.googleusercontent.com";
+// Public OAuth web client ID. Keep this a string literal so production
+// builds do not depend on a Vercel NEXT_PUBLIC_ env var being present.
+const GOOGLE_CLIENT_ID = "939534131882-pp3dipvtdno9aoklhl81m8tiv3n1l4pt.apps.googleusercontent.com";
 
 export async function requestGoogleAccessToken(): Promise<string> {
   const clientId = GOOGLE_CLIENT_ID;
