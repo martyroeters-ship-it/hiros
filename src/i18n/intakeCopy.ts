@@ -163,8 +163,8 @@ export const intakeCopy = {
     },
     location: {
       title: "Şu an nerede bulunuyorsunuz?",
-      subtitle: "Konumunuzu ve tercihlerinizi doğru lisanslı hekimle eşleştirmek için kullanırız.",
-      placeholder: "Şehrinizi arayın",
+      subtitle: "Sizi İstanbul’daki lisanslı bir hekimle eşleştirmek için ilçenizi kullanırız.",
+      placeholder: "İlçenizi arayın",
       consent: {
         beforeTerms: '"Devam"a tıklayarak ',
         terms: "Şartlar ve Koşullar",
@@ -357,8 +357,8 @@ export const intakeCopy = {
     },
     location: {
       title: "Where are you currently located?",
-      subtitle: "We’ll use your location and preferences to match you with the right licensed physician.",
-      placeholder: "Search for your city",
+      subtitle: "We’ll use your Istanbul district to match you with the right licensed physician.",
+      placeholder: "Search your district",
       consent: {
         beforeTerms: 'By clicking "Continue," I agree to the ',
         terms: "Terms and Conditions",
