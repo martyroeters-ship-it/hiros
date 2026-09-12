@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findOrCreateOAuthProfile, setSessionCookie } from "@/lib/auth";
+import { ready } from "@/lib/ensure-db";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Google did not return a verified email." }, { status: 400 });
     }
 
+    await ready();
     const user = await findOrCreateOAuthProfile({
       email: profile.email,
       firstName: profile.given_name,
@@ -40,7 +42,9 @@ export async function POST(request: Request) {
     return NextResponse.json(user);
   } catch (error) {
     console.error(error);
-    const message = error instanceof Error ? error.message : "Could not sign in with Google.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Could not save your account. The live database is not connected yet." },
+      { status: 500 },
+    );
   }
 }

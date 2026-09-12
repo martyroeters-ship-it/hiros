@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hashPassword, isValidEmail, normalizeEmail, setSessionCookie } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { ready } from "@/lib/ensure-db";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
     }
 
+    await ready();
     const [existing] = await sql<{ id: string }[]>`
       select id from public.profiles where lower(email) = ${email} limit 1
     `;

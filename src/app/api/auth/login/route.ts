@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isValidEmail, normalizeEmail, setSessionCookie, verifyPassword } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { ready } from "@/lib/ensure-db";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
 
+    await ready();
     const [row] = await sql<{
       id: string;
       email: string | null;
