@@ -6,6 +6,8 @@ export const databaseUrl =
   process.env.POSTGRES_URL ||
   process.env.POSTGRES_PRISMA_URL ||
   process.env.POSTGRES_URL_NON_POOLING ||
+  process.env.STORAGE_POSTGRES_URL ||
+  process.env.STORAGE_URL ||
   "";
 
 const fallbackUrl = "postgres://hiros:hiros@127.0.0.1:5432/hiros";
