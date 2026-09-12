@@ -6,7 +6,7 @@ let boot: Promise<void> | null = null;
 
 async function applyFile(relativePath: string) {
   const sqlText = await readFile(path.join(process.cwd(), relativePath), "utf8");
-  await sql.unsafe(sqlText, [], { simple: true });
+  await sql.unsafe(sqlText);
 }
 
 async function applyIfNeeded() {
