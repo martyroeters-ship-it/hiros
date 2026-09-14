@@ -1,3 +1,4 @@
+import { DoctorNavBadgesProvider } from "./shell";
 import "./doctor-theme.css";
 
 export default function DoctorLayout({
@@ -5,5 +6,9 @@ export default function DoctorLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <div className="min-w-0 max-w-full overflow-x-hidden">{children}</div>;
+  return (
+    <div className="min-w-0 max-w-full overflow-x-hidden">
+      <DoctorNavBadgesProvider>{children}</DoctorNavBadgesProvider>
+    </div>
+  );
 }

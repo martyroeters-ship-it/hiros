@@ -1,8 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { DOCTOR_SETTINGS_EVENT, loadDoctorSettings } from "./settings-store";
+
+type BadgeCounts = { now: number; cases: number; agenda: number; messages: number };
+
+const emptyBadges: BadgeCounts = { now: 0, cases: 0, agenda: 0, messages: 0 };
+let lastBadges: BadgeCounts = emptyBadges;
+const DoctorNavBadgesContext = createContext<BadgeCounts>(emptyBadges);
+
+export function DoctorNavBadgesProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [badges, setBadges] = useState<BadgeCounts>(lastBadges);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/doctor/badges", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as Partial<BadgeCounts>;
+        if (cancelled) return;
+        const next = {
+          now: data.now ?? 0,
+          cases: data.cases ?? 0,
+          agenda: data.agenda ?? 0,
+          messages: data.messages ?? 0,
+        };
+        lastBadges = next;
+        setBadges(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  return <DoctorNavBadgesContext.Provider value={badges}>{children}</DoctorNavBadgesContext.Provider>;
+}
 
 export type DoctorSection = "now" | "cases" | "patients" | "agenda" | "messages" | "settings";
 
@@ -84,24 +126,9 @@ export function DoctorChrome({
   title: string;
   children: ReactNode;
 }) {
-  const [badges, setBadges] = useState({ now: 0, cases: 0, agenda: 0, messages: 0 });
+  const badges = useContext(DoctorNavBadgesContext);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [language, setLanguage] = useState<"en" | "tr">("en");
-
-  useEffect(() => {
-    void fetch("/api/doctor/badges", { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json()) as { now?: number; cases?: number; agenda?: number; messages?: number };
-        setBadges({
-          now: data.now ?? 0,
-          cases: data.cases ?? 0,
-          agenda: data.agenda ?? 0,
-          messages: data.messages ?? 0,
-        });
-      })
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     const apply = () => {
