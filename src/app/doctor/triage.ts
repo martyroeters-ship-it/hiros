@@ -131,6 +131,44 @@ const ANSWER_ORDER = [
   "final-notes",
 ];
 
+const LABEL_TO_STEP = Object.fromEntries(
+  Object.entries(QUESTION_LABELS).map(([stepId, label]) => [label, stepId]),
+) as Record<string, string>;
+
+export type AgaScoreDeduction = {
+  question: string;
+  answer: string;
+  awarded: number;
+  max: number;
+};
+
+function matchScoredAnswer(map: Record<string, number>, rawAnswer: string): string | undefined {
+  if (rawAnswer in map) return rawAnswer;
+  const beforeDash = rawAnswer.split(" — ")[0]?.trim();
+  if (beforeDash && beforeDash in map) return beforeDash;
+  return Object.keys(map)
+    .sort((a, b) => b.length - a.length)
+    .find((key) => rawAnswer === key || rawAnswer.startsWith(`${key} `) || rawAnswer.startsWith(`${key}—`) || rawAnswer.startsWith(`${key} —`));
+}
+
+export function agaScoreDeductions(answers: MedicalAnswer[]): AgaScoreDeduction[] {
+  const deductions: AgaScoreDeduction[] = [];
+  for (const item of answers) {
+    const stepId = LABEL_TO_STEP[item.question];
+    if (!stepId) continue;
+    const map = SCORE_MAP[stepId];
+    if (!map) continue;
+    const selected = matchScoredAnswer(map, item.answer);
+    if (selected === undefined) continue;
+    const awarded = map[selected];
+    const max = Math.max(...Object.values(map));
+    if (awarded < max) {
+      deductions.push({ question: item.question, answer: selected, awarded, max });
+    }
+  }
+  return deductions;
+}
+
 /* ------------------------------------------------------------------ *
  * Flag logic — more important than the raw score. Answer-driven flags
  * plus free-text keyword scanning for medications / conditions / notes.
