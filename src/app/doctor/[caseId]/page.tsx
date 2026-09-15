@@ -13,7 +13,7 @@ import {
   type PatientPhoto,
 } from "../data";
 import { fetchCase, patchCaseTab, subscribeStoredCases } from "../store";
-import { generateIntakeSummary } from "../triage";
+import { agaScoreDeductions, generateIntakeSummary } from "../triage";
 import { useRouter } from "next/navigation";
 
 /* ---------------- Top bar ---------------- */
@@ -211,6 +211,9 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
   const [open, setOpen] = useState(false);
   const flags = countFlags(caseItem);
   const totalFlags = flags.red + flags.orange;
+  const deductionsByQuestion = Object.fromEntries(
+    agaScoreDeductions(caseItem.answers).map((item) => [item.question, item]),
+  );
 
   return (
     <section className="overflow-hidden rounded-[18px] border border-black/[0.06] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -251,11 +254,18 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="text-[12.5px] font-medium text-black/40">{a.question}</p>
-                {a.flag ? (
-                  <span
-                    className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${a.flag === "red" ? "bg-[#d6342c]" : "bg-[#ec8a1e]"}`}
-                  />
-                ) : null}
+                <div className="flex shrink-0 items-center gap-2">
+                  {deductionsByQuestion[a.question] ? (
+                    <span className="text-[11px] font-semibold text-black/40">
+                      {deductionsByQuestion[a.question].awarded} of {deductionsByQuestion[a.question].max}
+                    </span>
+                  ) : null}
+                  {a.flag ? (
+                    <span
+                      className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${a.flag === "red" ? "bg-[#d6342c]" : "bg-[#ec8a1e]"}`}
+                    />
+                  ) : null}
+                </div>
               </div>
               <div className="mt-1.5 flex items-center gap-2 text-[15px] font-medium text-[#1f241b]">
                 <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 text-black/30" aria-hidden="true">
@@ -282,6 +292,7 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
   const styles = riskStyles[caseItem.risk];
   const redFindings = caseItem.findings.filter((f) => f.level === "red");
   const orangeFindings = caseItem.findings.filter((f) => f.level === "orange");
+  const deductions = caseItem.agaScore < 20 ? agaScoreDeductions(caseItem.answers) : [];
 
   return (
     <SectionCard
@@ -354,10 +365,27 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
           No concerns flagged. Pattern is consistent with androgenetic alopecia.
         </div>
       ) : (
-        <p className="text-[12.5px] font-medium italic text-black/45">
+        <p className="mb-4 text-[12.5px] font-medium italic text-black/45">
           System flags indicate additional physician review is required.
         </p>
       )}
+
+      {deductions.length > 0 ? (
+        <div className="mb-4 rounded-[14px] border border-black/[0.06] bg-[#fafbf9] p-4">
+          <p className="mb-2 text-[13px] font-semibold text-[#1f241b]">Why this is {caseItem.agaScore}/20</p>
+          <ul className="space-y-2">
+            {deductions.map((item) => (
+              <li key={item.question} className="text-[13.5px] leading-[1.45] text-[#2b2a28]">
+                <span className="font-semibold">{item.question}:</span> {item.answer}
+                <span className="text-black/45">
+                  {" "}
+                  ({item.awarded} of {item.max} points)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-5 border-t border-black/[0.06] pt-4">
         <p className="mb-1 text-[12px] font-semibold text-black/55">System Notice:</p>
