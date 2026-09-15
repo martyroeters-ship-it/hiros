@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DoctorChrome } from "../shell";
+import { subscribeStoredCases } from "../store";
 import { fetchTreatmentPatients } from "./store";
 import type { ComplianceStatus, TreatmentPatient } from "./types";
 
@@ -38,12 +39,21 @@ export default function DoctorPatientsPage() {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    void fetchTreatmentPatients()
-      .then(setPatients)
-      .catch(() => {
-        setLoadError(true);
-        setPatients([]);
-      });
+    const load = (initial = false) => {
+      void fetchTreatmentPatients()
+        .then((items) => {
+          setPatients(items);
+          setLoadError(false);
+        })
+        .catch(() => {
+          if (initial) {
+            setLoadError(true);
+            setPatients([]);
+          }
+        });
+    };
+    load(true);
+    return subscribeStoredCases(() => load());
   }, []);
 
   const counts = useMemo(

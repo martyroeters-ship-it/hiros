@@ -53,16 +53,16 @@ export default function DoctorCasesPage() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    const load = () => {
+    const load = (initial = false) => {
       void fetchCases()
         .then(setAllCases)
         .catch((error) => {
           console.error(error);
-          setAllCases([]);
+          if (initial) setAllCases([]);
         });
     };
-    load();
-    return subscribeStoredCases(load);
+    load(true);
+    return subscribeStoredCases(() => load());
   }, []);
 
   useEffect(() => {
@@ -71,15 +71,6 @@ export default function DoctorCasesPage() {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    const pendingCount = allCases.filter((c) => c.tab === "pending").length;
-    if (pendingCount > 0) {
-      document.title = `Hiros (${pendingCount} new)`;
-    } else {
-      document.title = "Hiros - Cases overview";
-    }
-  }, [allCases]);
 
   const counts = useMemo(() => {
     const result: Record<TabKey, number> = { pending: 0, approved: 0, declined: 0 };
@@ -257,7 +248,7 @@ export default function DoctorCasesPage() {
                   <div className="mt-2 flex flex-col gap-1.5 text-[12.5px] font-medium text-black/50 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                     <span className="flex items-center gap-1.5">
                       <UserIcon />
-                      {c.ageRange}
+                      {c.answers.find((item) => item.question === "Affected areas")?.answer || "Area not reported"}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <ConcernIcon />

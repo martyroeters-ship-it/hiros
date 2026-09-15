@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getRelativeTime } from "./data";
 import { DoctorChrome } from "./shell";
+import { subscribeStoredCases } from "./store";
 import type { NowItem, NowKind } from "@/lib/now-repo";
 
 const kindMeta: Record<NowKind, { label: string; tone: string }> = {
@@ -17,13 +18,16 @@ export default function DoctorNowPage() {
   const [items, setItems] = useState<NowItem[] | null>(null);
 
   useEffect(() => {
-    document.title = "Hiros - Recent activity";
-    void fetch("/api/doctor/now", { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error("failed");
-        setItems((await res.json()) as NowItem[]);
-      })
-      .catch(() => setItems([]));
+    const load = () => {
+      void fetch("/api/doctor/now", { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok) throw new Error("failed");
+          setItems((await res.json()) as NowItem[]);
+        })
+        .catch(() => setItems((current) => current ?? []));
+    };
+    load();
+    return subscribeStoredCases(load);
   }, []);
 
   return (

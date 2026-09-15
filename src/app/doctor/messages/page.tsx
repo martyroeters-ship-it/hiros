@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DoctorChrome } from "../shell";
+import { subscribeStoredCases } from "../store";
 import { fetchConversation, fetchConversations, sendConversationMessage } from "./store";
 import type { ConversationSummary, ConversationThread } from "./store";
 
@@ -104,6 +105,8 @@ function MessagesPageInner() {
   const [menuId, setMenuId] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   useEffect(() => {
     setPrefs(loadPrefs());
@@ -130,7 +133,7 @@ function MessagesPageInner() {
   const isUnread = (item: ConversationSummary) =>
     prefs.unread.includes(item.caseId) || (!prefs.read.includes(item.caseId) && item.lastFrom === "patient");
 
-  const loadList = () =>
+  const loadList = (wipeOnError = true) =>
     fetchConversations()
       .then((items) => {
         setConversations(items);
@@ -138,8 +141,10 @@ function MessagesPageInner() {
         return items;
       })
       .catch(() => {
-        setLoadError(true);
-        setConversations([]);
+        if (wipeOnError) {
+          setLoadError(true);
+          setConversations([]);
+        }
         return [] as ConversationSummary[];
       });
 
@@ -150,6 +155,15 @@ function MessagesPageInner() {
       if (preselect || next) setShowThread(Boolean(preselect) || window.innerWidth >= 1024);
     });
   }, [preselect]);
+
+  useEffect(() => {
+    return subscribeStoredCases(() => {
+      void loadList(false);
+      const id = activeIdRef.current;
+      if (!id) return;
+      void fetchConversation(id).then(setThread).catch(() => undefined);
+    });
+  }, []);
 
   useEffect(() => {
     if (!activeId) {

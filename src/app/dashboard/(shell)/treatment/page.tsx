@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
+import { usePatientDashboard } from "@/lib/use-patient-dashboard";
 
 function TimePicker({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled: boolean }) {
   const [open, setOpen] = useState(false);
@@ -100,19 +102,13 @@ const cardInner = "rounded-[14px] border border-[#f0ebe2] bg-[#faf9f6] p-3";
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-// Build dates for 5 weeks ending this week (Mon–Sun)
 function buildCalendar(): { date: Date; taken: boolean | null }[][] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dow = today.getDay(); // 0=Sun..6=Sat
+  const dow = today.getDay();
   const daysFromMon = dow === 0 ? 6 : dow - 1;
   const thisMonday = new Date(today);
   thisMonday.setDate(today.getDate() - daysFromMon);
-
-  const adherence = [true, true, true, true, true, false, true,
-                     true, false, true, true, true, true, true,
-                     true, true, true, false, true, true, true,
-                     true, true, true, true, true, true, false];
 
   return Array.from({ length: 5 }, (_, w) => {
     const weekMon = new Date(thisMonday);
@@ -120,69 +116,73 @@ function buildCalendar(): { date: Date; taken: boolean | null }[][] {
     return Array.from({ length: 7 }, (_, d) => {
       const date = new Date(weekMon);
       date.setDate(weekMon.getDate() + d);
-      const isFuture = date > today;
-      const isToday = date.getTime() === today.getTime();
-      const idx = w * 7 + d;
-      return {
-        date,
-        taken: isFuture ? null : (isToday ? null : (adherence[idx] ?? true)),
-      };
+      return { date, taken: null };
     });
   });
 }
 
-const CALENDAR = buildCalendar();
-
-function getMonthLabel(): string {
+function monthLabel(calendar: { date: Date; taken: boolean | null }[][]): string {
   const months = new Set<string>();
-  CALENDAR.forEach((week) =>
-    week.forEach(({ date }) =>
-      months.add(date.toLocaleString("en-US", { month: "long", year: "numeric" }))
-    )
+  calendar.forEach((week) =>
+    week.forEach(({ date }) => months.add(date.toLocaleString("en-US", { month: "long", year: "numeric" }))),
   );
   if (months.size === 1) return [...months][0];
-  const first = CALENDAR[0][0].date;
-  const last = CALENDAR[4][6].date;
+  const first = calendar[0][0].date;
+  const last = calendar[4][6].date;
   const m1 = first.toLocaleString("en-US", { month: "long" });
   const m2 = last.toLocaleString("en-US", { month: "long", year: "numeric" });
   return `${m1} – ${m2}`;
 }
 
-const THINGS = [
-  {
-    id: "side-effects",
-    label: "Common side effects",
-    content: "Topical Finasteride 0.25% is generally well-tolerated. Some patients report mild scalp irritation, dryness, or itching at the application site. Systemic side effects are rare due to the low dose and topical application.",
-  },
-  {
-    id: "contact",
-    label: "When to contact your physician",
-    content: "Contact Dr. Emre Yilmaz if you experience persistent scalp rash, sexual side effects, chest pain, or mood changes. Also reach out before starting or stopping any other medication.",
-  },
-  {
-    id: "timeline",
-    label: "Expected treatment timeline",
-    content: "Most patients begin to see reduced hair shedding within 3–6 months. Visible regrowth typically appears between 6–12 months of consistent use. Your next physician review is scheduled for July 12.",
-  },
-];
-
 const LIFESTYLE = [
-  { icon: "🍺", label: "Alcohol",         note: "Moderate consumption is fine. Avoid excess as it can affect treatment efficacy." },
-  { icon: "💊", label: "Supplements",     note: "Biotin, zinc, and vitamin D may complement your treatment. Discuss with Dr. Yilmaz before adding." },
-  { icon: "🩸", label: "Blood donation",  note: "Inform donation centres you are taking Finasteride. Restrictions may apply." },
+  { icon: "🍺", label: "Alcohol", note: "Moderate consumption is fine. Avoid excess as it can affect treatment efficacy." },
+  { icon: "💊", label: "Supplements", note: "Biotin, zinc, and vitamin D may complement your treatment. Discuss with your physician before adding." },
+  { icon: "🩸", label: "Blood donation", note: "Inform donation centres you are taking a hair-loss treatment. Restrictions may apply." },
 ];
 
 const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function TreatmentPage() {
+  const { snapshot } = usePatientDashboard();
+  const doctorName = snapshot?.doctorName || "your physician";
+  const treatmentApproved = Boolean(snapshot?.treatmentApproved);
+  const things = [
+    {
+      id: "side-effects",
+      label: "Common side effects",
+      content: snapshot?.treatmentName
+        ? `${snapshot.treatmentName} is generally well-tolerated. Some patients report mild scalp irritation, dryness, or itching at the application site. Tell your physician if anything persists.`
+        : "Side-effect guidance will appear here once your physician approves a treatment plan.",
+    },
+    {
+      id: "contact",
+      label: "When to contact your physician",
+      content: `Contact ${doctorName} if you experience persistent scalp rash, sexual side effects, chest pain, or mood changes. Also reach out before starting or stopping any other medication.`,
+    },
+    {
+      id: "timeline",
+      label: "Expected treatment timeline",
+      content: snapshot?.treatmentFollowUp
+        ? `Most patients begin to see reduced hair shedding within 3–6 months of consistent use. Your next physician review is scheduled for ${snapshot.treatmentFollowUp}.`
+        : "Your physician will share a review date once your plan is approved.",
+    },
+  ];
   const [openSection, setOpenSection] = useState<string | null>(null);
   const [scheduleTime, setScheduleTime] = useState("21:00");
   const [scheduleEnabled, setScheduleEnabled] = useState(true);
   const [reminderDays, setReminderDays] = useState<Set<string>>(new Set(ALL_DAYS));
   const [reminderDropdownOpen, setReminderDropdownOpen] = useState(false);
-  const [medications, setMedications] = useState<string[]>(["St. John's Wort"]);
+  const [calendar, setCalendar] = useState<{ date: Date; taken: boolean | null }[][] | null>(null);
+  const [medications, setMedications] = useState<string[]>([]);
   const [newMed, setNewMed] = useState("");
   const [addingMed, setAddingMed] = useState(false);
+
+  useEffect(() => {
+    setCalendar(buildCalendar());
+  }, []);
+  useEffect(() => {
+    if (snapshot?.currentMedications) setMedications(snapshot.currentMedications);
+  }, [snapshot?.currentMedications]);
 
   const toggle = (id: string) => setOpenSection((c) => (c === id ? null : id));
 
@@ -225,10 +225,24 @@ export default function TreatmentPage() {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="text-[12px] font-medium text-[#8a9288]">My Treatment</p>
-          <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">Topical Finasteride</h1>
+          <h1 className="font-title text-[24px] font-medium tracking-[-0.03em] text-[#1f3329] lg:text-[28px]">
+            {snapshot?.treatmentName || "Treatment"}
+          </h1>
         </div>
-        <span className="rounded-full bg-[#dce8d6] px-3 py-1 text-[12px] font-semibold text-[#3d5c35]">Active</span>
+        <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${treatmentApproved ? "bg-[#dce8d6] text-[#3d5c35]" : "bg-[#edeae5] text-[#6b7568]"}`}>
+          {treatmentApproved ? "Active" : snapshot?.caseId ? "Waiting for review" : "Not started"}
+        </span>
       </div>
+
+      {!snapshot?.caseId && snapshot?.signedIn ? (
+        <div className="rounded-[20px] border border-dashed border-[#e4e0d8] bg-white px-5 py-4">
+          <p className="text-[14px] font-semibold text-[#1f3329]">No treatment plan yet</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#6b7568]">Complete your intake so a physician can review your case and prescribe a plan.</p>
+          <Link href="/intake" className="mt-3 inline-flex rounded-full bg-[#1f4033] px-4 py-2 text-[13px] font-semibold text-white">
+            Start intake
+          </Link>
+        </div>
+      ) : null}
 
       {/* ── Row 1: Overview + Schedule ── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -238,8 +252,16 @@ export default function TreatmentPage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">Current prescription</p>
-              <h2 className={`${titleMd} mt-1 text-[20px] text-white`}>Topical Finasteride 0.25%</h2>
-              <p className="mt-0.5 text-[13px] text-white/60">Approved by Dr. Emre Yilmaz · Jun 6, 2025</p>
+              <h2 className={`${titleMd} mt-1 text-[20px] text-white`}>
+                {snapshot?.treatmentName || "Waiting for physician review"}
+              </h2>
+              <p className="mt-0.5 text-[13px] text-white/60">
+                {treatmentApproved
+                  ? `Approved by ${doctorName}${snapshot?.treatmentStart ? ` · ${snapshot.treatmentStart}` : ""}`
+                  : snapshot?.caseId
+                    ? "Your physician will share a plan after review."
+                    : "Complete your intake so a physician can prescribe a plan."}
+              </p>
             </div>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
               <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-white/80" stroke="currentColor" strokeWidth="1.6">
@@ -251,9 +273,9 @@ export default function TreatmentPage() {
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[
-              { label: "Adherence",   value: "92%",   sub: "last 30 days" },
-              { label: "Last dose",   value: "Today", sub: "08:15 AM"     },
-              { label: "Next review", value: "Jul 12",sub: "Dr. Yilmaz"   },
+              { label: "Start date", value: snapshot?.treatmentStart || "—", sub: treatmentApproved ? "Plan started" : "After approval" },
+              { label: "Last dose", value: "—", sub: "Log from Home" },
+              { label: "Next review", value: snapshot?.treatmentFollowUp || "—", sub: doctorName },
             ].map((s) => (
               <div key={s.label} className="rounded-[14px] bg-white/10 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/50">{s.label}</p>
@@ -266,7 +288,10 @@ export default function TreatmentPage() {
           <div className="mt-4 rounded-[14px] bg-white/10 p-3">
             <p className="text-[12px] font-semibold text-white/70">Instructions</p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-white/60">
-              Apply a small amount to the affected scalp area once daily. Massage gently until absorbed. Wash hands after application. For best results, apply at the same time each day.
+              {snapshot?.treatmentNotes ||
+                (treatmentApproved
+                  ? "Apply as prescribed to the affected scalp area once daily. Massage gently until absorbed. Wash hands after application. For best results, apply at the same time each day."
+                  : "Instructions will appear here once your physician approves a treatment plan.")}
             </p>
           </div>
         </div>
@@ -352,10 +377,10 @@ export default function TreatmentPage() {
         {/* Things to know */}
         <div className={`${card} p-5`}>
           <h2 className={`${titleMd} text-[18px] text-[#1f3329]`}>Treatment information</h2>
-          <p className="mt-0.5 text-[12px] text-[#8a9288]">About Topical Finasteride 0.25%</p>
+          <p className="mt-0.5 text-[12px] text-[#8a9288]">About {snapshot?.treatmentName || "your treatment"}</p>
 
           <div className="mt-4 space-y-2">
-            {THINGS.map((t) => (
+            {things.map((t) => (
               <div key={t.id} className="overflow-hidden rounded-[16px] border border-[#f0ebe2]">
                 <button
                   type="button"
@@ -403,8 +428,13 @@ export default function TreatmentPage() {
             <p className="mt-0.5 text-[12px] text-[#8a9288]">Are you taking any other medications?</p>
 
             <div className="mt-3 space-y-2">
+              {medications.length === 0 ? (
+                <p className="rounded-[14px] border border-dashed border-[#e4e0d8] bg-[#faf9f6] px-3 py-3 text-[13px] text-[#8a9288]">
+                  No other medications reported.
+                </p>
+              ) : null}
               {medications.map((med) => {
-                const flagged = med === "St. John's Wort";
+                const flagged = false;
                 return (
                   <div key={med} className={`flex items-start gap-2.5 rounded-[14px] border p-3 ${flagged ? "border-[#f5d8c8] bg-[#fdf4ef]" : "border-[#f0ebe2] bg-[#faf9f6]"}`}>
                     <span className="mt-0.5 text-[14px]">{flagged ? "⚠️" : "✓"}</span>
@@ -458,7 +488,7 @@ export default function TreatmentPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className={`${titleMd} text-[18px] text-[#1f3329]`}>Treatment history</h2>
-                <p className="mt-0.5 text-[12px] text-[#8a9288]">{getMonthLabel()}</p>
+                <p className="mt-0.5 text-[12px] text-[#8a9288]">{calendar ? monthLabel(calendar) : "—"}</p>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-[#8a9288]">
                 <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-[#4a6b42]" />Taken</span>
@@ -473,7 +503,7 @@ export default function TreatmentPage() {
                 ))}
               </div>
               <div className="space-y-1.5">
-                {CALENDAR.map((week, wi) => (
+                {calendar?.map((week, wi) => (
                   <div key={wi} className="grid grid-cols-7 gap-1.5">
                     {week.map(({ date, taken }, di) => (
                       <div
@@ -494,7 +524,7 @@ export default function TreatmentPage() {
               </div>
             </div>
 
-            <p className="mt-3 text-[11px] text-[#9aa396]">Showing last 5 weeks · 92% adherence</p>
+            <p className="mt-3 text-[11px] text-[#9aa396]">Showing last 5 weeks · No dose history yet</p>
           </div>
         </div>
       </div>

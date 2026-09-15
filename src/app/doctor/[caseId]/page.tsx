@@ -126,6 +126,11 @@ function FlagPill({ level, count, onClick }: { level: FlagLevel; count: number; 
   );
 }
 
+function answerValue(caseItem: PatientCase, question: string, fallback = "Not provided") {
+  const value = caseItem.answers.find((item) => item.question === question)?.answer?.trim();
+  return value || fallback;
+}
+
 function SummaryField({
   icon,
   label,
@@ -187,8 +192,8 @@ const icons = {
   ),
   age: (
     <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M5 19c.8-3 3.6-4.8 7-4.8s6.2 1.8 7 4.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M5 18c2.2-6.2 5.4-9.5 7-9.5S16.8 11.8 19 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M8.2 18c1.4-3.6 2.8-5.2 3.8-5.2s2.4 1.6 3.8 5.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   ),
   pin: (
@@ -208,12 +213,11 @@ const icons = {
 /* ---------------- Medical Answers (collapsible) ---------------- */
 
 function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
+  const deductions = agaScoreDeductions(caseItem.answers);
   const [open, setOpen] = useState(false);
   const flags = countFlags(caseItem);
   const totalFlags = flags.red + flags.orange;
-  const deductionsByQuestion = Object.fromEntries(
-    agaScoreDeductions(caseItem.answers).map((item) => [item.question, item]),
-  );
+  const deductionsByQuestion = Object.fromEntries(deductions.map((item) => [item.question, item]));
 
   return (
     <section className="overflow-hidden rounded-[18px] border border-black/[0.06] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -250,14 +254,16 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
           {caseItem.answers.map((a, i) => (
             <div
               key={a.question}
-              className={`py-4 ${i !== caseItem.answers.length - 1 ? "border-b border-black/[0.05]" : ""}`}
+              className={`py-4 ${i !== caseItem.answers.length - 1 ? "border-b border-black/[0.05]" : ""} ${
+                deductionsByQuestion[a.question] ? "rounded-[12px] bg-[#fdf8ee] px-3" : ""
+              }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="text-[12.5px] font-medium text-black/40">{a.question}</p>
                 <div className="flex shrink-0 items-center gap-2">
                   {deductionsByQuestion[a.question] ? (
-                    <span className="text-[11px] font-semibold text-black/40">
-                      {deductionsByQuestion[a.question].awarded} of {deductionsByQuestion[a.question].max}
+                    <span className="text-[11px] font-semibold text-[#9a4e07]">
+                      {deductionsByQuestion[a.question].awarded} of {deductionsByQuestion[a.question].max} points
                     </span>
                   ) : null}
                   {a.flag ? (
@@ -292,7 +298,6 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
   const styles = riskStyles[caseItem.risk];
   const redFindings = caseItem.findings.filter((f) => f.level === "red");
   const orangeFindings = caseItem.findings.filter((f) => f.level === "orange");
-  const deductions = caseItem.agaScore < 20 ? agaScoreDeductions(caseItem.answers) : [];
 
   return (
     <SectionCard
@@ -365,27 +370,10 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
           No concerns flagged. Pattern is consistent with androgenetic alopecia.
         </div>
       ) : (
-        <p className="mb-4 text-[12.5px] font-medium italic text-black/45">
+        <p className="text-[12.5px] font-medium italic text-black/45">
           System flags indicate additional physician review is required.
         </p>
       )}
-
-      {deductions.length > 0 ? (
-        <div className="mb-4 rounded-[14px] border border-black/[0.06] bg-[#fafbf9] p-4">
-          <p className="mb-2 text-[13px] font-semibold text-[#1f241b]">Why this is {caseItem.agaScore}/20</p>
-          <ul className="space-y-2">
-            {deductions.map((item) => (
-              <li key={item.question} className="text-[13.5px] leading-[1.45] text-[#2b2a28]">
-                <span className="font-semibold">{item.question}:</span> {item.answer}
-                <span className="text-black/45">
-                  {" "}
-                  ({item.awarded} of {item.max} points)
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
 
       <div className="mt-5 border-t border-black/[0.06] pt-4">
         <p className="mb-1 text-[12px] font-semibold text-black/55">System Notice:</p>
@@ -1257,9 +1245,7 @@ export default function CaseDetailPage() {
                 <span className={`h-1.5 w-9 rounded-full sm:h-9 sm:w-1.5 ${styles.bar}`} />
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">{caseItem.firstName}</p>
-                  <p className="text-[12.5px] font-medium text-black/45">
-                    Patient · {caseItem.ageRange === "Not provided" ? "Age unknown" : `${caseItem.ageRange} years`}
-                  </p>
+                  <p className="text-[12.5px] font-medium text-black/45">Patient</p>
                   <p className="mt-2 text-[12px] leading-[1.5] text-black/55">{generateIntakeSummary(caseItem)}</p>
                 </div>
                 <div className="text-left sm:text-right">
@@ -1275,7 +1261,7 @@ export default function CaseDetailPage() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <SummaryField icon={icons.reason} label="Reason for consultation" value={caseItem.reason} />
-                <SummaryField icon={icons.age} label="Age group" value={caseItem.ageRange === "Not provided" ? "Unknown" : `${caseItem.ageRange} years`} />
+                <SummaryField icon={icons.age} label="Affected areas" value={answerValue(caseItem, "Affected areas")} />
                 <SummaryField icon={icons.pin} label="Location" value={caseItem.location} />
                 <SummaryField icon={icons.clock} label="Reported onset" value={caseItem.reportedOnset} />
                 <div className="rounded-[14px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3.5">

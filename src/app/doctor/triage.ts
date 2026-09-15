@@ -142,13 +142,32 @@ export type AgaScoreDeduction = {
   max: number;
 };
 
+function normalizeScoreText(value: string): string {
+  return value
+    .replace(/[–—−]/g, "-")
+    .replace(/['’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function matchScoredAnswer(map: Record<string, number>, rawAnswer: string): string | undefined {
-  if (rawAnswer in map) return rawAnswer;
-  const beforeDash = rawAnswer.split(" — ")[0]?.trim();
-  if (beforeDash && beforeDash in map) return beforeDash;
+  const candidates = [rawAnswer, rawAnswer.split(" — ")[0]?.trim() ?? "", rawAnswer.split(" - ")[0]?.trim() ?? ""].filter(Boolean);
+  for (const candidate of candidates) {
+    if (candidate in map) return candidate;
+    const normalized = normalizeScoreText(candidate);
+    const hit = Object.keys(map).find((key) => normalizeScoreText(key) === normalized);
+    if (hit) return hit;
+  }
   return Object.keys(map)
     .sort((a, b) => b.length - a.length)
-    .find((key) => rawAnswer === key || rawAnswer.startsWith(`${key} `) || rawAnswer.startsWith(`${key}—`) || rawAnswer.startsWith(`${key} —`));
+    .find((key) => {
+      const normalizedKey = normalizeScoreText(key);
+      return candidates.some((candidate) => {
+        const normalized = normalizeScoreText(candidate);
+        return normalized === normalizedKey || normalized.startsWith(`${normalizedKey} `);
+      });
+    });
 }
 
 export function agaScoreDeductions(answers: MedicalAnswer[]): AgaScoreDeduction[] {

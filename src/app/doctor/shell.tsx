@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { DOCTOR_SETTINGS_EVENT, loadDoctorSettings } from "./settings-store";
+import { subscribeStoredCases } from "./store";
+import { applyDoctorTabAlert } from "./tab-alert";
 
 type BadgeCounts = { now: number; cases: number; agenda: number; messages: number };
 
@@ -23,25 +25,32 @@ export function DoctorNavBadgesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/doctor/badges", { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json()) as Partial<BadgeCounts>;
-        if (cancelled) return;
-        const next = {
-          now: data.now ?? 0,
-          cases: data.cases ?? 0,
-          agenda: data.agenda ?? 0,
-          messages: data.messages ?? 0,
-        };
-        lastBadges = next;
-        setBadges(next);
-      })
-      .catch(() => undefined);
+    const load = () => {
+      void fetch("/api/doctor/badges", { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = (await res.json()) as Partial<BadgeCounts>;
+          if (cancelled) return;
+          const next = {
+            now: data.now ?? 0,
+            cases: data.cases ?? 0,
+            agenda: data.agenda ?? 0,
+            messages: data.messages ?? 0,
+          };
+          lastBadges = next;
+          setBadges(next);
+        })
+        .catch(() => undefined);
+    };
+    load();
+    const stop = subscribeStoredCases(load);
     return () => {
       cancelled = true;
+      stop();
     };
   }, [pathname]);
+
+  useEffect(() => applyDoctorTabAlert(badges.cases), [badges.cases]);
 
   return <DoctorNavBadgesContext.Provider value={badges}>{children}</DoctorNavBadgesContext.Provider>;
 }

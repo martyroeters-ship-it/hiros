@@ -1,12 +1,6 @@
-const steps = [
-  { label: "Requested", status: "complete" as const, date: "May 20" },
-  { label: "Approved", status: "complete" as const, date: "May 21" },
-  { label: "Preparing", status: "active" as const, date: "May 22" },
-  { label: "Shipped", status: "pending" as const, icon: "truck" as const },
-  { label: "Delivered", status: "pending" as const, icon: "house" as const },
-];
+import type { DashboardTrackerStep } from "@/lib/patient-dashboard-types";
 
-function StepIcon({ step }: { step: (typeof steps)[number] }) {
+function StepIcon({ step }: { step: DashboardTrackerStep }) {
   if (step.status === "complete") {
     return (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[#3d5c35]" stroke="currentColor" strokeWidth="2.4">
@@ -42,7 +36,7 @@ function StepIcon({ step }: { step: (typeof steps)[number] }) {
   );
 }
 
-function StepCircle({ step }: { step: (typeof steps)[number] }) {
+function StepCircle({ step }: { step: DashboardTrackerStep }) {
   if (step.status === "complete") {
     return (
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8dcc8]">
@@ -66,35 +60,36 @@ function StepCircle({ step }: { step: (typeof steps)[number] }) {
   );
 }
 
-export function OrderProgressTracker() {
+export function OrderProgressTracker({ steps }: { steps: DashboardTrackerStep[] }) {
+  const activeIndex = steps.findIndex((step) => step.status === "active");
+  const completeCount = steps.filter((step) => step.status === "complete").length;
+  const farthest = activeIndex >= 0 ? activeIndex : Math.max(0, completeCount - 1);
+  const progress = steps.length > 1 ? farthest / (steps.length - 1) : 0;
+
   return (
     <div className="relative px-1 pb-1 pt-2">
-      <div className="absolute left-[9%] right-[9%] top-[26px]">
-        <div className="border-t-2 border-dashed border-white/25" />
-        <div className="absolute left-0 top-0 w-1/2 border-t-2 border-[#e8dcc8]" />
+      <div className="pointer-events-none absolute inset-x-[9%] top-2 flex h-11 items-center">
+        <div className="relative w-full">
+          <div className="border-t-2 border-dashed border-white/25" />
+          <div className="absolute left-0 top-0 border-t-2 border-[#e8dcc8]" style={{ width: `${progress * 100}%` }} />
+        </div>
       </div>
 
       <div className="relative flex justify-between">
         {steps.map((step) => (
           <div key={step.label} className="flex w-[18%] flex-col items-center">
-            <div className={`flex items-center justify-center ${step.status === "active" ? "h-11" : "h-9"}`}>
+            <div className="flex h-11 w-11 items-center justify-center">
               <StepCircle step={step} />
             </div>
-            <div className="mt-2 flex flex-col items-center gap-0.5 text-center">
+            <div className="mt-2 flex h-8 flex-col items-center text-center">
               <span
                 className={`leading-tight ${
-                  step.status === "active"
-                    ? "text-[11px] font-semibold text-white"
-                    : step.status === "complete"
-                      ? "text-[11px] font-semibold text-white"
-                      : "text-[11px] font-semibold text-white/90"
+                  step.status === "pending" ? "text-[11px] font-semibold text-white/90" : "text-[11px] font-semibold text-white"
                 }`}
               >
                 {step.label}
               </span>
-              {"date" in step && step.date ? (
-                <span className="text-[10px] font-normal text-white/75">{step.date}</span>
-              ) : null}
+              <span className="mt-0.5 h-[14px] text-[10px] font-normal leading-[14px] text-white/75">{step.date ?? "\u00a0"}</span>
             </div>
           </div>
         ))}

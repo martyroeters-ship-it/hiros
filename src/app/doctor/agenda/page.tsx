@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { DoctorChrome } from "../shell";
+import { subscribeStoredCases } from "../store";
 import { fetchTreatmentPatients } from "../patients/store";
 import type { TreatmentPatient } from "../patients/types";
 import { createAppointmentRequest, fetchAppointments, patchAppointment } from "./store";
@@ -95,12 +96,17 @@ function AgendaPageInner() {
   const [loadError, setLoadError] = useState(false);
   const [didFocus, setDidFocus] = useState(false);
 
-  const reload = () => {
+  const reload = (initial = false) => {
     void fetchAppointments()
-      .then(setAppointments)
+      .then((items) => {
+        setAppointments(items);
+        setLoadError(false);
+      })
       .catch(() => {
-        setLoadError(true);
-        setAppointments([]);
+        if (initial) {
+          setLoadError(true);
+          setAppointments([]);
+        }
       });
   };
 
@@ -113,9 +119,16 @@ function AgendaPageInner() {
       setCaseId(preselect);
       setInviteOpen(true);
     }
-    reload();
-    void fetchTreatmentPatients().then(setPatients).catch(() => setPatients([]));
   }, [preselect]);
+
+  useEffect(() => {
+    const load = (initial = false) => {
+      reload(initial);
+      void fetchTreatmentPatients().then(setPatients).catch(() => undefined);
+    };
+    load(true);
+    return subscribeStoredCases(() => load());
+  }, []);
 
   useEffect(() => {
     if (didFocus || appointments.length === 0) return;
