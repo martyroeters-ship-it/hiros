@@ -9,7 +9,7 @@ const navItems = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "home" },
   { id: "treatment", label: "Treatment", href: "/dashboard/treatment", icon: "treatment" },
   { id: "progress", label: "Progress", href: "/dashboard/progress", icon: "progress" },
-  { id: "messages", label: "Messages", href: "/dashboard/messages", icon: "messages", badge: 2 },
+  { id: "messages", label: "Messages", href: "/dashboard/messages", icon: "messages" },
   { id: "doctor", label: "Doctor", href: "/dashboard/doctor", icon: "doctor" },
   { id: "profile", label: "Profile", href: "/dashboard/profile", icon: "profile" },
   { id: "settings", label: "Settings", href: "/dashboard/settings", icon: "settings" },
@@ -72,17 +72,28 @@ function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
   }
 }
 
-function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function SidebarContent({
+  pathname,
+  onNavigate,
+  unreadCount,
+  logoPriority = false,
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+  unreadCount: number;
+  logoPriority?: boolean;
+}) {
   return (
     <div className="relative z-10 flex min-h-0 flex-1 flex-col">
       <Link href="/" onClick={onNavigate} className="mb-6 inline-flex px-2">
-        <Image src="/hiros_logo.png" alt="Hiros" width={111} height={46} priority className="h-auto w-[72px]" />
+        <Image src="/hiros_logo.png" alt="Hiros" width={111} height={46} priority={logoPriority} className="h-auto w-[72px]" />
       </Link>
 
       <nav className="min-h-0 flex-1 overflow-y-auto">
         <ul className="space-y-0.5">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const badge = item.id === "messages" && unreadCount > 0 ? unreadCount : 0;
             return (
               <li key={item.id}>
                 <Link
@@ -94,9 +105,9 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
                 >
                   <NavIcon name={item.icon} />
                   <span className="flex-1">{item.label}</span>
-                  {"badge" in item && item.badge ? (
+                  {badge > 0 ? (
                     <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8965a] px-1.5 text-[11px] font-semibold text-white">
-                      {item.badge}
+                      {badge > 9 ? "9+" : badge}
                     </span>
                   ) : null}
                 </Link>
@@ -139,7 +150,13 @@ function SidebarBackdrop() {
   );
 }
 
-export default function DashboardShell({ children }: { children: React.ReactNode }) {
+export default function DashboardShell({
+  children,
+  unreadCount = 0,
+}: {
+  children: React.ReactNode;
+  unreadCount?: number;
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const isMessages = pathname === "/dashboard/messages";
@@ -185,7 +202,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       <aside className="relative hidden h-full w-[228px] shrink-0 flex-col overflow-hidden rounded-tr-[36px] rounded-br-[36px] bg-[#f8f5ef] px-4 py-5 shadow-[4px_0_24px_rgba(31,51,41,0.04)] lg:flex">
         <SidebarBackdrop />
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} unreadCount={unreadCount} logoPriority />
       </aside>
 
       {menuOpen ? (
@@ -202,7 +219,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           menuOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"
         }`}
         aria-hidden={!menuOpen}
-        inert={!menuOpen ? true : undefined}
+        inert={!menuOpen}
       >
         <button
           type="button"
@@ -215,7 +232,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           </svg>
         </button>
         <SidebarBackdrop />
-        <SidebarContent pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+        <SidebarContent pathname={pathname} onNavigate={() => setMenuOpen(false)} unreadCount={unreadCount} />
       </aside>
 
       <main className={`min-h-0 min-w-0 flex-1 ${isMessages ? "overflow-hidden bg-white" : "overflow-y-auto bg-gradient-to-br from-[#e8ece6] via-[#e2e7e0] to-[#d8ddd4] lg:overflow-hidden"}`}>

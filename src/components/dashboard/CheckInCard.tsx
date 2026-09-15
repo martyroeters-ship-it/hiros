@@ -10,7 +10,7 @@ const checkInOptions = [
 
 type CheckInChoice = (typeof checkInOptions)[number];
 
-const checkInDate = "June 8";
+const checkInDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
 export function CheckInCard({
   titleClassName,

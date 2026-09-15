@@ -27,20 +27,20 @@ const shareImage = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://hiros.com.tr"),
-  title: "Hiros",
+  title: "Hiros | Saç Dökülmesi ve Erkek Sağlığı",
   description: "Kliniğe gitmeden, özel sağlık erişimi.",
   openGraph: {
     type: "website",
     locale: "tr_TR",
     url: "/",
     siteName: "Hiros",
-    title: "Hiros",
+    title: "Hiros | Saç Dökülmesi ve Erkek Sağlığı",
     description: "Kliniğe gitmeden, özel sağlık erişimi.",
     images: [shareImage],
   },
   twitter: {
     card: "summary",
-    title: "Hiros",
+    title: "Hiros | Saç Dökülmesi ve Erkek Sağlığı",
     description: "Kliniğe gitmeden, özel sağlık erişimi.",
     images: [shareImage],
   },

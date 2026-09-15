@@ -2,7 +2,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { databaseUrl, sql } from "./db";
 
-let boot: Promise<void> | null = null;
+const globalForDb = globalThis as typeof globalThis & {
+  hirosDbBoot?: Promise<void> | null;
+};
 
 async function applyFile(relativePath: string) {
   const sqlText = await readFile(path.join(process.cwd(), relativePath), "utf8");
@@ -54,11 +56,11 @@ export async function ready() {
   if (process.env.VERCEL && !databaseUrl) {
     throw new Error("NO_DATABASE");
   }
-  if (!boot) {
-    boot = applyIfNeeded().catch((error) => {
-      boot = null;
+  if (!globalForDb.hirosDbBoot) {
+    globalForDb.hirosDbBoot = applyIfNeeded().catch((error) => {
+      globalForDb.hirosDbBoot = null;
       throw error;
     });
   }
-  await boot;
+  await globalForDb.hirosDbBoot;
 }
