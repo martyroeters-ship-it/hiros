@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { listConversations, messagePatient } from "@/lib/patients-repo";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
+    const { error } = await requireStaff();
+    if (error) return error;
     const conversations = await listConversations();
     return NextResponse.json(conversations);
   } catch (error) {
@@ -19,6 +22,8 @@ export async function POST(request: Request) {
     if (!body.caseId || !body.body?.trim()) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
+    const { error } = await requireStaff();
+    if (error) return error;
     const updated = await messagePatient(body.caseId, body.body);
     if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ok: true });

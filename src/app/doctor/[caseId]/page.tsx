@@ -13,13 +13,17 @@ import {
   type PatientPhoto,
 } from "../data";
 import { fetchCase, patchCaseTab, subscribeStoredCases } from "../store";
-import { agaScoreDeductions, generateIntakeSummary } from "../triage";
+import { agaScoreDeductions } from "../triage";
 import { useRouter } from "next/navigation";
+import { DoctorHeaderActions } from "../header-actions";
+import { localizeDoctorText, localizeList, localizedIntakeSummary } from "../localize";
+import { useDoctorLanguage } from "../use-doctor-language";
 
 /* ---------------- Top bar ---------------- */
 
 function TopBar({ caseItem }: { caseItem: PatientCase }) {
   const styles = riskStyles[caseItem.risk];
+  const { copy, language } = useDoctorLanguage();
   return (
     <header className="sticky top-0 z-30 border-b border-black/5 bg-white/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-3.5">
@@ -31,38 +35,19 @@ function TopBar({ caseItem }: { caseItem: PatientCase }) {
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
               <path d="M15 6 9 12l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Back
+            {copy.caseDetail.back}
           </Link>
           <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
             <span className="truncate font-[var(--font-geist-mono)] text-[13px] font-semibold tracking-[-0.01em] text-[#1f241b] sm:text-[15px]">
               {caseItem.id}
             </span>
             <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${styles.badge}`}>
-              {caseItem.risk}
+              {localizeDoctorText(language, caseItem.risk)}
             </span>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-          <button className="hidden items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-2 text-[13px] font-medium text-[#2b2a28] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-black/[0.02] md:flex">
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-              <path d="M12 5c4.5 0 8 4 9 7-1 3-4.5 7-9 7s-8-4-9-7c1-3 4.5-7 9-7Z" stroke="currentColor" strokeWidth="1.6" />
-              <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.6" />
-            </svg>
-            <span className="text-black/45">View as:</span>
-            <span className="font-semibold">Doctor Portal</span>
-            <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 text-black/40" aria-hidden="true">
-              <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button className="flex items-center gap-1.5 rounded-full px-2.5 py-2 text-[13px] font-semibold text-[#2b2a28] hover:bg-black/[0.04]">
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-black/45" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M3 12h18M12 3c2.5 2.4 3.8 5.6 3.8 9S14.5 18.6 12 21M12 3C9.5 5.4 8.2 8.6 8.2 12S9.5 18.6 12 21" stroke="currentColor" strokeWidth="1.4" />
-            </svg>
-            TR
-          </button>
-        </div>
+        <DoctorHeaderActions />
       </div>
     </header>
   );
@@ -96,6 +81,7 @@ function SectionCard({
 }
 
 function FlagPill({ level, count, onClick }: { level: FlagLevel; count: number; onClick?: () => void }) {
+  const { copy } = useDoctorLanguage();
   const styles =
     level === "red"
       ? "bg-[#fbcec5] text-[#a81d12]"
@@ -104,7 +90,7 @@ function FlagPill({ level, count, onClick }: { level: FlagLevel; count: number; 
   const content = (
     <>
       <span className={`h-1.5 w-1.5 rounded-full ${level === "red" ? "bg-[#d6342c]" : "bg-[#ec8a1e]"}`} />
-      {count} {level === "red" ? "high-risk" : count === 1 ? "Item Requires Review" : "Items Require Review"}
+      {count} {level === "red" ? copy.caseDetail.highRisk : copy.caseDetail.itemsRequireReview(count)}
     </>
   );
 
@@ -213,6 +199,7 @@ const icons = {
 /* ---------------- Medical Answers (collapsible) ---------------- */
 
 function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
+  const { copy, language } = useDoctorLanguage();
   const deductions = agaScoreDeductions(caseItem.answers);
   const [open, setOpen] = useState(false);
   const flags = countFlags(caseItem);
@@ -227,15 +214,15 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
       >
         <div className="flex items-center gap-2.5">
           <span className="text-black/70">{icons.doc}</span>
-          <h2 className="font-title text-[17px] font-semibold tracking-[-0.02em] text-[#1f241b]">Medical Answers</h2>
-          <span className="text-[13px] font-medium text-black/40">({caseItem.answers.length} questions)</span>
+          <h2 className="font-title text-[17px] font-semibold tracking-[-0.02em] text-[#1f241b]">{copy.caseDetail.medicalAnswers}</h2>
+          <span className="text-[13px] font-medium text-black/40">({copy.caseDetail.questions(caseItem.answers.length)})</span>
         </div>
         <div className="flex items-center gap-2.5">
           {flags.red > 0 ? <FlagPill level="red" count={flags.red} /> : null}
           {flags.orange > 0 ? <FlagPill level="orange" count={flags.orange} /> : null}
           {totalFlags === 0 ? (
             <span className="rounded-full bg-[#e6f1e2] px-2.5 py-1 text-[11.5px] font-semibold text-[#3f5f35]">
-              No flags
+              {copy.caseDetail.noFlags}
             </span>
           ) : null}
           <svg
@@ -259,11 +246,11 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[12.5px] font-medium text-black/40">{a.question}</p>
+                <p className="text-[12.5px] font-medium text-black/40">{localizeDoctorText(language, a.question)}</p>
                 <div className="flex shrink-0 items-center gap-2">
                   {deductionsByQuestion[a.question] ? (
                     <span className="text-[11px] font-semibold text-[#9a4e07]">
-                      {deductionsByQuestion[a.question].awarded} of {deductionsByQuestion[a.question].max} points
+                      {copy.caseDetail.ofPoints(deductionsByQuestion[a.question].awarded, deductionsByQuestion[a.question].max)}
                     </span>
                   ) : null}
                   {a.flag ? (
@@ -277,11 +264,11 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
                 <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 text-black/30" aria-hidden="true">
                   <path d="M5 12h13M13 7l5 5-5 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                {a.answer}
+                {localizeDoctorText(language, a.answer)}
               </div>
               {a.flagNote ? (
                 <p className={`mt-1.5 text-[12.5px] font-medium ${a.flag === "red" ? "text-[#b8503a]" : "text-[#bd7637]"}`}>
-                  {a.flagNote}
+                  {localizeDoctorText(language, a.flagNote)}
                 </p>
               ) : null}
             </div>
@@ -295,24 +282,25 @@ function MedicalAnswers({ caseItem }: { caseItem: PatientCase }) {
 /* ---------------- Triage Assessment ---------------- */
 
 function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; highlight: boolean }) {
+  const { copy, language } = useDoctorLanguage();
   const styles = riskStyles[caseItem.risk];
   const redFindings = caseItem.findings.filter((f) => f.level === "red");
   const orangeFindings = caseItem.findings.filter((f) => f.level === "orange");
 
   return (
     <SectionCard
-      title="Triage Assessment"
+      title={copy.caseDetail.triageAssessment}
       icon={icons.shield}
       right={
         <span className="text-[13px] font-medium text-black/45">
-          AGA Score: <span className="font-bold text-[#1f241b]">{caseItem.agaScore}/20</span>
+          {copy.caseDetail.agaScore}: <span className="font-bold text-[#1f241b]">{caseItem.agaScore}/20</span>
         </span>
       }
     >
       <div className="mb-5 flex items-center gap-2.5">
-        <span className={`rounded-full px-3.5 py-1 text-[13px] font-semibold ${styles.badge}`}>{caseItem.risk}</span>
+        <span className={`rounded-full px-3.5 py-1 text-[13px] font-semibold ${styles.badge}`}>{localizeDoctorText(language, caseItem.risk)}</span>
         <span className="rounded-full border border-black/10 px-3 py-1 text-[12px] font-semibold text-black/55">
-          Confidence: {confidenceFromScore(caseItem.agaScore)}
+          {copy.caseDetail.confidence}: {localizeDoctorText(language, confidenceFromScore(caseItem.agaScore))}
         </span>
       </div>
 
@@ -323,13 +311,13 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
               <path d="M12 3 2.5 19.5h19L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
               <path d="M12 10v3.5M12 16.5h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
-            High-Risk Findings (require escalation)
+            {copy.caseDetail.highRiskFindings}
           </div>
           <ul className="space-y-2 border-l-[3px] border-[#d6342c] pl-3">
             {redFindings.map((f) => (
               <li key={f.point}>
-                <p className="text-[13.5px] font-semibold text-[#1f241b]">• {f.point}</p>
-                <p className="text-[12.5px] font-medium text-[#a81d12]">{f.note}</p>
+                <p className="text-[13.5px] font-semibold text-[#1f241b]">• {localizeDoctorText(language, f.point)}</p>
+                <p className="text-[12.5px] font-medium text-[#a81d12]">{localizeDoctorText(language, f.note)}</p>
               </li>
             ))}
           </ul>
@@ -343,19 +331,19 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
               <path d="M12 3 2.5 19.5h19L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
               <path d="M12 10v3.5M12 16.5h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
-            Findings Requiring Physician Review
+            {copy.caseDetail.findingsReview}
           </div>
           <ul className="space-y-2 border-l-[3px] border-[#ec8a1e] pl-3">
             {orangeFindings.map((f) => (
               <li key={f.point}>
-                <p className="text-[13.5px] font-semibold text-[#1f241b]">• {f.point}</p>
-                <p className="text-[12.5px] font-medium text-[#9a4e07]">{f.note}</p>
+                <p className="text-[13.5px] font-semibold text-[#1f241b]">• {localizeDoctorText(language, f.point)}</p>
+                <p className="text-[12.5px] font-medium text-[#9a4e07]">{localizeDoctorText(language, f.note)}</p>
               </li>
             ))}
           </ul>
           {caseItem.triageNote ? (
             <p className="mt-3 border-t border-[#efe2bf] pt-3 text-[12px] font-medium italic text-black/45">
-              Note: {caseItem.triageNote}
+              {copy.caseDetail.note} {localizeDoctorText(language, caseItem.triageNote)}
             </p>
           ) : null}
         </div>
@@ -367,19 +355,18 @@ function TriageAssessment({ caseItem, highlight }: { caseItem: PatientCase; high
             <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
             <path d="m8.5 12 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          No concerns flagged. Pattern is consistent with androgenetic alopecia.
+          {copy.caseDetail.noConcerns}
         </div>
       ) : (
         <p className="text-[12.5px] font-medium italic text-black/45">
-          System flags indicate additional physician review is required.
+          {copy.caseDetail.flagsIndicate}
         </p>
       )}
 
       <div className="mt-5 border-t border-black/[0.06] pt-4">
-        <p className="mb-1 text-[12px] font-semibold text-black/55">System Notice:</p>
+        <p className="mb-1 text-[12px] font-semibold text-black/55">{copy.caseDetail.systemNotice}</p>
         <p className="text-[12px] leading-[1.5] text-black/40">
-          This assessment is generated automatically from patient-reported information and images. It does not constitute
-          a diagnosis or treatment recommendation. Final clinical decisions are made solely by the reviewing physician.
+          {copy.caseDetail.systemNoticeBody}
         </p>
       </div>
     </SectionCard>
@@ -404,6 +391,7 @@ function Chevron() {
 }
 
 function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
+  const { copy, language } = useDoctorLanguage();
   const router = useRouter();
   const [active, setActive] = useState<ActionKey | null>(null);
 
@@ -454,7 +442,7 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
   return (
     <aside className="lg:sticky lg:top-[84px] lg:self-start">
       <div className="rounded-[18px] border border-black/[0.06] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <h2 className="mb-5 font-title text-[17px] font-semibold tracking-[-0.02em] text-[#1f241b]">Doctor Actions</h2>
+        <h2 className="mb-5 font-title text-[17px] font-semibold tracking-[-0.02em] text-[#1f241b]">{copy.caseDetail.doctorActions}</h2>
         <div className="space-y-2.5">
           {/* Approve */}
           <button
@@ -465,23 +453,23 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
               <path d="m8.5 12 2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Approve for Treatment
+            {copy.caseDetail.approve}
           </button>
 
           {active === "approve" ? (
             <div className="space-y-4 rounded-[14px] border border-[#cfe6d3] bg-[#eaf5ec] p-4">
               <div>
-                <label className={fieldLabel}>Treatment Type *</label>
+                <label className={fieldLabel}>{copy.caseDetail.treatmentType}</label>
                 <div className="relative">
                   <select value={treatmentType} onChange={(e) => setTreatmentType(e.target.value)} className={selectCls}>
                     <option value="" disabled>
-                      Select treatment…
+                      {copy.caseDetail.selectTreatment}
                     </option>
-                    <option>Topical Finasteride</option>
-                    <option>Topical Minoxidil</option>
-                    <option>Topical Finasteride + Minoxidil</option>
-                    <option>Oral Finasteride</option>
-                    <option>Other</option>
+                    <option value="Topical Finasteride">{copy.caseDetail.topicalFinasteride}</option>
+                    <option value="Topical Minoxidil">{copy.caseDetail.topicalMinoxidil}</option>
+                    <option value="Topical Finasteride + Minoxidil">{copy.caseDetail.topicalCombo}</option>
+                    <option value="Oral Finasteride">{copy.caseDetail.oralFinasteride}</option>
+                    <option value="Other">{copy.caseDetail.other}</option>
                   </select>
                   <Chevron />
                 </div>
@@ -489,37 +477,37 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
 
               {treatmentType === "Other" ? (
                 <div>
-                  <label className={fieldLabel}>Specify treatment *</label>
+                  <label className={fieldLabel}>{copy.caseDetail.specifyTreatment}</label>
                   <input
                     value={otherTreatment}
                     onChange={(e) => setOtherTreatment(e.target.value)}
-                    placeholder="Enter treatment…"
+                    placeholder={copy.caseDetail.enterTreatment}
                     className="h-11 w-full rounded-[12px] border border-black/10 bg-white px-3.5 text-[13.5px] font-medium text-[#2b2a28] outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
                   />
                 </div>
               ) : null}
 
               <div>
-                <label className={fieldLabel}>Follow-up *</label>
+                <label className={fieldLabel}>{copy.caseDetail.followUp}</label>
                 <div className="relative">
                   <select value={followUpSchedule} onChange={(e) => setFollowUpSchedule(e.target.value)} className={selectCls}>
                     <option value="" disabled>
-                      Select follow-up schedule…
+                      {copy.caseDetail.selectFollowUp}
                     </option>
-                    <option>1 month</option>
-                    <option>3 months</option>
-                    <option>6 months</option>
+                    <option value="1 month">{copy.caseDetail.month1}</option>
+                    <option value="3 months">{copy.caseDetail.month3}</option>
+                    <option value="6 months">{copy.caseDetail.month6}</option>
                   </select>
                   <Chevron />
                 </div>
               </div>
 
               <div>
-                <label className={fieldLabel}>Note (optional)</label>
+                <label className={fieldLabel}>{copy.caseDetail.noteOptional}</label>
                 <textarea
                   value={approveNote}
                   onChange={(e) => setApproveNote(e.target.value)}
-                  placeholder="Optional note…"
+                  placeholder={copy.caseDetail.optionalNote}
                   className={textarea}
                 />
               </div>
@@ -529,7 +517,7 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
                 disabled={!treatmentType || (treatmentType === "Other" && !otherTreatment.trim()) || !followUpSchedule}
                 className="w-full rounded-[12px] bg-[#1f9d63] py-3 text-[14px] font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Confirm Approval
+                {copy.caseDetail.confirmApproval}
               </button>
             </div>
           ) : null}
@@ -542,34 +530,34 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
             <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
               <path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 3V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
             </svg>
-            Request More Info
+            {copy.caseDetail.requestInfo}
           </button>
 
           {active === "info" ? (
             <div className="space-y-4 rounded-[14px] border border-[#cdddf5] bg-[#eef3fb] p-4">
               <div>
-                <label className={fieldLabel}>Reason *</label>
+                <label className={fieldLabel}>{copy.caseDetail.reasonRequired}</label>
                 <div className="relative">
                   <select value={infoReason} onChange={(e) => setInfoReason(e.target.value)} className={selectCls}>
                     <option value="" disabled>
-                      Select reason…
+                      {copy.caseDetail.selectReason}
                     </option>
-                    <option>Better photos needed</option>
-                    <option>Clarify medications</option>
-                    <option>Clarify symptoms</option>
-                    <option>Clarify medical history</option>
-                    <option>Other</option>
+                    <option value="Better photos needed">{copy.caseDetail.betterPhotos}</option>
+                    <option value="Clarify medications">{copy.caseDetail.clarifyMeds}</option>
+                    <option value="Clarify symptoms">{copy.caseDetail.clarifySymptoms}</option>
+                    <option value="Clarify medical history">{copy.caseDetail.clarifyHistory}</option>
+                    <option value="Other">{copy.caseDetail.other}</option>
                   </select>
                   <Chevron />
                 </div>
               </div>
 
               <div>
-                <label className={fieldLabel}>Additional message (optional)</label>
+                <label className={fieldLabel}>{copy.caseDetail.additionalMessage}</label>
                 <textarea
                   value={infoMessage}
                   onChange={(e) => setInfoMessage(e.target.value)}
-                  placeholder="Optional message to patient…"
+                  placeholder={copy.caseDetail.optionalMessage}
                   className={textarea}
                 />
               </div>
@@ -579,7 +567,7 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
                 disabled={!infoReason}
                 className="w-full rounded-[12px] bg-[#3b6fe0] py-3 text-[14px] font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Send Request
+                {copy.caseDetail.sendRequest}
               </button>
             </div>
           ) : null}
@@ -593,32 +581,32 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
               <path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
-            Decline Case
+            {copy.caseDetail.decline}
           </button>
 
           {active === "decline" ? (
             <div className="space-y-4 rounded-[14px] border border-[#f1cabf] bg-[#fdf1ee] p-4">
               <div>
-                <label className={fieldLabel}>Decline reason (internal notes) *</label>
+                <label className={fieldLabel}>{copy.caseDetail.declineReason}</label>
                 <textarea
                   value={declineReason}
                   onChange={(e) => setDeclineReason(e.target.value)}
-                  placeholder="Reason…"
+                  placeholder={copy.caseDetail.reasonPlaceholder}
                   className={textarea}
                 />
               </div>
 
               <div>
-                <label className={fieldLabel}>Recommended next step *</label>
+                <label className={fieldLabel}>{copy.caseDetail.nextStep}</label>
                 <div className="relative">
                   <select value={declineNextStep} onChange={(e) => setDeclineNextStep(e.target.value)} className={selectCls}>
                     <option value="" disabled>
-                      Select…
+                      {copy.caseDetail.select}
                     </option>
-                    <option>In-person medical consultation</option>
-                    <option>Video consultation</option>
-                    <option>Phone consultation</option>
-                    <option>Written explanation only</option>
+                    <option value="In-person medical consultation">{copy.caseDetail.inPerson}</option>
+                    <option value="Video consultation">{copy.caseDetail.videoConsult}</option>
+                    <option value="Phone consultation">{copy.caseDetail.phoneConsult}</option>
+                    <option value="Written explanation only">{copy.caseDetail.writtenOnly}</option>
                   </select>
                   <Chevron />
                 </div>
@@ -629,22 +617,22 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
                 disabled={!declineReason.trim() || !declineNextStep}
                 className="w-full rounded-[12px] bg-[#d6342c] py-3 text-[14px] font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Confirm Decline
+                {copy.caseDetail.confirmDecline}
               </button>
             </div>
           ) : null}
         </div>
 
         <div className="mt-6 border-t border-black/[0.06] pt-5">
-          <p className="mb-2 text-[13px] font-semibold text-black/55">Override Triage</p>
+          <p className="mb-2 text-[13px] font-semibold text-black/55">{copy.caseDetail.override}</p>
           <div className="relative">
             <select defaultValue="" className={selectCls}>
               <option value="" disabled>
-                Override to…
+                {copy.caseDetail.overrideTo}
               </option>
-              <option value="Green">Green — low risk</option>
-              <option value="Orange">Orange — needs review</option>
-              <option value="Red">Red — escalate</option>
+              <option value="Green">{copy.caseDetail.overrideGreen}</option>
+              <option value="Orange">{copy.caseDetail.overrideOrange}</option>
+              <option value="Red">{copy.caseDetail.overrideRed}</option>
             </select>
             <Chevron />
           </div>
@@ -652,7 +640,7 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
       </div>
 
       <p className="mt-3 px-1 text-[11.5px] font-medium text-black/35">
-        Case {caseItem.id} · {caseItem.status} {caseItem.date}
+        {copy.caseDetail.caseMeta(caseItem.id, localizeDoctorText(language, caseItem.status), caseItem.date)}
       </p>
     </aside>
   );
@@ -661,6 +649,7 @@ function DoctorActions({ caseItem }: { caseItem: PatientCase }) {
 /* ---------------- Patient photos (thumbnails + lightbox) ---------------- */
 
 function PatientPhotos({ photos }: { photos: PatientPhoto[] }) {
+  const { copy, language } = useDoctorLanguage();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -732,14 +721,14 @@ function PatientPhotos({ photos }: { photos: PatientPhoto[] }) {
 
   return (
     <div className="mt-5 border-t border-black/[0.06] pt-4">
-      <p className="mb-2.5 text-[12px] font-medium text-black/40">Photos</p>
+      <p className="mb-2.5 text-[12px] font-medium text-black/40">{copy.caseDetail.photos}</p>
       <div className="flex flex-wrap gap-4">
         {photos.map((p, i) => (
           <button key={p.label} onClick={() => setOpenIndex(i)} className="group flex flex-col items-center gap-1.5">
             <div className="relative h-14 w-14 overflow-hidden rounded-[10px] border border-black/10">
               <Image src={p.src} alt={p.label} fill unoptimized className="object-cover transition group-hover:scale-105" sizes="56px" />
             </div>
-            <span className="text-[11px] font-medium text-black/45">{p.label}</span>
+            <span className="text-[11px] font-medium text-black/45">{localizeDoctorText(language, p.label)}</span>
           </button>
         ))}
       </div>
@@ -925,6 +914,7 @@ function SubHeading({ icon, children }: { icon: string; children: React.ReactNod
 }
 
 function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
+  const { copy, language } = useDoctorLanguage();
   const confidence = confidenceFromScore(caseItem.agaScore);
   const styles = riskStyles[caseItem.risk];
 
@@ -932,15 +922,11 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
   const lastActivity = `${caseItem.date}, 11:59:42 AM`;
 
   const likelihoodLabel =
-    caseItem.agaScore >= 20 ? "High likelihood" : caseItem.agaScore >= 15 ? "Moderate likelihood" : "Low likelihood";
+    caseItem.agaScore >= 20 ? copy.caseDetail.highLikelihood : caseItem.agaScore >= 15 ? copy.caseDetail.moderateLikelihood : copy.caseDetail.lowLikelihood;
   const triageProcessing =
-    caseItem.risk === "Green" ? "Routine processing" : caseItem.risk === "Orange" ? "Needs physician review" : "Escalate for review";
+    caseItem.risk === "Green" ? copy.caseDetail.routine : caseItem.risk === "Orange" ? copy.caseDetail.needsReview : copy.caseDetail.escalate;
 
-  const keyFactors = [
-    "Multiple findings consistent with classic androgenetic alopecia pattern",
-    "Strong family history present",
-    "Typical AGA pattern (temples/crown)",
-  ];
+  const keyFactors = [copy.caseDetail.factorAga, copy.caseDetail.factorFamily, copy.caseDetail.factorPattern];
 
   const consents = [
     { key: "emergency_notice", version: "v1.0", ts: "5/21/2026, 8:13:41 PM" },
@@ -954,116 +940,116 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
     <div className="space-y-6">
       {/* Header */}
       <RecordCard
-        title="Patient Clinical Record"
+        title={copy.caseDetail.clinicalTitle}
         icon={icons.shield}
-        subtitle="Generated from immutable system records."
+        subtitle={copy.caseDetail.clinicalSubtitle}
         right={
           <button className="flex items-center gap-2 rounded-[12px] bg-gradient-to-r from-[#3f5f35] to-[#5f7f4f] px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_6px_16px_rgba(63,95,53,0.25)] transition hover:brightness-105">
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
               <path d="M12 4v10m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M5 18h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
-            Download Full Patient Record
+            {copy.caseDetail.downloadRecord}
           </button>
         }
       >
         <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
           <div>
-            <p className="text-[12px] font-medium text-black/45">Case Number</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.caseNumber}</p>
             <p className="font-[var(--font-geist-mono)] text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">{caseItem.id}</p>
           </div>
           <div>
-            <p className="text-[12px] font-medium text-black/45">Status</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.status}</p>
             <span className="mt-0.5 inline-block rounded-full bg-[#1f241b] px-2.5 py-0.5 text-[11px] font-semibold text-white">
-              {caseItem.status}
+              {localizeDoctorText(language, caseItem.status)}
             </span>
           </div>
           <div>
-            <p className="text-[12px] font-medium text-black/45">First Submitted</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.firstSubmitted}</p>
             <p className="text-[14px] font-semibold text-[#1f241b]">{firstSubmitted}</p>
           </div>
           <div>
-            <p className="text-[12px] font-medium text-black/45">Last Activity</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.lastActivity}</p>
             <p className="text-[14px] font-semibold text-[#1f241b]">{lastActivity}</p>
           </div>
         </div>
       </RecordCard>
 
       {/* Patient-Reported Intake */}
-      <RecordCard title="Patient-Reported Intake (at submission)" icon={icons.user}>
+      <RecordCard title={copy.caseDetail.reportedIntake} icon={icons.user}>
         <div className="mb-4 rounded-[12px] border border-[#cdddf5] bg-[#eef3fb] px-4 py-3">
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#3a5a86]">🔒 Immutable Record</p>
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#3a5a86]">🔒 {copy.caseDetail.immutable}</p>
           <p className="mt-0.5 text-[12.5px] font-medium text-[#3a5a86]/80">
-            This information was reported by the patient and is immutable after submission. Physician decision is based on this data.
+            {copy.caseDetail.immutableBody}
           </p>
         </div>
 
-        <SubHeading icon="📋">Hair Loss History</SubHeading>
+        <SubHeading icon="📋">{copy.caseDetail.hairLossHistory}</SubHeading>
         <div className="space-y-2">
           {caseItem.answers.map((a) => (
-            <RecordRow key={a.question} label={a.question} value={a.answer} />
+            <RecordRow key={a.question} label={localizeDoctorText(language, a.question)} value={localizeDoctorText(language, a.answer)} />
           ))}
         </div>
 
-        <SubHeading icon="🔗">Medical Conditions & Medications</SubHeading>
+        <SubHeading icon="🔗">{copy.caseDetail.conditionsAndMeds}</SubHeading>
         <div className="space-y-2">
           <RecordRow
-            label="Current medications"
-            value={caseItem.currentMedications?.length ? caseItem.currentMedications.join(", ") : "None reported"}
+            label={copy.caseDetail.currentMeds}
+            value={localizeList(language, caseItem.currentMedications, copy.caseDetail.noneReported)}
             muted={!caseItem.currentMedications?.length}
           />
           <RecordRow
-            label="Medical conditions"
-            value={caseItem.medicalConditions?.length ? caseItem.medicalConditions.join(", ") : "None reported"}
+            label={copy.caseDetail.medicalConditions}
+            value={localizeList(language, caseItem.medicalConditions, copy.caseDetail.noneReported)}
             muted={!caseItem.medicalConditions?.length}
           />
         </div>
 
-        <SubHeading icon="💊">Previous Treatments</SubHeading>
+        <SubHeading icon="💊">{copy.caseDetail.previousTreatmentsHeading}</SubHeading>
         {caseItem.previousTreatments?.length ? (
           <div className="space-y-2">
             {caseItem.previousTreatments.map((t) => (
-              <RecordRow key={t.category} label={t.category} value={t.detail ?? "Reported"} />
+              <RecordRow key={t.category} label={localizeDoctorText(language, t.category)} value={localizeDoctorText(language, t.detail, "Reported")} />
             ))}
           </div>
         ) : (
           <div className="rounded-[10px] bg-[#f7f8f6] px-4 py-2.5 text-[13.5px] font-medium italic text-black/40">
-            No previous treatments reported
+            {copy.caseDetail.noPrevious}
           </div>
         )}
 
-        <SubHeading icon="🧠">Psychosocial Factors</SubHeading>
+        <SubHeading icon="🧠">{copy.caseDetail.psychosocial}</SubHeading>
         <div className="rounded-[10px] bg-[#f7f8f6] px-4 py-2.5 text-[13.5px] font-medium italic text-black/40">
-          None reported
+          {copy.caseDetail.noneReported}
         </div>
       </RecordCard>
 
       {/* Triage Basis */}
       <RecordCard
-        title="Triage Basis (System-Derived)"
+        title={copy.caseDetail.triageBasis}
         icon={icons.shield}
-        subtitle="This assessment is automated scoring and flagging based on patient-reported data."
+        subtitle={copy.caseDetail.triageBasisSubtitle}
       >
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-[14px] border border-black/[0.06] bg-[#fafbf9] p-4">
-            <p className="text-[12px] font-medium text-black/45">AGA Likelihood Score</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.agaLikelihood}</p>
             <p className="my-0.5 text-[26px] font-bold tracking-[-0.02em] text-[#1f241b]">{caseItem.agaScore}/20</p>
             <p className="text-[12px] font-medium text-black/45">{likelihoodLabel}</p>
           </div>
           <div className="rounded-[14px] border border-black/[0.06] bg-[#fafbf9] p-4">
-            <p className="text-[12px] font-medium text-black/45">Triage Color</p>
-            <span className={`my-1 inline-block rounded-[8px] px-3 py-1 text-[15px] font-bold ${styles.badge}`}>{caseItem.risk}</span>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.triageColor}</p>
+            <span className={`my-1 inline-block rounded-[8px] px-3 py-1 text-[15px] font-bold ${styles.badge}`}>{localizeDoctorText(language, caseItem.risk)}</span>
             <p className="text-[12px] font-medium text-black/45">{triageProcessing}</p>
           </div>
           <div className="rounded-[14px] border border-black/[0.06] bg-[#fafbf9] p-4">
-            <p className="text-[12px] font-medium text-black/45">System Confidence</p>
-            <p className="my-0.5 text-[22px] font-bold tracking-[-0.02em] text-[#1f241b]">{confidence}</p>
-            <p className="text-[12px] font-medium text-black/45">Pattern consistency</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.systemConfidence}</p>
+            <p className="my-0.5 text-[22px] font-bold tracking-[-0.02em] text-[#1f241b]">{localizeDoctorText(language, confidence)}</p>
+            <p className="text-[12px] font-medium text-black/45">{copy.caseDetail.patternConsistency}</p>
           </div>
         </div>
 
         <div className="mt-4 rounded-[14px] border border-black/[0.06] bg-white p-4">
-          <p className="mb-2 flex items-center gap-2 text-[13.5px] font-semibold text-[#1f241b]">🔍 Key Contributing Factors (Plain Language)</p>
+          <p className="mb-2 flex items-center gap-2 text-[13.5px] font-semibold text-[#1f241b]">🔍 {copy.caseDetail.keyFactors}</p>
           <ul className="space-y-1.5">
             {keyFactors.map((f) => (
               <li key={f} className="flex items-start gap-2 text-[13.5px] font-medium text-[#2b2a28]">
@@ -1076,7 +1062,7 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
       </RecordCard>
 
       {/* Consents */}
-      <RecordCard title="Consents & Legal Acknowledgements" icon={icons.doc} subtitle="All patient consents with timestamps.">
+      <RecordCard title={copy.caseDetail.consents} icon={icons.doc} subtitle={copy.caseDetail.consentsSubtitle}>
         <div className="space-y-2">
           {consents.map((c) => (
             <div key={c.key} className="flex items-center justify-between gap-3 rounded-[10px] bg-[#f7f8f6] px-4 py-2.5">
@@ -1085,7 +1071,7 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
                 <p className="text-[11.5px] font-medium text-black/40">{c.version}</p>
               </div>
               <div className="text-right">
-                <p className="text-[12.5px] font-semibold text-[#3f5f35]">✓ Accepted</p>
+                <p className="text-[12.5px] font-semibold text-[#3f5f35]">✓ {copy.caseDetail.accepted}</p>
                 <p className="text-[11.5px] font-medium text-black/40">{c.ts}</p>
               </div>
             </div>
@@ -1095,16 +1081,16 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
 
       {/* Photos */}
       <RecordCard
-        title="Patient-Submitted Photos"
+        title={copy.caseDetail.submittedPhotos}
         icon={icons.photo}
-        subtitle="Photos uploaded at time of submission. Physician decision is based on these images."
+        subtitle={copy.caseDetail.submittedPhotosSubtitle}
       >
         <div className="flex flex-wrap gap-3">
           {caseItem.photos.map((p, i) => (
             <div key={p.label} className="relative h-36 w-36 overflow-hidden rounded-[14px] border border-black/[0.06]">
               <Image src={p.src} alt={p.label} fill unoptimized className="object-cover" sizes="144px" />
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-3 py-2 font-[var(--font-geist-mono)] text-[12px] font-semibold text-white">
-                {recordPhotoLabels[i] ?? p.label}
+                {localizeDoctorText(language, recordPhotoLabels[i] ?? p.label)}
               </span>
             </div>
           ))}
@@ -1113,19 +1099,19 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
 
       {/* Audit Trail */}
       <RecordCard
-        title="Audit Trail (Immutable)"
+        title={copy.caseDetail.audit}
         icon={icons.shield}
-        subtitle="Chronological, append-only record of all actions related to this case. This record is immutable and cannot be deleted."
+        subtitle={copy.caseDetail.auditSubtitle}
       >
         <div className="space-y-3">
           <div className="rounded-[12px] border border-[#cfe6d3] border-l-[3px] border-l-[#5f7f4f] bg-[#f1f8ef] p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[14px] font-semibold text-[#1f241b]">
-                <span className="text-black/35">#2</span> Intake submitted
+                <span className="text-black/35">#2</span> {copy.caseDetail.intakeSubmitted}
               </p>
               <p className="text-[12px] font-medium text-black/40">{caseItem.date}, 11:59:43 AM</p>
             </div>
-            <span className="mt-1.5 inline-block rounded-full bg-black/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-black/55">Patient</span>
+            <span className="mt-1.5 inline-block rounded-full bg-black/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-black/55">{copy.caseDetail.patient}</span>
             <div className="mt-3 rounded-[10px] border border-black/[0.05] bg-white p-3 font-[var(--font-geist-mono)] text-[12.5px] leading-relaxed text-[#2b2a28]">
               <p>aga_score: {caseItem.agaScore}</p>
               <p>triage_color: {caseItem.risk}</p>
@@ -1139,12 +1125,12 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
           <div className="rounded-[12px] border border-black/10 border-l-[3px] border-l-black/25 bg-[#f7f8f6] p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[14px] font-semibold text-[#1f241b]">
-                <span className="text-black/35">#1</span> Case created
+                <span className="text-black/35">#1</span> {copy.caseDetail.caseCreated}
               </p>
               <p className="text-[12px] font-medium text-black/40">5/21/2026, 6:13:05 PM</p>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="rounded-full bg-black/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-black/55">Patient</span>
+              <span className="rounded-full bg-black/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-black/55">{copy.caseDetail.patient}</span>
               <span className="font-[var(--font-geist-mono)] text-[11.5px] font-medium text-black/35">6a0f4b3088e28cbc94ac887b</span>
             </div>
             <div className="mt-3 rounded-[10px] border border-black/[0.05] bg-white p-3 font-[var(--font-geist-mono)] text-[12.5px] text-[#2b2a28]">
@@ -1160,6 +1146,7 @@ function ClinicalRecord({ caseItem }: { caseItem: PatientCase }) {
 /* ---------------- Page ---------------- */
 
 export default function CaseDetailPage() {
+  const { copy, language } = useDoctorLanguage();
   const params = useParams<{ caseId: string }>();
   const [activeTab, setActiveTab] = useState<"review" | "record">("review");
   const [caseItem, setCaseItem] = useState<PatientCase | null | undefined>(undefined);
@@ -1176,7 +1163,7 @@ export default function CaseDetailPage() {
   if (caseItem === undefined) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-[#f4f5f3] text-[14px] font-medium text-black/40">
-        Loading case…
+        {copy.caseDetail.loading}
       </div>
     );
   }
@@ -1207,7 +1194,7 @@ export default function CaseDetailPage() {
         <div className="mb-6 flex items-center gap-2.5">
           {(["review", "record"] as const).map((t) => {
             const active = t === activeTab;
-            const label = t === "review" ? "Case Review" : "Clinical Record";
+            const label = t === "review" ? copy.caseDetail.caseReview : copy.caseDetail.clinicalRecord;
             return (
               <button
                 key={t}
@@ -1232,7 +1219,7 @@ export default function CaseDetailPage() {
           <div className="space-y-6">
             {/* Patient Summary */}
             <SectionCard
-              title="Patient Summary"
+              title={copy.caseDetail.patientSummary}
               icon={icons.user}
               right={
                 <div className="flex items-center gap-2">
@@ -1245,45 +1232,41 @@ export default function CaseDetailPage() {
                 <span className={`h-1.5 w-9 rounded-full sm:h-9 sm:w-1.5 ${styles.bar}`} />
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">{caseItem.firstName}</p>
-                  <p className="text-[12.5px] font-medium text-black/45">Patient</p>
-                  <p className="mt-2 text-[12px] leading-[1.5] text-black/55">{generateIntakeSummary(caseItem)}</p>
+                  <p className="text-[12.5px] font-medium text-black/45">{copy.caseDetail.patient}</p>
+                  <p className="mt-2 text-[12px] leading-[1.5] text-black/55">{localizedIntakeSummary(caseItem, copy, language)}</p>
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="text-[12px] font-medium text-black/40">Triage score</p>
+                  <p className="text-[12px] font-medium text-black/40">{copy.caseDetail.triageScore}</p>
                   <p className="text-[15px] font-bold text-[#1f241b]">
                     {caseItem.agaScore}/20{" "}
                     <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${styles.badge}`}>
-                      {caseItem.risk}
+                      {localizeDoctorText(language, caseItem.risk)}
                     </span>
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <SummaryField icon={icons.reason} label="Reason for consultation" value={caseItem.reason} />
-                <SummaryField icon={icons.age} label="Affected areas" value={answerValue(caseItem, "Affected areas")} />
-                <SummaryField icon={icons.pin} label="Location" value={caseItem.location} />
-                <SummaryField icon={icons.clock} label="Reported onset" value={caseItem.reportedOnset} />
+                <SummaryField icon={icons.reason} label={copy.caseDetail.reason} value={localizeDoctorText(language, caseItem.reason)} />
+                <SummaryField icon={icons.age} label={copy.caseDetail.affectedAreas} value={localizeDoctorText(language, answerValue(caseItem, "Affected areas"), copy.caseDetail.notProvided)} />
+                <SummaryField icon={icons.pin} label={copy.caseDetail.location} value={caseItem.location} />
+                <SummaryField icon={icons.clock} label={copy.caseDetail.reportedOnset} value={localizeDoctorText(language, caseItem.reportedOnset)} />
                 <div className="rounded-[14px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3.5">
                   <div className="mb-1 flex items-center gap-1.5 text-[12px] font-medium text-black/40">
                     <span className="text-black/35">{icons.pill}</span>
-                    Current medications
+                    {copy.caseDetail.currentMeds}
                   </div>
                   <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">
-                    {caseItem.currentMedications && caseItem.currentMedications.length > 0
-                      ? caseItem.currentMedications.join(", ")
-                      : "None reported"}
+                    {localizeList(language, caseItem.currentMedications, copy.caseDetail.noneReported)}
                   </p>
                 </div>
                 <div className="rounded-[14px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3.5">
                   <div className="mb-1 flex items-center gap-1.5 text-[12px] font-medium text-black/40">
                     <span className="text-black/35">{icons.doc}</span>
-                    Medical conditions
+                    {copy.caseDetail.medicalConditions}
                   </div>
                   <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#1f241b]">
-                    {caseItem.medicalConditions && caseItem.medicalConditions.length > 0
-                      ? caseItem.medicalConditions.join(", ")
-                      : "None reported"}
+                    {localizeList(language, caseItem.medicalConditions, copy.caseDetail.noneReported)}
                   </p>
                 </div>
               </div>
@@ -1293,11 +1276,11 @@ export default function CaseDetailPage() {
 
             {/* Patient-specific medical info */}
             {caseItem.medicalConditions?.length ? (
-              <SectionCard title="Medical Conditions" icon={icons.doc}>
+              <SectionCard title={copy.caseDetail.medicalConditions} icon={icons.doc}>
                 <div className="space-y-2">
                   {caseItem.medicalConditions.map((m) => (
                     <div key={m} className="rounded-[12px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3 text-[14px] font-medium text-[#1f241b]">
-                      {m}
+                      {localizeDoctorText(language, m)}
                     </div>
                   ))}
                 </div>
@@ -1305,11 +1288,11 @@ export default function CaseDetailPage() {
             ) : null}
 
             {caseItem.currentMedications?.length ? (
-              <SectionCard title="Current Medications" icon={icons.pill}>
+              <SectionCard title={copy.caseDetail.currentMeds} icon={icons.pill}>
                 <div className="space-y-2">
                   {caseItem.currentMedications.map((m) => (
                     <div key={m} className="rounded-[12px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3 text-[14px] font-medium text-[#1f241b]">
-                      {m}
+                      {localizeDoctorText(language, m)}
                     </div>
                   ))}
                 </div>
@@ -1317,14 +1300,14 @@ export default function CaseDetailPage() {
             ) : null}
 
             {caseItem.previousTreatments?.length ? (
-              <SectionCard title="Previous Hair Loss Treatments" icon={icons.doc}>
+              <SectionCard title={copy.caseDetail.previousTreatments} icon={icons.doc}>
                 <div className="rounded-[12px] border border-black/[0.05] bg-[#fafbf9] px-4 py-3.5">
-                  <p className="mb-1.5 text-[12.5px] font-medium text-black/45">Treatments tried:</p>
+                  <p className="mb-1.5 text-[12.5px] font-medium text-black/45">{copy.caseDetail.treatmentsTried}</p>
                   <ul className="space-y-1.5">
                     {caseItem.previousTreatments.map((t) => (
                       <li key={t.category}>
-                        <p className="text-[14px] font-medium text-[#1f241b]">• {t.category}</p>
-                        {t.detail ? <p className="pl-3 text-[12.5px] font-medium italic text-black/45">{t.detail}</p> : null}
+                        <p className="text-[14px] font-medium text-[#1f241b]">• {localizeDoctorText(language, t.category)}</p>
+                        {t.detail ? <p className="pl-3 text-[12.5px] font-medium italic text-black/45">{localizeDoctorText(language, t.detail)}</p> : null}
                       </li>
                     ))}
                   </ul>
@@ -1342,8 +1325,8 @@ export default function CaseDetailPage() {
 
 <p className="px-1 text-[12px] font-medium text-black/35">
               {totalFlags === 0
-                ? "No flags raised during intake."
-                : `${totalFlags} item${totalFlags > 1 ? "s" : ""} flagged for physician review.`}
+                ? copy.caseDetail.noFlagsRaised
+                : copy.caseDetail.itemsFlagged(totalFlags)}
             </p>
           </div>
 

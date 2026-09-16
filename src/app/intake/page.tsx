@@ -9,6 +9,8 @@ import { createCaseFromIntake } from "../doctor/store";
 import { determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
 import { useIntakeCopy } from "@/i18n/LanguageProvider";
 import { signInWithGoogle } from "@/lib/google-signin";
+import { IbanTransferCard } from "@/components/IbanTransferCard";
+import { DEMO_PHYSICIAN } from "@/lib/demo-physician";
 
 type IntakeStep = {
   id: string;
@@ -238,8 +240,8 @@ const medicalSteps: IntakeStep[] = [
   },
   {
     id: "payment-method",
-    title: "Select payment method",
-    description: "Add a payment method now. You won’t be charged unless treatment is approved by your physician.",
+    title: "Payment",
+    description: "₺750 for the first month. Refunded if your physician does not approve.",
     options: [],
   },
   {
@@ -257,9 +259,9 @@ const medicalSteps: IntakeStep[] = [
 ];
 
 const assignedDoctor = {
-  name: "Dr. Emre Kaya",
-  role: "Licensed physician",
-  imageSrc: "/why_hiros_doctors.webp",
+  name: DEMO_PHYSICIAN.fullName,
+  role: DEMO_PHYSICIAN.role,
+  imageSrc: DEMO_PHYSICIAN.imageSrc,
   intro: "Assigned to review your medical intake and help guide the next appropriate step based on the answers you share.",
   details: [
     "Focused on structured hair-loss intake review",
@@ -275,12 +277,10 @@ export default function IntakePage() {
   const intake = useIntakeCopy();
   const photoCheckTextBlocks = [...intake.photoCheck];
   const postCameraInterstitialTextBlocks = [...intake.postCamera];
-  const finalReviewInterstitialTextBlocks = [...intake.finalReview];
   const preAuthInterstitialTextBlocks = [...intake.preAuth];
   const cameraPrepPoints = [...intake.cameraPrep.points];
   const totalPhotoCheckCharacters = photoCheckTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
   const totalPostCameraInterstitialCharacters = postCameraInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-  const totalFinalReviewInterstitialCharacters = finalReviewInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
   const totalPreAuthInterstitialCharacters = preAuthInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
   const totalCameraPrepPoints = cameraPrepPoints.length;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -347,6 +347,7 @@ export default function IntakePage() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const [signedInEmail, setSignedInEmail] = useState("");
+  const [intakeSaveStatus, setIntakeSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const advanceTimeoutRef = useRef<number | null>(null);
   const fadeTimeoutRef = useRef<number | null>(null);
   const locationReadyTimeoutRef = useRef<number | null>(null);
@@ -371,6 +372,7 @@ export default function IntakePage() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const treatmentTypesDropdownRef = useRef<HTMLDivElement | null>(null);
   const treatmentSideEffectsDropdownRef = useRef<HTMLDivElement | null>(null);
+  const hasSubmittedCaseRef = useRef(false);
   const preAuthInterstitialIndex = intakeSteps.length;
   const authStepIndex = preAuthInterstitialIndex + 1;
   const locationStepIndex = authStepIndex + 1;
@@ -390,15 +392,18 @@ export default function IntakePage() {
   const isLocationStep = currentStepIndex === locationStepIndex;
 
   useEffect(() => {
-    if (!isAuthStep) return;
     void fetch("/api/auth/me", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) return;
-        const user = (await res.json()) as { email?: string };
+        const user = (await res.json()) as { email?: string; hasCase?: boolean };
+        if (user.hasCase) {
+          window.location.replace("/dashboard");
+          return;
+        }
         if (user.email) setSignedInEmail(user.email);
       })
       .catch(() => undefined);
-  }, [isAuthStep]);
+  }, []);
   const isMatchingStep = currentStepIndex === matchingStepIndex;
   const isMedicalStep = currentStepIndex >= medicalStartIndex && currentStepIndex <= medicalEndIndex;
   const isFirstMedicalStep = currentStepIndex === medicalStartIndex;
@@ -451,6 +456,16 @@ export default function IntakePage() {
   const isCameraCaptureStep = currentStep?.id === "camera-capture";
   const isPostCameraInterstitialStep = currentStep?.id === "post-camera-interstitial";
   const isFinalReviewInterstitialStep = currentStep?.id === "review-submit-interstitial";
+  const finalReviewInterstitialTextBlocks =
+    intakeSaveStatus === "saved"
+      ? [...intake.finalReview]
+      : intakeSaveStatus === "error"
+        ? [intake.save.errorTitle, intake.save.errorBody]
+        : [intake.save.savingTitle, intake.save.savingBody];
+  const totalFinalReviewInterstitialCharacters = finalReviewInterstitialTextBlocks.reduce(
+    (totalCount, textBlock) => totalCount + textBlock.length,
+    0,
+  );
   const isNextStepsInterstitialStep = currentStep?.id === "next-steps";
   const isRecommendationInterstitialStep = currentStep?.id === "recommendation-interstitial";
   const isShippingInfoStep = currentStep?.id === "shipping-info";
@@ -498,40 +513,48 @@ export default function IntakePage() {
   }, [isPaymentMethodStep, recommendedTreatment, selectedAnswers, medicalFollowUpText, treatmentSelections, treatmentOtherDetail, treatmentSideEffectsLevel, selectedCity, shippingFormData.firstName, capturedPhotos]);
 
   // Persist the completed intake as a doctor-dashboard case (once).
-  const hasSubmittedCaseRef = useRef(false);
-  useEffect(() => {
-    if (!isFinalReviewInterstitialStep || hasSubmittedCaseRef.current) {
-      return;
-    }
+  const persistCompletedIntake = useCallback(async () => {
+    if (hasSubmittedCaseRef.current) return;
     hasSubmittedCaseRef.current = true;
-
-    void createCaseFromIntake({
-      answers: selectedAnswers,
-      followUpText: medicalFollowUpText,
-      treatmentSelections,
-      treatmentOtherDetail,
-      sideEffectsLevel: treatmentSideEffectsLevel,
-      city: selectedCity,
-      firstName: shippingFormData.firstName,
-      lastName: shippingFormData.lastName,
-      postalCode: shippingFormData.postalCode,
-      phone: shippingFormData.phone,
-      province: shippingFormData.province,
-      photos: Object.values(capturedPhotos),
-    }).catch((error) => {
+    setIntakeSaveStatus("saving");
+    try {
+      await createCaseFromIntake({
+        answers: selectedAnswers,
+        followUpText: medicalFollowUpText,
+        treatmentSelections,
+        treatmentOtherDetail,
+        sideEffectsLevel: treatmentSideEffectsLevel,
+        city: selectedCity,
+        firstName: shippingFormData.firstName,
+        lastName: shippingFormData.lastName,
+        postalCode: shippingFormData.postalCode,
+        phone: shippingFormData.phone,
+        province: shippingFormData.province,
+        photos: Object.values(capturedPhotos),
+      });
+      setIntakeSaveStatus("saved");
+    } catch (error) {
+      hasSubmittedCaseRef.current = false;
+      setIntakeSaveStatus("error");
       console.error(error);
-    });
+    }
   }, [
-    isFinalReviewInterstitialStep,
     selectedAnswers,
     medicalFollowUpText,
     treatmentSelections,
     treatmentOtherDetail,
     treatmentSideEffectsLevel,
     selectedCity,
-    shippingFormData.firstName,
+    shippingFormData,
     capturedPhotos,
   ]);
+
+  useEffect(() => {
+    if (!isFinalReviewInterstitialStep || intakeSaveStatus !== "idle") {
+      return;
+    }
+    void persistCompletedIntake();
+  }, [isFinalReviewInterstitialStep, intakeSaveStatus, persistCompletedIntake]);
   useEffect(() => {
     if (isShippingInfoStep) {
       setShippingFlowStep(1);
@@ -600,8 +623,17 @@ export default function IntakePage() {
         : cameraCountdownValue !== null
           ? intake.camera.capturing
           : intake.camera.capture;
-  const interstitialPrimaryButtonLabel = isFinalReviewInterstitialStep ? intake.goToProfile : intake.continue;
-  const isInterstitialButtonVisible = isFinalReviewInterstitialStep ? true : isPhotoCheckButtonVisible;
+  const interstitialPrimaryButtonLabel =
+    isFinalReviewInterstitialStep
+      ? intakeSaveStatus === "saved"
+        ? intake.goToProfile
+        : intakeSaveStatus === "error"
+          ? intake.save.retry
+          : intake.save.savingButton
+      : intake.continue;
+  const isInterstitialButtonVisible = isFinalReviewInterstitialStep
+    ? intakeSaveStatus !== "idle"
+    : isPhotoCheckButtonVisible;
   const activeInterstitialTextBlocks = isPreAuthInterstitialStep
     ? preAuthInterstitialTextBlocks
     : isPostCameraInterstitialStep
@@ -617,11 +649,13 @@ export default function IntakePage() {
         ? totalFinalReviewInterstitialCharacters
         : totalPhotoCheckCharacters;
   let remainingInterstitialCharacters = photoCheckVisibleCharacterCount;
-  const visibleInterstitialTextBlocks = activeInterstitialTextBlocks.map((textBlock) => {
-    const visibleCharacterCount = Math.max(0, Math.min(textBlock.length, remainingInterstitialCharacters));
-    remainingInterstitialCharacters -= textBlock.length;
-    return textBlock.slice(0, visibleCharacterCount);
-  });
+  const visibleInterstitialTextBlocks = (isFinalReviewInterstitialStep
+    ? activeInterstitialTextBlocks
+    : activeInterstitialTextBlocks.map((textBlock) => {
+        const visibleCharacterCount = Math.max(0, Math.min(textBlock.length, remainingInterstitialCharacters));
+        remainingInterstitialCharacters -= textBlock.length;
+        return textBlock.slice(0, visibleCharacterCount);
+      }));
   const canContinueMedicalFollowUp = currentStep?.id === "final-notes"
     ? (selectedOption === "Yes"
         ? currentMedicalTextValue.trim().length > 0
@@ -1714,9 +1748,13 @@ export default function IntakePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: authPassword }),
       });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string };
+      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string; hasCase?: boolean };
       if (!res.ok) {
         setAuthError(payload.error || (authMode === "signup" ? "Could not create account." : "Could not sign in."));
+        return;
+      }
+      if (payload.hasCase) {
+        window.location.replace("/dashboard");
         return;
       }
       setSignedInEmail(payload.email || email);
@@ -1733,6 +1771,10 @@ export default function IntakePage() {
     setAuthError("");
     try {
       const user = await signInWithGoogle();
+      if (user.hasCase) {
+        window.location.replace("/dashboard");
+        return;
+      }
       if (user.email) setSignedInEmail(user.email);
       continuePastAuth();
     } catch (error) {
@@ -1904,7 +1946,7 @@ export default function IntakePage() {
         <section
           className={`mx-auto flex w-full min-w-0 max-w-[1440px] flex-1 justify-center ${
             isCameraCaptureStep
-              ? "min-h-0 flex-1 flex-col items-stretch pt-3 sm:items-start sm:pt-0"
+              ? "min-h-0 flex-1 flex-col items-center pt-3 sm:pt-0"
               : isMatchingStep ||
                   isRecommendationInterstitialStep ||
                   isPhotoCheckStep ||
@@ -1929,7 +1971,7 @@ export default function IntakePage() {
 
           {isAuthStep ? (
             <div className="w-full max-w-[520px] pt-3">
-              <h1 className="text-center font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+              <h1 className="text-center font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#2b2a28]">
                 {intake.auth.title}
               </h1>
               <p className="mx-auto mt-3 max-w-[34ch] text-center text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:mt-4 sm:text-[17px]">
@@ -1984,7 +2026,20 @@ export default function IntakePage() {
                     </p>
                     <button
                       type="button"
-                      onClick={continuePastAuth}
+                      onClick={() => {
+                        void fetch("/api/auth/me", { cache: "no-store" })
+                          .then(async (res) => {
+                            if (res.ok) {
+                              const user = (await res.json()) as { hasCase?: boolean };
+                              if (user.hasCase) {
+                                window.location.replace("/dashboard");
+                                return;
+                              }
+                            }
+                            continuePastAuth();
+                          })
+                          .catch(() => continuePastAuth());
+                      }}
                       className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white"
                     >
                       {intake.auth.continueAs}
@@ -2196,27 +2251,27 @@ export default function IntakePage() {
             </div>
           ) : isMatchingStep ? (
             <div className="flex w-full max-w-[560px] flex-col items-center justify-center px-4 text-center">
-              <div className="relative flex h-24 w-24 items-center justify-center sm:h-40 sm:w-40">
+              <div className="relative flex h-16 w-16 items-center justify-center sm:h-24 sm:w-24">
                 <span
-                  className={`absolute inset-0 rounded-full border-[3px] border-transparent border-t-[#5f7f4f] border-r-[#8ea57a] border-b-[#4b6942] transition-opacity duration-500 sm:border-[4px] ${
+                  className={`absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-[#5f7f4f] border-r-[#8ea57a] border-b-[#4b6942] transition-opacity duration-500 sm:border-[3px] ${
                     matchingStage === "loading" ? "animate-spin opacity-100" : "opacity-0"
                   }`}
                   aria-hidden="true"
                 />
-                <span className="absolute flex h-16 w-16 items-center justify-center transition-all duration-500 sm:h-32 sm:w-32">
+                <span className="absolute flex h-11 w-11 items-center justify-center transition-all duration-500 sm:h-16 sm:w-16">
                   {matchingStage === "success" ? (
-                    <svg viewBox="0 0 20 20" fill="none" className="h-7 w-7 text-[#5f7f4f] sm:h-11 sm:w-11" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5 text-[#5f7f4f] sm:h-7 sm:w-7" aria-hidden="true">
                       <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   ) : (
                     <Image
                       src="/hiros_h.png"
                       alt="Hiros"
-                      width={90}
-                      height={90}
+                      width={56}
+                      height={56}
                       priority
                       unoptimized
-                      className="h-12 w-auto sm:h-[90px]"
+                      className="h-8 w-auto sm:h-12"
                     />
                   )}
                 </span>
@@ -2228,14 +2283,24 @@ export default function IntakePage() {
             </div>
           ) : isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? (
             <div className={`w-full min-w-0 max-w-[700px] transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
-              <div className={`flex w-full min-w-0 flex-col items-stretch gap-6 ${isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? "pb-0" : "pb-2"} sm:items-center sm:gap-16`}>
+              <div
+                className={`flex w-full min-w-0 flex-col gap-6 ${
+                  isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? "pb-0" : "pb-2"
+                } ${
+                  isNextStepsInterstitialStep || isRecommendationInterstitialStep
+                    ? "items-stretch sm:items-center sm:gap-16"
+                    : "items-center gap-8 sm:gap-16"
+                }`}
+              >
                 <div className={`mx-auto min-w-0 ${isPostCameraInterstitialStep ? "w-full max-w-[34rem]" : isRecommendationInterstitialStep ? "w-full" : "w-full max-w-[34rem]"}`}>
-                  <div className="space-y-4 text-left sm:space-y-10">
+                  <div
+                    className="space-y-4 text-left sm:space-y-10"
+                  >
                     {isNextStepsInterstitialStep ? (
                       <div className="w-full">
                         <div className="relative">
-                          <h1 className="invisible whitespace-pre-wrap break-words font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">{intake.nextSteps.title}</h1>
-                          <h1 className="absolute inset-0 whitespace-pre-wrap break-words font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                          <h1 className="invisible whitespace-pre-wrap break-words font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">{intake.nextSteps.title}</h1>
+                          <h1 className="absolute inset-0 whitespace-pre-wrap break-words font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">
                             {intake.nextSteps.title.slice(0, nextStepsTitleVisibleCount)}
                           </h1>
                         </div>
@@ -2361,7 +2426,7 @@ export default function IntakePage() {
 
                             <div className="mt-5 rounded-[14px] bg-[#faf7f2] p-4">
                               <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#c77e57]">{intake.recommend.expectedCost}</p>
-                              <p className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#2b2a28]">₺500–750 / month</p>
+                              <p className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#2b2a28]">₺750 / month</p>
                             </div>
 
                             <div className="mt-4">
@@ -2423,7 +2488,7 @@ export default function IntakePage() {
                       </div>
                       </>
                     ) : null}
-                    {isFinalReviewInterstitialStep ? (
+                    {isFinalReviewInterstitialStep && intakeSaveStatus === "saved" ? (
                       <div className="flex w-full items-center justify-center">
                         <svg
                           width="84"
@@ -2450,11 +2515,11 @@ export default function IntakePage() {
                       </div>
                     ) : null}
                     {!(isNextStepsInterstitialStep || isRecommendationInterstitialStep) ? (
-                    <div className="relative w-full min-w-0 max-w-[34rem]">
-                      <p className="invisible w-full whitespace-pre-wrap break-words font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                    <div className="relative w-full min-w-0">
+                      <p className="invisible w-full whitespace-pre-wrap break-words text-left font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em]">
                         {activeInterstitialTextBlocks[0]}
                       </p>
-                      <p className="absolute inset-0 w-full max-w-full font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                      <p className="absolute inset-0 w-full max-w-full text-left font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">
                         {visibleInterstitialTextBlocks[0].split("\n").map((line, lineIndex) => (
                           <span key={`photo-check-primary-${lineIndex}`} className="block whitespace-pre-wrap break-words">
                             {line === "" ? "\u00A0" : line}
@@ -2465,21 +2530,21 @@ export default function IntakePage() {
                     ) : null}
 
                     {!(isNextStepsInterstitialStep || isRecommendationInterstitialStep) ? (
-                    <div className="relative w-full min-w-0 max-w-[34rem]">
+                    <div className="relative w-full min-w-0">
                       <p
-                        className={`invisible w-full whitespace-pre-wrap break-words font-medium ${
+                        className={`invisible w-full whitespace-pre-wrap break-words text-left font-medium ${
                           isPostCameraInterstitialStep
-                            ? "text-[22px] leading-[1.2] tracking-[-0.03em] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]"
-                            : "text-[15px] leading-[1.4] tracking-[-0.03em] sm:text-[22px] sm:leading-[1.18] sm:tracking-[-0.04em]"
+                            ? "text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] leading-[1.18] tracking-[-0.04em]"
+                            : "text-[clamp(0.9375rem,0.82rem+1.1vw,1.375rem)] leading-[1.45] tracking-[-0.03em]"
                         }`}
                       >
                         {activeInterstitialTextBlocks[1]}
                       </p>
                       <p
-                        className={`absolute inset-0 w-full max-w-full whitespace-pre-wrap break-words font-medium text-[#c77e57] ${
+                        className={`absolute inset-0 w-full max-w-full whitespace-pre-wrap break-words text-left font-medium text-[#c77e57] ${
                           isPostCameraInterstitialStep
-                            ? "text-[22px] leading-[1.2] tracking-[-0.03em] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]"
-                            : "text-[15px] leading-[1.4] tracking-[-0.03em] sm:text-[22px] sm:leading-[1.18] sm:tracking-[-0.04em]"
+                            ? "text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] leading-[1.18] tracking-[-0.04em]"
+                            : "text-[clamp(0.9375rem,0.82rem+1.1vw,1.375rem)] leading-[1.45] tracking-[-0.03em]"
                         }`}
                       >
                         {visibleInterstitialTextBlocks[1].split("\n").map((line, lineIndex) => (
@@ -2493,7 +2558,7 @@ export default function IntakePage() {
                   </div>
 
                   {!isNextStepsInterstitialStep && !isRecommendationInterstitialStep ? (
-                  <div className={`flex ${isFinalReviewInterstitialStep ? "mt-8 min-h-[56px] sm:mt-[40px]" : "mt-8 min-h-[56px] sm:mt-[56px] sm:min-h-[72px]"} w-full items-end justify-start`}>
+                  <div className={`flex ${isFinalReviewInterstitialStep ? "mt-8 min-h-[56px] sm:mt-[40px]" : "mt-8 min-h-[56px] sm:mt-[56px] sm:min-h-[72px]"} w-full items-end`}>
                     {isPreAuthInterstitialStep ? (
                       <button
                         type="button"
@@ -2501,7 +2566,7 @@ export default function IntakePage() {
                         disabled={!isInterstitialButtonVisible}
                         aria-hidden={!isInterstitialButtonVisible}
                         tabIndex={isInterstitialButtonVisible ? 0 : -1}
-                        className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                        className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2510,9 +2575,10 @@ export default function IntakePage() {
                         {interstitialPrimaryButtonLabel}
                       </button>
                     ) : isFinalReviewInterstitialStep ? (
+                      intakeSaveStatus === "saved" ? (
                       <Link
                         href="/dashboard"
-                        className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-center text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                        className={`w-full rounded-full px-5 py-3 text-center text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2520,6 +2586,25 @@ export default function IntakePage() {
                       >
                         {interstitialPrimaryButtonLabel}
                       </Link>
+                      ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (intakeSaveStatus !== "error") return;
+                          void persistCompletedIntake();
+                        }}
+                        disabled={intakeSaveStatus !== "error"}
+                        aria-hidden={!isInterstitialButtonVisible}
+                        tabIndex={isInterstitialButtonVisible ? 0 : -1}
+                        className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                          isInterstitialButtonVisible
+                            ? "translate-y-0 bg-[#11110f] text-white opacity-100"
+                            : "translate-y-2 bg-black/10 text-black/30 opacity-0"
+                        }`}
+                      >
+                        {interstitialPrimaryButtonLabel}
+                      </button>
+                      )
                     ) : (
                       <button
                         type="button"
@@ -2527,7 +2612,7 @@ export default function IntakePage() {
                         disabled={!isInterstitialButtonVisible}
                         aria-hidden={!isInterstitialButtonVisible}
                         tabIndex={isInterstitialButtonVisible ? 0 : -1}
-                        className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                        className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2543,13 +2628,13 @@ export default function IntakePage() {
             </div>
           ) : isCameraPrepStep ? (
             <div className={`w-full ${isShippingInfoStep ? "max-w-[980px]" : "max-w-[700px]"} transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
-              <div className="flex w-full min-w-0 flex-col items-stretch gap-6 pb-2 sm:items-center sm:gap-16">
+              <div className="flex w-full min-w-0 flex-col items-center gap-8 pb-2 sm:gap-16">
                 <div className="w-full min-w-0 max-w-[34rem] text-left">
-                  <h1 className="font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#c77e57] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
+                  <h1 className="font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">
                     {intake.cameraPrep.title}
                   </h1>
 
-                  <div className="mt-6 space-y-4 sm:mt-12 sm:space-y-7">
+                  <div className="mt-6 space-y-4 text-left sm:mt-12 sm:space-y-7">
                     {cameraPrepPoints.map((prepPoint, index) => {
                       const isVisible = index < cameraPrepVisiblePointCount;
 
@@ -2565,7 +2650,7 @@ export default function IntakePage() {
                               <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                           </span>
-                          <p className="text-[20px] font-medium leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">
+                          <p className="text-[clamp(1rem,0.9rem+1vw,1.5rem)] font-medium leading-[1.3] tracking-[-0.03em] text-[#2b2a28]">
                             {prepPoint}
                           </p>
                         </div>
@@ -2574,14 +2659,14 @@ export default function IntakePage() {
                   </div>
                 </div>
 
-                <div className="flex min-h-[72px] w-full max-w-[34rem] items-end justify-start mt-0">
+                <div className="mt-0 flex min-h-[72px] w-full max-w-[34rem] items-end">
                   <button
                     type="button"
                     onClick={handleCameraPrepContinue}
                     disabled={!isCameraPrepButtonVisible}
                     aria-hidden={!isCameraPrepButtonVisible}
                     tabIndex={isCameraPrepButtonVisible ? 0 : -1}
-                    className={`w-full max-w-[500px] self-start rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                    className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
                       isCameraPrepButtonVisible
                         ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                         : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2593,8 +2678,8 @@ export default function IntakePage() {
               </div>
             </div>
           ) : isCameraCaptureStep ? (
-            <div className={`flex h-full min-h-0 w-full max-w-[1080px] flex-col transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
-              <div className="flex min-h-0 w-full flex-1 flex-col sm:flex-none">
+            <div className={`mx-auto flex h-full min-h-0 w-full max-w-[1080px] flex-col items-center transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
+              <div className="flex min-h-0 w-full flex-1 flex-col items-center sm:flex-none">
                 <div className="mx-auto flex min-h-0 w-full flex-1 overflow-hidden rounded-[24px] bg-[#ece4d7] shadow-[0_24px_60px_rgba(0,0,0,0.12)] sm:w-[60vw] sm:max-w-[820px] sm:flex-none sm:rounded-[30px]">
                   <div className="relative min-h-0 w-full flex-1 bg-[#e7ddcf] sm:h-[74vh] sm:min-h-[640px] sm:max-h-[900px] sm:flex-none">
                     {capturedCameraImage ? (
@@ -2874,66 +2959,26 @@ export default function IntakePage() {
                       {intake.payment.subtitle}
                     </p>
 
-                    <div className="mb-2 flex items-center justify-between">
-                      <label className="text-[14px] font-semibold tracking-[-0.02em] text-[#2b2a28]">{intake.payment.cardLabel}</label>
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-black/55">
-                        <span className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-1.5 py-0.5">
-                          <svg aria-hidden="true" width="14" height="10" viewBox="0 0 24 16" className="text-[#1a1f71]"><rect x="1" y="2" width="22" height="12" rx="2" fill="currentColor" opacity="0.1"/></svg>
-                          <span>Visa</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-1.5 py-0.5">
-                          <svg aria-hidden="true" width="14" height="10" viewBox="0 0 24 16"><circle cx="9" cy="8" r="4" fill="#EB001B"/><circle cx="15" cy="8" r="4" fill="#F79E1B"/></svg>
-                          <span>Mastercard</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-1.5 py-0.5">
-                          <svg aria-hidden="true" width="14" height="10" viewBox="0 0 24 16" className="text-[#007a3d]"><rect x="1" y="2" width="22" height="12" rx="2" fill="currentColor" opacity="0.12"/></svg>
-                          <span>Troy</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-1.5 py-0.5">
-                          <svg aria-hidden="true" width="14" height="10" viewBox="0 0 24 16" className="text-black"><rect x="1" y="2" width="22" height="12" rx="2" fill="currentColor" opacity="0.12"/></svg>
-                          <span>Apple Pay</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-1.5 py-0.5">
-                          <svg aria-hidden="true" width="14" height="10" viewBox="0 0 24 16"><rect x="1" y="2" width="22" height="12" rx="2" fill="#4285F4" opacity="0.12"/></svg>
-                          <span>Google Pay</span>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-stretch gap-2 rounded-[14px] border border-black/10 bg-[#fffef9] p-2">
-                      <div className="flex items-center pl-2 pr-1 text-black/50">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                          <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" strokeWidth="1.7" />
-                          <rect x="3" y="9" width="18" height="3" fill="currentColor" opacity="0.12" />
-                        </svg>
-                      </div>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder={intake.payment.cardNumber}
-                        className="flex-1 rounded-[10px] bg-transparent px-2 py-2 text-[16px] font-medium tracking-[0.02em] text-[#262522] outline-none placeholder:text-black/35"
-                      />
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-[12px] bg-[#2b2a28] px-3 py-2 text-[13px] font-semibold text-white hover:brightness-110"
-                        onClick={() => {}}
-                      >
-                        {intake.payment.autofill}
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="mt-5 w-full rounded-[20px] bg-[#0e1b24] py-3 text-[15px] font-semibold tracking-[-0.02em] text-white shadow-[0_10px_26px_rgba(0,0,0,0.08)] hover:brightness-110 sm:py-4 sm:text-[16px]"
-                      onClick={() => advanceToStep(finalReviewStepIndex)}
-                    >
-                      {intake.payment.submitReview}
-                    </button>
-
-                    
-
-                    <p className="mt-4 text-center text-[12px] leading-[1.4] tracking-[-0.01em] text-black/55">
-                      {intake.payment.fdaNote}
-                    </p>
+                    <IbanTransferCard
+                      copy={intake.payment}
+                      reference={
+                        [shippingFormData.firstName, shippingFormData.lastName].filter(Boolean).join(" ").trim() ||
+                        signedInEmail ||
+                        "Hiros"
+                      }
+                      continueLabel={intake.payment.payLater}
+                      onContinue={() => {
+                        const reference =
+                          [shippingFormData.firstName, shippingFormData.lastName].filter(Boolean).join(" ").trim() ||
+                          signedInEmail ||
+                          "Hiros";
+                        setSelectedAnswers((current) => ({
+                          ...current,
+                          payment: `IBAN ₺750 later from dashboard · ${reference}`,
+                        }));
+                        advanceToStep(finalReviewStepIndex);
+                      }}
+                    />
                   </div>
                 </>
               ) : (

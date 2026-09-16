@@ -2,10 +2,12 @@ import postgres from "postgres";
 
 export const databaseUrl =
   process.env.DATABASE_OWNER_URL ||
+  process.env.POSTGRES_DATABASE_URL_UNPOOLED ||
+  process.env.POSTGRES_URL_NON_POOLING ||
   process.env.DATABASE_URL ||
+  process.env.POSTGRES_DATABASE_URL ||
   process.env.POSTGRES_URL ||
   process.env.POSTGRES_PRISMA_URL ||
-  process.env.POSTGRES_URL_NON_POOLING ||
   process.env.STORAGE_POSTGRES_URL ||
   process.env.STORAGE_URL ||
   "";

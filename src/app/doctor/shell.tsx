@@ -9,9 +9,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { DoctorHeaderActions } from "./header-actions";
 import { DOCTOR_SETTINGS_EVENT, loadDoctorSettings } from "./settings-store";
 import { subscribeStoredCases } from "./store";
 import { applyDoctorTabAlert } from "./tab-alert";
+import { useDoctorLanguage } from "./use-doctor-language";
 
 type BadgeCounts = { now: number; cases: number; agenda: number; messages: number };
 
@@ -50,20 +52,25 @@ export function DoctorNavBadgesProvider({ children }: { children: ReactNode }) {
     };
   }, [pathname]);
 
-  useEffect(() => applyDoctorTabAlert(badges.cases), [badges.cases]);
+  useEffect(() => {
+    const apply = () => applyDoctorTabAlert(badges.cases);
+    apply();
+    window.addEventListener(DOCTOR_SETTINGS_EVENT, apply);
+    return () => window.removeEventListener(DOCTOR_SETTINGS_EVENT, apply);
+  }, [badges.cases]);
 
   return <DoctorNavBadgesContext.Provider value={badges}>{children}</DoctorNavBadgesContext.Provider>;
 }
 
 export type DoctorSection = "now" | "cases" | "patients" | "agenda" | "messages" | "settings";
 
-const navItems: { key: DoctorSection; title: string; href: string }[] = [
-  { key: "now", title: "Recent activity", href: "/doctor" },
-  { key: "cases", title: "Cases", href: "/doctor/cases" },
-  { key: "patients", title: "Patients", href: "/doctor/patients" },
-  { key: "agenda", title: "Agenda", href: "/doctor/agenda" },
-  { key: "messages", title: "Messages", href: "/doctor/messages" },
-  { key: "settings", title: "Settings", href: "/doctor/settings" },
+const navHrefs: { key: DoctorSection; href: string }[] = [
+  { key: "now", href: "/doctor" },
+  { key: "cases", href: "/doctor/cases" },
+  { key: "patients", href: "/doctor/patients" },
+  { key: "agenda", href: "/doctor/agenda" },
+  { key: "messages", href: "/doctor/messages" },
+  { key: "settings", href: "/doctor/settings" },
 ];
 
 function NavBadge({ count }: { count: number }) {
@@ -136,19 +143,17 @@ export function DoctorChrome({
   children: ReactNode;
 }) {
   const badges = useContext(DoctorNavBadgesContext);
+  const { copy } = useDoctorLanguage();
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [language, setLanguage] = useState<"en" | "tr">("en");
 
   useEffect(() => {
-    const apply = () => {
-      const next = loadDoctorSettings();
-      setTheme(next.theme);
-      setLanguage(next.language);
-    };
+    const apply = () => setTheme(loadDoctorSettings().theme);
     apply();
     window.addEventListener(DOCTOR_SETTINGS_EVENT, apply);
     return () => window.removeEventListener(DOCTOR_SETTINGS_EVENT, apply);
   }, []);
+
+  const navItems = navHrefs.map((item) => ({ ...item, title: copy.nav[item.key] }));
 
   const badgeFor = (key: DoctorSection) =>
     key === "now"
@@ -168,7 +173,7 @@ export function DoctorChrome({
     >
       <aside className="fixed left-0 top-0 z-30 hidden h-screen w-[90px] flex-col border-r border-black/8 bg-[#2f5f4f] lg:flex">
         <div className="flex flex-1 flex-col items-center gap-2 py-8">
-          <Link href="/doctor" className="mb-4 flex h-12 w-12 items-center justify-center rounded-[12px] bg-white/10" title="Recent activity">
+          <Link href="/doctor" className="mb-4 flex h-12 w-12 items-center justify-center rounded-[12px] bg-white/10" title={copy.nav.now}>
             <span
               aria-label="Hiros"
               role="img"
@@ -209,7 +214,7 @@ export function DoctorChrome({
             className={`mx-auto flex h-14 w-14 items-center justify-center rounded-[12px] transition-colors ${
               active === "settings" ? "bg-white/20" : "hover:bg-white/10"
             }`}
-            title="Settings"
+            title={copy.nav.settings}
           >
             <DoctorNavIcon tab="settings" />
           </Link>
@@ -242,18 +247,7 @@ export function DoctorChrome({
                 {title}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-              <button className="hidden items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-2 text-[13px] font-medium text-[#2b2a28] shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-black/[0.02] md:flex">
-                <span className="text-black/45">View as:</span>
-                <span className="font-semibold">Doctor Portal</span>
-              </button>
-              <span className="flex items-center gap-1.5 rounded-full px-2 py-2 text-[13px] font-semibold text-[#2b2a28] sm:px-2.5">
-                {language === "tr" ? "TR" : "EN"}
-              </span>
-              <button className="flex items-center gap-1.5 rounded-full px-2 py-2 text-[13px] font-medium text-black/55 hover:bg-black/[0.04] sm:px-2.5">
-                Logout
-              </button>
-            </div>
+            <DoctorHeaderActions />
           </div>
         </header>
         {children}

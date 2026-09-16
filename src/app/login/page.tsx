@@ -25,9 +25,13 @@ function LoginForm() {
   const safeNext = nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "";
   const activeEmail = signedInEmail || session?.email || "";
 
-  const afterAuth = (created: boolean) => {
+  const afterAuth = (created: boolean, hasCase?: boolean) => {
     if (safeNext) {
-      router.push(safeNext);
+      router.push(hasCase ? "/dashboard" : safeNext);
+      return;
+    }
+    if (hasCase) {
+      router.push("/dashboard");
       return;
     }
     router.push(created ? "/intake?condition=hair-loss" : "/dashboard");
@@ -55,13 +59,13 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmed, password }),
       });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string };
+      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string; hasCase?: boolean };
       if (!res.ok) {
         setError(payload.error || (mode === "signup" ? "Could not create account." : "Could not sign in."));
         return;
       }
       setSignedInEmail(payload.email || trimmed);
-      afterAuth(mode === "signup");
+      afterAuth(mode === "signup", payload.hasCase);
     } catch {
       setError(mode === "signup" ? "Could not create account." : "Could not sign in.");
     } finally {
@@ -101,12 +105,14 @@ function LoginForm() {
             >
               {copy.authPage.goToDashboard}
             </a>
+            {session?.hasCase ? null : (
             <a
               href="/intake?condition=hair-loss"
               className="flex min-h-[48px] items-center justify-center rounded-full border border-black/10 bg-white px-5 text-[15px] font-semibold text-[#2b2a28]"
             >
               {copy.authPage.startIntake}
             </a>
+            )}
             <button
               type="button"
               onClick={() => void signOut()}

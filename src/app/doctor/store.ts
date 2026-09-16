@@ -15,6 +15,10 @@ function notify() {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+export function notifyCasesChanged() {
+  notify();
+}
+
 export async function fetchCases(): Promise<PatientCase[]> {
   const res = await fetch("/api/cases", { cache: "no-store" });
   if (!res.ok) throw new Error("Could not load cases");

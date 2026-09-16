@@ -4,20 +4,21 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DoctorChrome } from "../shell";
 import { subscribeStoredCases } from "../store";
+import { useDoctorLanguage } from "../use-doctor-language";
 import { fetchTreatmentPatients } from "./store";
 import type { ComplianceStatus, TreatmentPatient } from "./types";
 
 type RosterFilter = "all" | "alerts" | "noncompliant" | "on_track";
 
-function formatDate(ts: number | null): string {
+function formatDate(ts: number | null, locale: string): string {
   if (!ts) return "—";
-  return new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(ts).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
-function complianceLabel(status: ComplianceStatus): string {
-  if (status === "on_track") return "On track";
-  if (status === "watch") return "Needs watch";
-  return "Non-compliant";
+function complianceLabel(status: ComplianceStatus, labels: { onTrack: string; needsWatch: string; noncompliant: string }): string {
+  if (status === "on_track") return labels.onTrack;
+  if (status === "watch") return labels.needsWatch;
+  return labels.noncompliant;
 }
 
 function complianceClass(status: ComplianceStatus): string {
@@ -26,13 +27,15 @@ function complianceClass(status: ComplianceStatus): string {
   return "bg-[#fbcec5] text-[#a81d12]";
 }
 
-function yesNo(value: boolean | null, yes = "Yes", no = "No"): string {
+function yesNo(value: boolean | null, yes = "Yes", no = "No", unknown = "Unknown"): string {
   if (value === true) return yes;
   if (value === false) return no;
-  return "Unknown";
+  return unknown;
 }
 
 export default function DoctorPatientsPage() {
+  const { copy, language } = useDoctorLanguage();
+  const locale = language === "tr" ? "tr-TR" : "en-GB";
   const [patients, setPatients] = useState<TreatmentPatient[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<RosterFilter>("all");
@@ -76,7 +79,7 @@ export default function DoctorPatientsPage() {
   });
 
   return (
-    <DoctorChrome active="patients" title="Patients in treatment">
+    <DoctorChrome active="patients" title={copy.pages.patients}>
       <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-5 pb-28 sm:px-6 sm:py-8 lg:pb-8">
         <div className="relative mb-5">
           <svg viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-black/35" aria-hidden="true">
@@ -86,7 +89,7 @@ export default function DoctorPatientsPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, city, or treatment"
+            placeholder={copy.patients.search}
             className="h-12 w-full rounded-[14px] border border-black/8 bg-white pl-11 pr-4 text-[14px] font-medium text-[#2b2a28] shadow-[0_1px_2px_rgba(0,0,0,0.03)] outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
           />
         </div>
@@ -94,10 +97,10 @@ export default function DoctorPatientsPage() {
         <div className="mb-5 flex flex-wrap items-center gap-2">
           {(
             [
-              { key: "all" as const, label: "All" },
-              { key: "alerts" as const, label: "Alerts" },
-              { key: "noncompliant" as const, label: "Non-compliant" },
-              { key: "on_track" as const, label: "On track" },
+              { key: "all" as const, label: copy.patients.all },
+              { key: "alerts" as const, label: copy.patients.alerts },
+              { key: "noncompliant" as const, label: copy.patients.noncompliant },
+              { key: "on_track" as const, label: copy.patients.onTrack },
             ] as const
           ).map((item) => {
             const active = filter === item.key;
@@ -142,7 +145,11 @@ export default function DoctorPatientsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">{patient.fullName}</span>
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${complianceClass(patient.compliance)}`}>
-                      {complianceLabel(patient.compliance)}
+                      {complianceLabel(patient.compliance, {
+                        onTrack: copy.patients.onTrack,
+                        needsWatch: copy.patients.needsWatch,
+                        noncompliant: copy.patients.noncompliant,
+                      })}
                     </span>
                     {patient.alerts.slice(0, 2).map((alert) => (
                       <span
@@ -165,10 +172,10 @@ export default function DoctorPatientsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-2 pl-3 sm:grid-cols-4">
-                <Metric label="Filled prescription" value={yesNo(patient.filled, "Collected", "Not collected")} />
-                <Metric label="Taking meds this month" value={yesNo(patient.tookMedsThisMonth)} />
-                <Metric label="Photos this month" value={yesNo(patient.submittedPhotos, "Submitted", "Missing")} />
-                <Metric label="Last check-in" value={formatDate(patient.lastCheckInAt)} />
+                <Metric label={copy.patients.filled} value={yesNo(patient.filled, copy.patients.collected, copy.patients.notCollected, copy.patients.unknown)} />
+                <Metric label={copy.patients.takingMeds} value={yesNo(patient.tookMedsThisMonth, copy.patients.yes, copy.patients.no, copy.patients.unknown)} />
+                <Metric label={copy.patients.photos} value={yesNo(patient.submittedPhotos, copy.patients.submitted, copy.patients.missing, copy.patients.unknown)} />
+                <Metric label={copy.patients.lastCheckIn} value={formatDate(patient.lastCheckInAt, locale)} />
               </div>
             </Link>
           ))}
@@ -176,10 +183,10 @@ export default function DoctorPatientsPage() {
           {visible.length === 0 ? (
             <div className="rounded-[16px] border border-dashed border-black/10 bg-white px-6 py-14 text-center text-[14px] font-medium text-black/40">
               {loadError
-                ? "Could not load patients. Is the local database running?"
+                ? copy.patients.loadError
                 : patients.length === 0
-                  ? "No patients are in treatment yet. Approve a case to add someone here."
-                  : "No patients match this filter."}
+                  ? copy.patients.noneYet
+                  : copy.patients.noMatch}
             </div>
           ) : null}
         </div>

@@ -95,6 +95,7 @@ export async function getDoctorNow(): Promise<NowItem[]> {
       limit 1
     ) m on true
     where m.sender_role = 'patient'
+      and (c.doctor_last_read_at is null or m.created_at > c.doctor_last_read_at)
       and c.assigned_doctor_id is not null
     order by m.created_at desc
   `;

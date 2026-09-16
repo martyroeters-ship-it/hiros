@@ -1,5 +1,15 @@
-const BASE_TITLE = "Hiros | Saç Dökülmesi ve Erkek Sağlığı";
+import { doctorTabTitle } from "./copy";
+import { loadDoctorSettings } from "./settings-store";
+
 const ICON_HREF = "/icon.png";
+
+function baseTitle(): string {
+  try {
+    return doctorTabTitle[loadDoctorSettings().language];
+  } catch {
+    return doctorTabTitle.en;
+  }
+}
 
 function restoreIcon() {
   for (const link of document.querySelectorAll<HTMLLinkElement>("link[rel~='icon']")) {
@@ -9,11 +19,12 @@ function restoreIcon() {
 
 export function applyDoctorTabAlert(count: number): () => void {
   const pending = Math.max(0, count);
-  document.title = pending > 0 ? `(${pending}) ${BASE_TITLE}` : BASE_TITLE;
+  const title = baseTitle();
+  document.title = pending > 0 ? `(${pending}) ${title}` : title;
   restoreIcon();
 
   return () => {
-    document.title = BASE_TITLE;
+    document.title = title;
     restoreIcon();
   };
 }

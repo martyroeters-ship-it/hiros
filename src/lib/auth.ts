@@ -16,6 +16,10 @@ export type SessionUser = {
   role: string;
 };
 
+export function isStaffRole(role?: string | null): boolean {
+  return role === "doctor" || role === "admin";
+}
+
 function sessionSecret(): string {
   return process.env.SESSION_SECRET || "hiros-demo-session-secret";
 }

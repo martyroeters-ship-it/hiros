@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { isValidEmail, normalizeEmail, setSessionCookie, verifyPassword } from "@/lib/auth";
-import { patientHasCompletedIntake } from "@/lib/cases-repo";
+import { isStaffRole, isValidEmail, normalizeEmail, setSessionCookie, verifyPassword } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { ready } from "@/lib/ensure-db";
 
@@ -33,6 +32,9 @@ export async function POST(request: Request) {
     if (!row?.password_hash || !row.is_active || !verifyPassword(password, row.password_hash)) {
       return NextResponse.json({ error: "Email or password is incorrect." }, { status: 401 });
     }
+    if (!isStaffRole(row.role)) {
+      return NextResponse.json({ error: "This login is for physicians." }, { status: 403 });
+    }
 
     await setSessionCookie(row.id);
     return NextResponse.json({
@@ -41,7 +43,6 @@ export async function POST(request: Request) {
       firstName: row.first_name,
       lastName: row.last_name,
       role: row.role,
-      hasCase: await patientHasCompletedIntake(row.id),
     });
   } catch (error) {
     console.error(error);

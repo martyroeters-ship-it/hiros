@@ -8,16 +8,7 @@ import {
   saveDoctorSettings,
   type DoctorSettings,
 } from "../settings-store";
-
-const DAYS = [
-  { key: "mon", label: "Mon" },
-  { key: "tue", label: "Tue" },
-  { key: "wed", label: "Wed" },
-  { key: "thu", label: "Thu" },
-  { key: "fri", label: "Fri" },
-  { key: "sat", label: "Sat" },
-  { key: "sun", label: "Sun" },
-];
+import { useDoctorLanguage } from "../use-doctor-language";
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (value: boolean) => void }) {
   return (
@@ -38,7 +29,17 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (value: boo
 }
 
 export default function DoctorSettingsPage() {
+  const { copy } = useDoctorLanguage();
   const [settings, setSettings] = useState<DoctorSettings>(defaultDoctorSettings);
+  const days = [
+    { key: "mon", label: copy.settings.days.mon },
+    { key: "tue", label: copy.settings.days.tue },
+    { key: "wed", label: copy.settings.days.wed },
+    { key: "thu", label: copy.settings.days.thu },
+    { key: "fri", label: copy.settings.days.fri },
+    { key: "sat", label: copy.settings.days.sat },
+    { key: "sun", label: copy.settings.days.sun },
+  ];
 
   useEffect(() => {
     setSettings(loadDoctorSettings());
@@ -51,27 +52,27 @@ export default function DoctorSettingsPage() {
   };
 
   return (
-    <DoctorChrome active="settings" title="Settings">
+    <DoctorChrome active="settings" title={copy.pages.settings}>
       <main className="mx-auto w-full min-w-0 max-w-6xl space-y-4 px-4 py-5 pb-28 sm:px-6 sm:py-8 lg:pb-8">
         <section className="rounded-[16px] border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">Appearance</h2>
-          <p className="mt-1 text-[13px] text-black/45">Applies to the doctor portal on this device.</p>
+          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">{copy.settings.appearance}</h2>
+          <p className="mt-1 text-[13px] text-black/45">{copy.settings.appearanceHint}</p>
           <div className="mt-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[14px] font-medium text-[#1f241b]">Dark theme</p>
-              <p className="text-[12.5px] text-black/45">Dim the charts and lists for evening work.</p>
+              <p className="text-[14px] font-medium text-[#1f241b]">{copy.settings.darkTheme}</p>
+              <p className="text-[12.5px] text-black/45">{copy.settings.darkHint}</p>
             </div>
             <Toggle enabled={settings.theme === "dark"} onChange={(on) => update({ theme: on ? "dark" : "light" })} />
           </div>
         </section>
 
         <section className="rounded-[16px] border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">Language</h2>
+          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">{copy.settings.language}</h2>
           <div className="mt-3 flex gap-2">
             {(
               [
-                { key: "en" as const, label: "English" },
-                { key: "tr" as const, label: "Türkçe" },
+                { key: "en" as const, label: copy.settings.english },
+                { key: "tr" as const, label: copy.settings.turkish },
               ] as const
             ).map((item) => (
               <button
@@ -91,28 +92,28 @@ export default function DoctorSettingsPage() {
         </section>
 
         <section className="rounded-[16px] border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">Notifications</h2>
+          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">{copy.settings.notifications}</h2>
           <div className="mt-3 divide-y divide-black/[0.06]">
             <div className="flex items-center justify-between py-3">
-              <p className="text-[14px] font-medium text-[#1f241b]">New cases</p>
+              <p className="text-[14px] font-medium text-[#1f241b]">{copy.settings.newCases}</p>
               <Toggle enabled={settings.notifyCases} onChange={(on) => update({ notifyCases: on })} />
             </div>
             <div className="flex items-center justify-between py-3">
-              <p className="text-[14px] font-medium text-[#1f241b]">Visit requests</p>
+              <p className="text-[14px] font-medium text-[#1f241b]">{copy.settings.visitRequests}</p>
               <Toggle enabled={settings.notifyVisits} onChange={(on) => update({ notifyVisits: on })} />
             </div>
             <div className="flex items-center justify-between py-3">
-              <p className="text-[14px] font-medium text-[#1f241b]">Unread messages</p>
+              <p className="text-[14px] font-medium text-[#1f241b]">{copy.settings.unreadMessages}</p>
               <Toggle enabled={settings.notifyMessages} onChange={(on) => update({ notifyMessages: on })} />
             </div>
           </div>
         </section>
 
         <section className="rounded-[16px] border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">Working hours</h2>
-          <p className="mt-1 text-[13px] text-black/45">Used when proposing visit slots.</p>
+          <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#1f241b]">{copy.settings.hours}</h2>
+          <p className="mt-1 text-[13px] text-black/45">{copy.settings.hoursHint}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {DAYS.map((day) => {
+            {days.map((day) => {
               const on = settings.workDays.includes(day.key);
               return (
                 <button
@@ -136,7 +137,7 @@ export default function DoctorSettingsPage() {
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <label className="text-[12px] font-semibold text-[#1f241b]">
-              Start
+              {copy.settings.start}
               <input
                 type="time"
                 value={settings.workStart}
@@ -145,7 +146,7 @@ export default function DoctorSettingsPage() {
               />
             </label>
             <label className="text-[12px] font-semibold text-[#1f241b]">
-              End
+              {copy.settings.end}
               <input
                 type="time"
                 value={settings.workEnd}
@@ -154,15 +155,15 @@ export default function DoctorSettingsPage() {
               />
             </label>
             <label className="text-[12px] font-semibold text-[#1f241b]">
-              Default visit
+              {copy.settings.defaultVisit}
               <select
                 value={settings.visitMinutes}
                 onChange={(e) => update({ visitMinutes: Number(e.target.value) as 15 | 20 | 30 })}
                 className="mt-1.5 h-11 w-full rounded-[12px] border border-black/10 px-3 text-[13.5px] font-medium outline-none"
               >
-                <option value={15}>15 minutes</option>
-                <option value={20}>20 minutes</option>
-                <option value={30}>30 minutes</option>
+                <option value={15}>{copy.settings.minutes(15)}</option>
+                <option value={20}>{copy.settings.minutes(20)}</option>
+                <option value={30}>{copy.settings.minutes(30)}</option>
               </select>
             </label>
           </div>

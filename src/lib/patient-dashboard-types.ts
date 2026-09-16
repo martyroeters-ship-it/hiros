@@ -82,4 +82,8 @@ export type PatientDashboardSnapshot = {
   currentMedications: string[];
   nextUp: { title: string; detail: string; cta: string; href: string };
   notifications: DashboardNotification[];
+  paymentDue: boolean;
+  paymentClaimed: boolean;
+  paymentStatus: string | null;
+  paymentReference: string;
 };

@@ -147,6 +147,10 @@ function emptySnapshot(signedIn: boolean): PatientDashboardSnapshot {
           },
         ]
       : [],
+    paymentDue: false,
+    paymentClaimed: false,
+    paymentStatus: null,
+    paymentReference: "",
   };
 }
 
@@ -254,6 +258,15 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
     limit 1
   `;
 
+  const [charge] = await sql<{ status: string }[]>`
+    select status
+    from public.charges
+    where case_id = ${row.id}::uuid and kind = 'saas_fee'
+    limit 1
+  `;
+  const paymentStatus = charge?.status ?? null;
+  const paymentClaimed = paymentStatus === "pending_approval" || paymentStatus === "capturing" || paymentStatus === "captured";
+  const paymentReference = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
   const submitted = row.submitted_at ?? row.created_at;
   const doctorName = row.doctor_name?.trim() || null;
   const doctor = doctorName ?? "Your physician";
@@ -262,6 +275,7 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
   const isApproved = row.status === "approved" || row.status === "trial_active";
   const isDeclined = row.status === "declined" || row.status === "cancelled";
   const isInPerson = row.status === "needs_in_person";
+  const paymentDue = !paymentClaimed && !isDeclined;
   const filled = Boolean(row.filled_reported_at);
   const hasPhotos = row.photo_count > 0 || row.submitted_photos === true;
   const treatmentName =
@@ -450,6 +464,19 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
     });
   }
 
+  if (paymentDue) {
+    notifications.unshift({
+      id: "iban-pay",
+      title: "₺750 transfer",
+      detail: "Send the first month from your bank app when you are ready",
+      time: "Now",
+      badge: "ACTION REQUIRED",
+      badgeClass: ACTION_BADGE,
+      icon: "clock",
+      href: "/dashboard#pay",
+    });
+  }
+
   if (visit) {
     notifications.push({
       id: "visit",
@@ -607,6 +634,10 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
     currentMedications,
     nextUp,
     notifications: notifications.slice(0, 3),
+    paymentDue,
+    paymentClaimed,
+    paymentStatus,
+    paymentReference,
   };
 }
 

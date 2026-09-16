@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DoctorChrome } from "../shell";
 import { subscribeStoredCases } from "../store";
-import { fetchConversation, fetchConversations, sendConversationMessage } from "./store";
+import { useDoctorLanguage } from "../use-doctor-language";
+import { fetchConversation, fetchConversations, markConversationRead, sendConversationMessage } from "./store";
 import type { ConversationSummary, ConversationThread } from "./store";
 
 function initials(name: string): string {
@@ -17,27 +18,27 @@ function initials(name: string): string {
     .join("");
 }
 
-function formatListTime(ts: number): string {
+function formatListTime(ts: number, locale: string): string {
   const date = new Date(ts);
   const today = new Date();
   if (date.toDateString() === today.toDateString()) {
-    return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return date.toLocaleDateString(locale, { day: "numeric", month: "short" });
 }
 
-function formatClock(ts: number): string {
-  return new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+function formatClock(ts: number, locale: string): string {
+  return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDay(ts: number): string {
-  return new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+function formatDay(ts: number, locale: string): string {
+  return new Date(ts).toLocaleDateString(locale, { day: "numeric", month: "short" });
 }
 
-function groupByDate(messages: ConversationThread["messages"]) {
+function groupByDate(messages: ConversationThread["messages"], locale: string) {
   const groups: { date: string; messages: ConversationThread["messages"] }[] = [];
   for (const msg of messages) {
-    const date = formatDay(msg.createdAt);
+    const date = formatDay(msg.createdAt, locale);
     const last = groups[groups.length - 1];
     if (last && last.date === date) last.messages.push(msg);
     else groups.push({ date, messages: [msg] });
@@ -90,6 +91,8 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 }
 
 function MessagesPageInner() {
+  const { copy, language } = useDoctorLanguage();
+  const locale = language === "tr" ? "tr-TR" : "en-GB";
   const searchParams = useSearchParams();
   const preselect = searchParams.get("case") ?? "";
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -106,7 +109,9 @@ function MessagesPageInner() {
   const menuRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeIdRef = useRef(activeId);
+  const showThreadRef = useRef(showThread);
   activeIdRef.current = activeId;
+  showThreadRef.current = showThread;
 
   useEffect(() => {
     setPrefs(loadPrefs());
@@ -131,7 +136,7 @@ function MessagesPageInner() {
   };
 
   const isUnread = (item: ConversationSummary) =>
-    prefs.unread.includes(item.caseId) || (!prefs.read.includes(item.caseId) && item.lastFrom === "patient");
+    prefs.unread.includes(item.caseId) || (item.unread && !prefs.read.includes(item.caseId));
 
   const loadList = (wipeOnError = true) =>
     fetchConversations()
@@ -162,6 +167,7 @@ function MessagesPageInner() {
       const id = activeIdRef.current;
       if (!id) return;
       void fetchConversation(id).then(setThread).catch(() => undefined);
+      if (showThreadRef.current) void markConversationRead(id);
     });
   }, []);
 
@@ -174,10 +180,30 @@ function MessagesPageInner() {
   }, [activeId]);
 
   useEffect(() => {
+    if (!activeId) return;
+    if (!showThread && window.innerWidth < 1024) return;
+    setConversations((items) => {
+      if (!items.some((item) => item.caseId === activeId && item.unread)) return items;
+      return items.map((item) => (item.caseId === activeId ? { ...item, unread: false } : item));
+    });
+    setPrefs((current) => {
+      if (current.read.includes(activeId) && !current.unread.includes(activeId)) return current;
+      const next = {
+        ...current,
+        read: toggleId(current.read, activeId, true),
+        unread: toggleId(current.unread, activeId, false),
+      };
+      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+      return next;
+    });
+    void markConversationRead(activeId);
+  }, [activeId, showThread]);
+
+  useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [thread?.messages.length]);
 
-  const grouped = useMemo(() => (thread ? groupByDate(thread.messages) : []), [thread]);
+  const grouped = useMemo(() => (thread ? groupByDate(thread.messages, locale) : []), [thread, locale]);
   const activeSummary = conversations.find((item) => item.caseId === activeId);
   const inbox = useMemo(
     () => conversations.filter((item) => !prefs.deleted.includes(item.caseId) && !prefs.archived.includes(item.caseId)),
@@ -223,7 +249,7 @@ function MessagesPageInner() {
   };
 
   return (
-    <DoctorChrome active="messages" title="Messages">
+    <DoctorChrome active="messages" title={copy.pages.messages}>
       <main className="flex h-[calc(100dvh-57px)] min-h-0 bg-white pb-[4.25rem] lg:h-[calc(100vh-61px)] lg:pb-0">
         <div className={`${showThread ? "hidden lg:flex" : "flex"} w-full shrink-0 flex-col border-r border-black/[0.06] lg:w-[300px]`}>
           <div className="shrink-0 space-y-2 border-b border-black/[0.06] px-3 py-3">
@@ -235,17 +261,17 @@ function MessagesPageInner() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search"
+                placeholder={copy.messages.search}
                 className="w-full bg-transparent text-[13px] text-[#1f241b] outline-none placeholder:text-black/35"
               />
             </label>
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
-                  { key: "all" as const, label: "All", count: inbox.length },
-                  { key: "waiting" as const, label: "Unread", count: unreadCount },
-                  { key: "marked" as const, label: "Marked", count: markedCount },
-                  ...(archivedCount > 0 ? [{ key: "archived" as const, label: "Archived", count: archivedCount }] : []),
+                  { key: "all" as const, label: copy.messages.all, count: inbox.length },
+                  { key: "waiting" as const, label: copy.messages.unread, count: unreadCount },
+                  { key: "marked" as const, label: copy.messages.marked, count: markedCount },
+                  ...(archivedCount > 0 ? [{ key: "archived" as const, label: copy.messages.archived, count: archivedCount }] : []),
                 ] as const
               ).map((item) => {
                 const active = inboxFilter === item.key;
@@ -301,8 +327,13 @@ function MessagesPageInner() {
                       </Link>
                       <div className="flex shrink-0 items-center gap-0.5">
                         <button type="button" onClick={() => { setActiveId(conv.caseId); setShowThread(true); }} className="text-[11px] text-black/35">
-                          {formatListTime(conv.lastAt)}
+                          {formatListTime(conv.lastAt, locale)}
                         </button>
+                        {unread ? (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d92d20] px-1 text-[9px] font-bold leading-none text-white">
+                            1
+                          </span>
+                        ) : null}
                         <div className="relative" ref={menuOpen ? menuRef : undefined}>
                           <button
                             type="button"
@@ -320,16 +351,22 @@ function MessagesPageInner() {
                             <div className="absolute right-0 top-full z-30 mt-1 w-[168px] overflow-hidden rounded-[10px] border border-black/10 bg-white py-1 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={() => {
                                   updatePrefs((current) => ({
                                     ...current,
                                     read: toggleId(current.read, conv.caseId, unread),
                                     unread: toggleId(current.unread, conv.caseId, !unread),
-                                  }))
-                                }
+                                  }));
+                                  if (unread) {
+                                    setConversations((items) =>
+                                      items.map((item) => (item.caseId === conv.caseId ? { ...item, unread: false } : item)),
+                                    );
+                                    void markConversationRead(conv.caseId);
+                                  }
+                                }}
                                 className="flex w-full px-3 py-2 text-left text-[12.5px] text-[#1f241b] hover:bg-[#f7f6f3]"
                               >
-                                {unread ? "Mark as read" : "Mark as unread"}
+                                {unread ? copy.messages.markRead : copy.messages.markUnread}
                               </button>
                               <button
                                 type="button"
@@ -341,7 +378,7 @@ function MessagesPageInner() {
                                 }
                                 className="flex w-full px-3 py-2 text-left text-[12.5px] text-[#1f241b] hover:bg-[#f7f6f3]"
                               >
-                                {marked ? "Unmark" : "Mark"}
+                                {marked ? copy.messages.unmark : copy.messages.mark}
                               </button>
                               <button
                                 type="button"
@@ -353,7 +390,7 @@ function MessagesPageInner() {
                                 }
                                 className="flex w-full px-3 py-2 text-left text-[12.5px] text-[#1f241b] hover:bg-[#f7f6f3]"
                               >
-                                {archived ? "Unarchive" : "Archive"}
+                                {archived ? copy.messages.unarchive : copy.messages.archive}
                               </button>
                               <button
                                 type="button"
@@ -365,7 +402,7 @@ function MessagesPageInner() {
                                 }
                                 className="flex w-full px-3 py-2 text-left text-[12.5px] text-[#a81d12] hover:bg-[#f7f6f3]"
                               >
-                                Delete chat
+                                {copy.messages.delete}
                               </button>
                             </div>
                           ) : null}
@@ -381,7 +418,7 @@ function MessagesPageInner() {
                       className="mt-0.5 w-full text-left"
                     >
                       <p className="truncate text-[12px] text-black/45">
-                        {conv.lastFrom === "doctor" ? "You: " : ""}
+                        {conv.lastFrom === "doctor" ? copy.messages.you : ""}
                         {conv.lastMessage}
                       </p>
                     </button>
@@ -391,10 +428,10 @@ function MessagesPageInner() {
             })}
             {conversations.length === 0 ? (
               <p className="px-5 py-10 text-[13px] font-medium text-black/40">
-                {loadError ? "Could not load messages. Is the local database running?" : "No patient conversations yet."}
+                {loadError ? copy.messages.loadError : copy.messages.empty}
               </p>
             ) : visibleConversations.length === 0 ? (
-              <p className="px-5 py-10 text-[13px] font-medium text-black/40">No conversations match this search.</p>
+              <p className="px-5 py-10 text-[13px] font-medium text-black/40">{copy.messages.noMatch}</p>
             ) : null}
           </div>
         </div>
@@ -406,7 +443,7 @@ function MessagesPageInner() {
                 <button
                   type="button"
                   onClick={() => setShowThread(false)}
-                  aria-label="Back to conversations"
+                  aria-label={copy.messages.back}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f4f5f3] text-[#2f5f4f] lg:hidden"
                 >
                   <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -459,7 +496,7 @@ function MessagesPageInner() {
                               >
                                 {msg.body}
                               </div>
-                              <span className="mt-1 px-1 text-[10px] text-black/35">{formatClock(msg.createdAt)}</span>
+                              <span className="mt-1 px-1 text-[10px] text-black/35">{formatClock(msg.createdAt, locale)}</span>
                             </div>
                           </div>
                         );
@@ -485,7 +522,7 @@ function MessagesPageInner() {
                         void send();
                       }
                     }}
-                    placeholder="Write a message.."
+                    placeholder={copy.messages.write}
                     className="flex-1 resize-none bg-transparent text-[13px] leading-relaxed text-[#1f241b] placeholder-black/35 outline-none"
                     style={{ height: "22px" }}
                   />
@@ -504,7 +541,7 @@ function MessagesPageInner() {
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center px-6 text-[14px] font-medium text-black/35">
-              Select a patient conversation.
+              {copy.messages.select}
             </div>
           )}
         </div>
@@ -513,9 +550,18 @@ function MessagesPageInner() {
   );
 }
 
+function MessagesFallback() {
+  const { copy } = useDoctorLanguage();
+  return (
+    <DoctorChrome active="messages" title={copy.pages.messages}>
+      <main className="px-6 py-16 text-black/40">{copy.messages.loading}</main>
+    </DoctorChrome>
+  );
+}
+
 export default function DoctorMessagesPage() {
   return (
-    <Suspense fallback={<DoctorChrome active="messages" title="Messages"><main className="px-6 py-16 text-black/40">Loading messages…</main></DoctorChrome>}>
+    <Suspense fallback={<MessagesFallback />}>
       <MessagesPageInner />
     </Suspense>
   );
