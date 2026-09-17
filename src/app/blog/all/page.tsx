@@ -16,7 +16,7 @@ export default function BlogAllPage() {
       <LegalHeader elevateOnScroll />
       <main className="min-h-screen overflow-x-clip bg-white text-[#11110f]">
         <Suspense>
-          <BlogAllArticles section="latest" title="All articles" crumb="All" basePath="/blog/all" />
+          <BlogAllArticles section="latest" basePath="/blog/all" />
         </Suspense>
         <div className="relative z-20">
           <SiteFooter />

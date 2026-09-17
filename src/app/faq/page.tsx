@@ -5,8 +5,8 @@ import LegalHeader from "@/components/LegalHeader";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "FAQs | Hiros",
-  description: "Find answers about Hiros, your account and how the process works.",
+  title: "SSS | Hiros",
+  description: "Hiros, hesabınız ve sürecin nasıl işlediği hakkında cevaplar bulun.",
 };
 
 export default function FaqPage() {

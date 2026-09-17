@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
 import { AuthNavLink } from "@/components/AuthNavLink";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import SiteMenu from "@/components/SiteMenu";
 
 export default function LegalHeader({ elevateOnScroll = false }: { elevateOnScroll?: boolean }) {
@@ -48,6 +49,7 @@ export default function LegalHeader({ elevateOnScroll = false }: { elevateOnScro
         </Link>
         <div className="flex items-center gap-3 sm:gap-4">
           <AuthNavLink className="rounded-full border border-[#11110f] bg-white px-4 py-2 text-[12px] font-semibold leading-none text-[#11110f]" />
+          <LanguageSwitcher compact />
           <SiteMenu />
         </div>
       </div>

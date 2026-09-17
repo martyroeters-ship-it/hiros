@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { faqCategories } from "@/data/faqCategories";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
+import { secondaryCopy } from "@/i18n/secondaryCopy";
+import { loc } from "@/i18n/localeText";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
 
 function CategoryIcon({ slug }: { slug: string }) {
   const className = "h-6 w-6 text-[#2a412c]";
@@ -57,21 +60,28 @@ function CategoryIcon({ slug }: { slug: string }) {
 }
 
 export default function FaqHub() {
+  const locale = useHydratedLocale();
+  const copy = secondaryCopy[locale].faq;
   const [query, setQuery] = useState("");
 
   const visibleCategories = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return faqCategories;
 
-    return faqCategories.filter(
-      (category) =>
-        category.title.toLowerCase().includes(needle) ||
-        category.description.toLowerCase().includes(needle) ||
+    return faqCategories.filter((category) => {
+      const title = loc(category.title, locale);
+      const description = loc(category.description, locale);
+      return (
+        title.toLowerCase().includes(needle) ||
+        description.toLowerCase().includes(needle) ||
         category.items.some(
-          (item) => item.question.toLowerCase().includes(needle) || item.answer.toLowerCase().includes(needle),
-        ),
-    );
-  }, [query]);
+          (item) =>
+            loc(item.question, locale).toLowerCase().includes(needle) ||
+            loc(item.answer, locale).toLowerCase().includes(needle),
+        )
+      );
+    });
+  }, [locale, query]);
 
   return (
     <>
@@ -80,13 +90,13 @@ export default function FaqHub() {
       >
         <div className="w-full max-w-2xl">
           <h1 className="font-title text-left text-[40px] font-normal leading-[1.02] tracking-[-0.06em] text-white sm:text-[56px] lg:text-[72px] lg:leading-[1] lg:tracking-[-0.07em]">
-            How can we help?
+            {copy.title}
           </h1>
           <p className="mt-1 text-[16px] font-medium text-white/90 sm:mt-1.5 sm:text-[18px]">
-            Find answers about Hiros, your account and how the process works.
+            {copy.subtitle}
           </p>
           <label className="relative mt-8 block w-full">
-            <span className="sr-only">Search FAQs</span>
+            <span className="sr-only">{copy.searchAria}</span>
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -100,7 +110,7 @@ export default function FaqHub() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search for answers..."
+              placeholder={copy.searchPlaceholder}
               className="w-full rounded-2xl border border-white/20 bg-white/15 py-4 pl-12 pr-4 text-[16px] font-medium text-white outline-none placeholder:text-white/65 focus:border-white/40"
             />
           </label>
@@ -110,7 +120,7 @@ export default function FaqHub() {
       <section className={`relative z-10 -mt-[34px] rounded-t-[34px] bg-[#f7f4ee] pb-28 pt-16 sm:pb-36 sm:pt-20 ${HOME_PAGE_GUTTER_CLASS}`}>
         <div className="mx-auto max-w-7xl">
           {visibleCategories.length === 0 ? (
-            <p className="text-[16px] font-medium text-[#1f241b]/70">No matching topics. Try a different search.</p>
+            <p className="text-[16px] font-medium text-[#1f241b]/70">{copy.empty}</p>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
               {visibleCategories.map((category) => (
@@ -121,10 +131,12 @@ export default function FaqHub() {
                 >
                   <CategoryIcon slug={category.slug} />
                   <h2 className="mt-5 text-[22px] font-bold leading-[1.15] tracking-[-0.03em] text-[#11110f] sm:text-[24px]">
-                    {category.title}
+                    {loc(category.title, locale)}
                   </h2>
-                  <p className="mt-3 text-[16px] font-medium leading-[1.5] text-[#1f241b]/70">{category.description}</p>
-                  <span className="mt-auto pt-6 text-[14px] font-semibold text-[#3f5f35]">View questions</span>
+                  <p className="mt-3 text-[16px] font-medium leading-[1.5] text-[#1f241b]/70">
+                    {loc(category.description, locale)}
+                  </p>
+                  <span className="mt-auto pt-6 text-[14px] font-semibold text-[#3f5f35]">{copy.viewQuestions}</span>
                 </Link>
               ))}
             </div>

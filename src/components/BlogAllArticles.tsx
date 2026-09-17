@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { ArticleGrid, BLOG_COLUMN_CLASS, TopicPills, topicHref, useBlogTopic } from "@/components/BlogIndex";
 import type { BlogArticle } from "@/data/blogArticles";
+import { secondaryCopy } from "@/i18n/secondaryCopy";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
 
 type BlogArchiveProps = {
   section: BlogArticle["section"];
-  title: string;
-  crumb: string;
   basePath: "/blog/all" | "/blog/guides";
 };
 
-export default function BlogAllArticles({ section, title, crumb, basePath }: BlogArchiveProps) {
+export default function BlogAllArticles({ section, basePath }: BlogArchiveProps) {
+  const locale = useHydratedLocale();
+  const copy = secondaryCopy[locale].blog;
   const { topic, filtered } = useBlogTopic();
   const articles = filtered.filter((article) => article.section === section);
   const blogHref = topicHref("/blog", topic);
+  const title = section === "guides" ? copy.guidesTitle : copy.allTitle;
+  const crumb = section === "guides" ? copy.guidesCrumb : copy.allCrumb;
 
   return (
     <div className="relative isolate">
@@ -22,11 +26,11 @@ export default function BlogAllArticles({ section, title, crumb, basePath }: Blo
         <div className={`${BLOG_COLUMN_CLASS} pb-8 sm:pb-10`}>
           <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#11110f]/40">
             <Link href="/" className="transition-colors hover:text-[#11110f]/70">
-              Home
+              {copy.home}
             </Link>
             {" / "}
             <Link href={blogHref} className="transition-colors hover:text-[#11110f]/70">
-              Blog
+              {copy.blog}
             </Link>
             {" / "}
             <span>{crumb}</span>
