@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { patchAppointment } from "../../agenda/store";
 import { PhotoCompare } from "../../photo-compare";
 import { DoctorChrome } from "../../shell";
+import { useDoctorLanguage } from "../../use-doctor-language";
 import { fetchTreatmentPatient, patchTreatmentPatient } from "../store";
 import type { TreatmentPatientDetail } from "../types";
 
@@ -31,6 +32,7 @@ function toneClass(tone: "good" | "bad" | "muted"): string {
 }
 
 export default function DoctorPatientProfilePage() {
+  const { copy } = useDoctorLanguage();
   const params = useParams<{ caseId: string }>();
   const [patient, setPatient] = useState<TreatmentPatientDetail | undefined>();
   const [missing, setMissing] = useState(false);
@@ -72,7 +74,7 @@ export default function DoctorPatientProfilePage() {
 
   if (missing) {
     return (
-      <DoctorChrome active="patients" title="Patient not found">
+      <DoctorChrome active="patients" title={copy.pages.patientNotFound}>
         <main className="mx-auto max-w-6xl px-6 py-16 text-[14px] text-black/50">
           This person is not in treatment, or the case id is wrong.{" "}
           <Link href="/doctor/patients" className="font-semibold text-[#3f5f35]">
@@ -85,7 +87,7 @@ export default function DoctorPatientProfilePage() {
 
   if (!patient) {
     return (
-      <DoctorChrome active="patients" title="Patient profile">
+      <DoctorChrome active="patients" title={copy.pages.patientProfile}>
         <main className="mx-auto max-w-6xl px-6 py-16 text-[14px] text-black/40">Loading profile…</main>
       </DoctorChrome>
     );

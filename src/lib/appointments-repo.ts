@@ -1,4 +1,5 @@
 import { sql } from "./db";
+import { getSessionUser } from "./auth";
 import type {
   AppointmentActor,
   CreateAppointmentInput,
@@ -110,6 +111,12 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   }
   if (!["approved", "trial_active"].includes(caseRow.status)) {
     throw new Error("Video visits are only for patients in treatment");
+  }
+  if (requestedBy === "patient") {
+    const user = await getSessionUser();
+    if (!user || user.id !== caseRow.patient_id) {
+      throw new Error("You can only request a visit for your own case");
+    }
   }
 
   const [created] = await sql<{ id: string }[]>`

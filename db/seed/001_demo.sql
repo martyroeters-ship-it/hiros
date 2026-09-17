@@ -1,5 +1,6 @@
 -- Demo clinic + named physician for the trial flow.
 -- Runs as the database owner (bypasses RLS). Safe to re-run.
+-- Physician name must match src/lib/demo-physician.ts (Dr. Ahmet Yılmaz).
 
 insert into public.consent_versions (kind, version, locale, body_hash)
 values

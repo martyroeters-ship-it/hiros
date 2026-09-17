@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findOrCreateOAuthProfile, setSessionCookie } from "@/lib/auth";
+import { patientHasCompletedIntake } from "@/lib/cases-repo";
 import { ready } from "@/lib/ensure-db";
 
 export const runtime = "nodejs";
@@ -39,7 +40,10 @@ export async function POST(request: Request) {
       lastName: profile.family_name,
     });
     await setSessionCookie(user.id);
-    return NextResponse.json(user);
+    return NextResponse.json({
+      ...user,
+      hasCase: await patientHasCompletedIntake(user.id),
+    });
   } catch (error) {
     console.error(error);
     const raw = error instanceof Error ? error.message : "";

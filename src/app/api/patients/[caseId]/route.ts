@@ -6,6 +6,7 @@ import {
   messagePatient,
   scheduleFollowUp,
 } from "@/lib/patients-repo";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ type RouteContext = { params: Promise<{ caseId: string }> };
 export async function GET(_request: Request, context: RouteContext) {
   const { caseId } = await context.params;
   try {
+    const { error } = await requireStaff();
+    if (error) return error;
     const patient = await getTreatmentPatient(caseId);
     if (!patient) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(patient);
@@ -35,6 +38,8 @@ export async function PATCH(request: Request, context: RouteContext) {
   const { caseId } = await context.params;
   try {
     const body = (await request.json()) as PatchBody;
+    const { error } = await requireStaff();
+    if (error) return error;
     let updated = null;
     if (body.action === "mark_filled") {
       updated = await markPrescriptionFilled(caseId, body.notes);

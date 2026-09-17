@@ -110,13 +110,13 @@ export function LoginDrawer({ open, onClose }: { open: boolean; onClose: () => v
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmed, password }),
       });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      const payload = (await res.json().catch(() => ({}))) as { error?: string; hasCase?: boolean };
       if (!res.ok) {
         setError(payload.error || (mode === "signup" ? "Could not create account." : "Could not sign in."));
         return;
       }
       onClose();
-      router.push(mode === "signup" ? "/intake?condition=hair-loss" : "/dashboard");
+      router.push(payload.hasCase || mode === "login" ? "/dashboard" : "/intake?condition=hair-loss");
       router.refresh();
     } catch {
       setError(mode === "signup" ? "Could not create account." : "Could not sign in.");
@@ -129,9 +129,9 @@ export function LoginDrawer({ open, onClose }: { open: boolean; onClose: () => v
     setBusy(true);
     setError("");
     try {
-      await signInWithGoogle();
+      const user = await signInWithGoogle();
       onClose();
-      router.push(mode === "signup" ? "/intake?condition=hair-loss" : "/dashboard");
+      router.push(user.hasCase || mode === "login" ? "/dashboard" : "/intake?condition=hair-loss");
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Could not sign in with Google.");

@@ -15,6 +15,10 @@ function notify() {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+export function notifyCasesChanged() {
+  notify();
+}
+
 export async function fetchCases(): Promise<PatientCase[]> {
   const res = await fetch("/api/cases", { cache: "no-store" });
   if (!res.ok) throw new Error("Could not load cases");
@@ -59,7 +63,21 @@ export async function patchCaseTab(
 
 export function subscribeStoredCases(callback: () => void): () => void {
   if (typeof window === "undefined") return () => {};
-  const handler = () => callback();
-  window.addEventListener(CHANGE_EVENT, handler);
-  return () => window.removeEventListener(CHANGE_EVENT, handler);
+
+  const refreshIfVisible = () => {
+    if (document.visibilityState !== "visible") return;
+    callback();
+  };
+
+  window.addEventListener(CHANGE_EVENT, callback);
+  window.addEventListener("focus", refreshIfVisible);
+  document.addEventListener("visibilitychange", refreshIfVisible);
+  const interval = window.setInterval(refreshIfVisible, 5000);
+
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, callback);
+    window.removeEventListener("focus", refreshIfVisible);
+    document.removeEventListener("visibilitychange", refreshIfVisible);
+    window.clearInterval(interval);
+  };
 }

@@ -11,6 +11,7 @@ export type ClientSessionUser = {
   city: string | null;
   postalCode: string | null;
   role: string;
+  hasCase?: boolean;
 };
 
 export function displayName(user: ClientSessionUser | null | undefined): string {

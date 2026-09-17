@@ -386,6 +386,11 @@ export async function messagePatient(caseId: string, body: string): Promise<Trea
     insert into public.messages (case_id, sender_role, sender_profile_id, body)
     values (${caseId}::uuid, 'doctor', ${doctor.profile_id}::uuid, ${text})
   `;
+  await sql`
+    update public.cases
+    set doctor_last_read_at = now()
+    where id = ${caseId}::uuid
+  `;
   return getTreatmentPatient(caseId);
 }
 
@@ -397,6 +402,7 @@ export type ConversationSummary = {
   lastMessage: string;
   lastFrom: "patient" | "doctor";
   lastAt: number;
+  unread: boolean;
 };
 
 export type ConversationThread = {
@@ -424,6 +430,7 @@ export async function listConversations(): Promise<ConversationSummary[]> {
       last_message: string;
       last_from: "patient" | "doctor";
       last_at: Date;
+      unread: boolean;
     }[]
   >`
     select
@@ -434,7 +441,11 @@ export async function listConversations(): Promise<ConversationSummary[]> {
       t.name as treatment_name,
       m.body as last_message,
       m.sender_role as last_from,
-      m.created_at as last_at
+      m.created_at as last_at,
+      (
+        m.sender_role = 'patient'
+        and (c.doctor_last_read_at is null or m.created_at > c.doctor_last_read_at)
+      ) as unread
     from public.cases c
     join public.profiles p on p.id = c.patient_id
     left join public.case_treatments t on t.case_id = c.id
@@ -458,6 +469,7 @@ export async function listConversations(): Promise<ConversationSummary[]> {
     lastMessage: row.last_message,
     lastFrom: row.last_from,
     lastAt: new Date(row.last_at).getTime(),
+    unread: row.unread,
   }));
 }
 
@@ -505,6 +517,25 @@ export async function getConversation(caseId: string): Promise<ConversationThrea
       createdAt: new Date(item.created_at).getTime(),
     })),
   };
+}
+
+export async function markConversationRead(caseId: string): Promise<boolean> {
+  await ready();
+  if (!/^[0-9a-f-]{36}$/i.test(caseId)) return false;
+  const [row] = await sql<{ id: string }[]>`
+    update public.cases
+    set doctor_last_read_at = now()
+    where id = ${caseId}::uuid
+      and exists (
+        select 1
+        from public.messages m
+        where m.case_id = public.cases.id
+          and m.sender_role = 'patient'
+          and (public.cases.doctor_last_read_at is null or m.created_at > public.cases.doctor_last_read_at)
+      )
+    returning id
+  `;
+  return Boolean(row?.id);
 }
 
 export function followUpDateFromLabel(label: string): string | null {

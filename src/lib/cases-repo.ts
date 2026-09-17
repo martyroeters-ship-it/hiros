@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { buildCaseFromIntake, evaluateIntake, QUESTION_LABELS, type IntakeSubmission } from "@/app/doctor/triage";
@@ -15,6 +15,7 @@ export type IntakePersistInput = IntakeSubmission & {
   postalCode?: string;
   phone?: string;
   province?: string;
+  deferSubmit?: boolean;
 };
 
 type CaseRow = {
@@ -35,6 +36,12 @@ type CaseRow = {
   first_name: string | null;
 };
 
+const OPEN_INTAKE_STATUSES = new Set(["trial_onboarding", "awaiting_consent", "clinical_intake"]);
+
+export function isOpenIntakeStatus(status?: string | null): boolean {
+  return Boolean(status && OPEN_INTAKE_STATUSES.has(status));
+}
+
 function tabFromStatus(status: string): TabKey {
   if (status === "approved" || status === "trial_active") return "approved";
   if (status === "declined") return "declined";
@@ -48,14 +55,14 @@ function statusLabel(status: string): string {
   return "Submitted";
 }
 
-function parseDataUrl(dataUrl: string): { ext: string; bytes: Buffer } {
+function parseDataUrl(dataUrl: string): { ext: string; bytes: Buffer; contentType: string } {
   const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
   if (!match) {
     throw new Error("Photo is not a data URL");
   }
-  const mime = match[1];
-  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
-  return { ext, bytes: Buffer.from(match[2], "base64") };
+  const contentType = match[1];
+  const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+  return { ext, bytes: Buffer.from(match[2], "base64"), contentType };
 }
 
 async function loadPatientCase(caseId: string): Promise<PatientCase | null> {
@@ -168,6 +175,17 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
 
   const caseId = await sql.begin(async (tx) => {
     if (signedInId) {
+      const [already] = await tx<{ id: string; status: string }[]>`
+        select id, status
+        from public.cases
+        where patient_id = ${signedInId}::uuid
+        order by created_at desc
+        limit 1
+      `;
+      if (already && !isOpenIntakeStatus(already.status)) {
+        return already.id;
+      }
+
       await tx`
         update public.profiles
         set
@@ -228,16 +246,28 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
     `;
 
     await tx`select set_config('app.user_id', ${newPatientId}, true)`;
-    const [existing] = await tx<{ id: string }[]>`
-      select id from public.cases where patient_id = ${newPatientId}::uuid order by created_at desc limit 1
+    const [existing] = await tx<{ id: string; status: string }[]>`
+      select id, status
+      from public.cases
+      where patient_id = ${newPatientId}::uuid
+      order by created_at desc
+      limit 1
     `;
-    const enrolled = existing
-      ? [existing]
-      : await tx<{ id: string }[]>`select enroll_trial_patient() as id`;
-    const id = enrolled[0]?.id;
+    const closed = existing?.status === "declined" || existing?.status === "cancelled";
+    let id = existing && !closed ? existing.id : null;
+    let status = existing && !closed ? existing.status : null;
+
+    if (!id) {
+      const enrolled = await tx<{ id: string }[]>`select enroll_trial_patient() as id`;
+      id = enrolled[0]?.id ?? null;
+      status = "awaiting_consent";
+    }
     if (!id) throw new Error("Could not enroll trial patient. Is the demo doctor seeded?");
 
-    await tx`select accept_named_physician_consent(${id}::uuid, 'trial-v1')`;
+    if (status === "awaiting_consent") {
+      await tx`select accept_named_physician_consent(${id}::uuid, 'trial-v1')`;
+      status = "clinical_intake";
+    }
 
     for (const [stepId, answer] of Object.entries(input.answers)) {
       const question = QUESTION_LABELS[stepId] ?? stepId;
@@ -277,36 +307,86 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
       where id = ${id}::uuid
     `;
 
-    await tx`select submit_trial_case(${id}::uuid)`;
+    if (!input.deferSubmit && status === "clinical_intake") {
+      await tx`select submit_trial_case(${id}::uuid)`;
+    }
     return id;
   });
 
-  if (input.photos.length) {
-    const dir = path.join(PHOTO_ROOT, caseId);
-    await mkdir(dir, { recursive: true });
-    const kinds = ["front", "top", "other"] as const;
-    for (const [index, dataUrl] of input.photos.entries()) {
-      if (!dataUrl.startsWith("data:")) continue;
-      const { ext, bytes } = parseDataUrl(dataUrl);
-      const filename = `${String(index + 1).padStart(2, "0")}.${ext}`;
-      const storagePath = path.join(dir, filename);
-      await writeFile(storagePath, bytes);
-      await sql`
-        insert into public.case_photos (case_id, kind, storage_path, content_type, byte_size)
-        values (
-          ${caseId}::uuid,
-          ${kinds[index] ?? "other"},
-          ${storagePath},
-          ${ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg"},
-          ${bytes.length}
-        )
-      `;
+  try {
+    const [{ count: existingPhotoCount }] = await sql<{ count: number }[]>`
+      select count(*)::int as count from public.case_photos where case_id = ${caseId}::uuid
+    `;
+    if (input.photos.length && existingPhotoCount === 0) {
+      const kinds = ["front", "top", "other"] as const;
+      for (const [index, dataUrl] of input.photos.entries()) {
+        if (!dataUrl.startsWith("data:")) continue;
+        const { ext, bytes, contentType } = parseDataUrl(dataUrl);
+        const filename = `${String(index + 1).padStart(2, "0")}.${ext}`;
+        const storagePath = `${caseId}/${filename}`;
+        if (!process.env.VERCEL) {
+          const dir = path.join(PHOTO_ROOT, caseId);
+          await mkdir(dir, { recursive: true });
+          await writeFile(path.join(dir, filename), bytes);
+        }
+        await sql`
+          insert into public.case_photos (case_id, kind, storage_path, content_type, byte_size, bytes)
+          values (
+            ${caseId}::uuid,
+            ${kinds[index] ?? "other"},
+            ${storagePath},
+            ${contentType},
+            ${bytes.length},
+            ${bytes}
+          )
+        `;
+      }
     }
+  } catch (error) {
+    console.error("Intake photos could not be stored; case was still submitted.", error);
   }
 
   const saved = await loadPatientCase(caseId);
-  if (!saved) throw new Error("Case was created but could not be loaded");
-  return saved;
+  if (saved) return saved;
+  return {
+    id: caseId,
+    firstName: input.firstName.trim() || "Patient",
+    risk: built.risk,
+    agaScore: built.agaScore,
+    confidence: built.confidence,
+    status: "Submitted",
+    submittedAt: Date.now(),
+    ageRange: "Not provided",
+    reason: "Hair loss consultation",
+    location: input.city ?? "Not provided",
+    reportedOnset: "Not provided",
+    date: new Date().toLocaleDateString("en-US"),
+    priority: built.priority,
+    tab: "pending",
+    findings: built.findings,
+    answers: [],
+    photos: [],
+  };
+}
+
+export async function submitTrialCase(caseId: string) {
+  await sql`select submit_trial_case(${caseId}::uuid)`;
+}
+
+export async function loadLatestCaseForPatient(patientId: string) {
+  const [row] = await sql<{ id: string; patient_id: string; status: string }[]>`
+    select id, patient_id, status
+    from public.cases
+    where patient_id = ${patientId}::uuid
+    order by created_at desc
+    limit 1
+  `;
+  return row ?? null;
+}
+
+export async function patientHasCompletedIntake(patientId: string): Promise<boolean> {
+  const row = await loadLatestCaseForPatient(patientId);
+  return Boolean(row && !isOpenIntakeStatus(row.status));
 }
 
 export async function updateCaseTab(
@@ -361,4 +441,35 @@ export async function updateCaseTab(
 export function photoFilePath(caseId: string, filename: string): string {
   const safe = path.basename(filename);
   return path.join(PHOTO_ROOT, caseId, safe);
+}
+
+export async function loadPhotoBytes(
+  caseId: string,
+  filename: string,
+): Promise<{ bytes: Buffer; contentType: string } | null> {
+  const safe = path.basename(filename);
+  const [row] = await sql<{ bytes: Uint8Array | Buffer | null; content_type: string | null }[]>`
+    select bytes, content_type
+    from public.case_photos
+    where case_id = ${caseId}::uuid
+      and (
+        storage_path = ${safe}
+        or storage_path like ${"%/" + safe}
+      )
+    order by created_at desc
+    limit 1
+  `;
+  if (row?.bytes && row.bytes.length) {
+    const type =
+      row.content_type || (safe.endsWith(".png") ? "image/png" : safe.endsWith(".webp") ? "image/webp" : "image/jpeg");
+    return { bytes: Buffer.from(row.bytes), contentType: type };
+  }
+  try {
+    const bytes = await readFile(photoFilePath(caseId, safe));
+    const ext = path.extname(safe).toLowerCase();
+    const type = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+    return { bytes, contentType: type };
+  } catch {
+    return null;
+  }
 }

@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import type { DoctorCopy } from "../copy";
 import { DoctorChrome } from "../shell";
+import { subscribeStoredCases } from "../store";
+import { useDoctorLanguage } from "../use-doctor-language";
 import { fetchTreatmentPatients } from "../patients/store";
 import type { TreatmentPatient } from "../patients/types";
 import { createAppointmentRequest, fetchAppointments, patchAppointment } from "./store";
@@ -54,19 +57,12 @@ function inMonth(day: Date, month: Date): boolean {
   return day.getFullYear() === month.getFullYear() && day.getMonth() === month.getMonth();
 }
 
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+function formatTime(ts: number, locale: string): string {
+  return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDay(date: Date): string {
-  return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-}
-
-function statusLabel(status: AppointmentStatus): string {
-  if (status === "requested") return "Patient request";
-  if (status === "scheduled") return "Scheduled";
-  if (status === "completed") return "Completed";
-  return "Cancelled";
+function formatDay(date: Date, locale: string): string {
+  return date.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
 }
 
 function statusClass(status: AppointmentStatus): string {
@@ -77,6 +73,8 @@ function statusClass(status: AppointmentStatus): string {
 }
 
 function AgendaPageInner() {
+  const { copy, language } = useDoctorLanguage();
+  const locale = language === "tr" ? "tr-TR" : "en-GB";
   const searchParams = useSearchParams();
   const preselect = searchParams.get("invite") ?? "";
   const [appointments, setAppointments] = useState<VideoAppointment[]>([]);
@@ -95,12 +93,17 @@ function AgendaPageInner() {
   const [loadError, setLoadError] = useState(false);
   const [didFocus, setDidFocus] = useState(false);
 
-  const reload = () => {
+  const reload = (initial = false) => {
     void fetchAppointments()
-      .then(setAppointments)
+      .then((items) => {
+        setAppointments(items);
+        setLoadError(false);
+      })
       .catch(() => {
-        setLoadError(true);
-        setAppointments([]);
+        if (initial) {
+          setLoadError(true);
+          setAppointments([]);
+        }
       });
   };
 
@@ -113,9 +116,16 @@ function AgendaPageInner() {
       setCaseId(preselect);
       setInviteOpen(true);
     }
-    reload();
-    void fetchTreatmentPatients().then(setPatients).catch(() => setPatients([]));
   }, [preselect]);
+
+  useEffect(() => {
+    const load = (initial = false) => {
+      reload(initial);
+      void fetchTreatmentPatients().then(setPatients).catch(() => undefined);
+    };
+    load(true);
+    return subscribeStoredCases(() => load());
+  }, []);
 
   useEffect(() => {
     if (didFocus || appointments.length === 0) return;
@@ -194,7 +204,7 @@ function AgendaPageInner() {
   };
 
   return (
-        <DoctorChrome active="agenda" title="Agenda">
+        <DoctorChrome active="agenda" title={copy.pages.agenda}>
       <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-5 pb-28 sm:px-6 sm:py-8 lg:pb-8">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
@@ -204,14 +214,14 @@ function AgendaPageInner() {
                 onClick={() => setView("week")}
                 className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${view === "week" ? "bg-[#2f5f4f] text-white" : "text-[#2b2a28]"}`}
               >
-                Week
+                {copy.agenda.week}
               </button>
               <button
                 type="button"
                 onClick={() => setView("month")}
                 className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${view === "month" ? "bg-[#2f5f4f] text-white" : "text-[#2b2a28]"}`}
               >
-                Month
+                {copy.agenda.month}
               </button>
             </div>
             <button
@@ -231,16 +241,16 @@ function AgendaPageInner() {
               }}
               className="rounded-full border border-black/10 bg-white px-3 py-2 text-[13px] font-semibold"
             >
-              Previous
+              {copy.agenda.previous}
             </button>
             <p className="min-w-[168px] text-center text-[13.5px] font-semibold text-[#1f241b]">
               {view === "month"
                 ? monthCursor
-                  ? monthCursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
-                  : "Loading month…"
+                  ? monthCursor.toLocaleDateString(locale, { month: "long", year: "numeric" })
+                  : copy.agenda.loadingMonth
                 : weekStart && days[6]
-                  ? `${formatDay(weekStart)} – ${formatDay(days[6])}`
-                  : "Loading week…"}
+                  ? `${formatDay(weekStart, locale)} – ${formatDay(days[6], locale)}`
+                  : copy.agenda.loadingWeek}
             </p>
             <button
               type="button"
@@ -259,7 +269,7 @@ function AgendaPageInner() {
               }}
               className="rounded-full border border-black/10 bg-white px-3 py-2 text-[13px] font-semibold"
             >
-              Next
+              {copy.agenda.next}
             </button>
           </div>
           <button
@@ -267,7 +277,7 @@ function AgendaPageInner() {
             onClick={() => setInviteOpen((open) => !open)}
             className="rounded-full bg-[#2f5f4f] px-4 py-2.5 text-[13.5px] font-semibold text-white"
           >
-            Invite to video call
+            {copy.agenda.invite}
           </button>
         </div>
 
@@ -277,22 +287,24 @@ function AgendaPageInner() {
           mutedMonth={view === "month" ? monthCursor : null}
           onSelect={selectDay}
           visibleAppointments={visibleAppointments}
+          locale={locale}
+          weekdays={copy.agenda.weekdays}
         />
 
         {error ? <p className="mb-4 text-[13px] font-medium text-[#a81d12]">{error}</p> : null}
 
         {inviteOpen ? (
           <section className="mb-5 rounded-[16px] border border-[#cfe6d3] bg-[#eaf5ec] p-4 sm:p-5">
-            <h2 className="mb-3 text-[15px] font-semibold text-[#1f241b]">Invite a patient</h2>
+            <h2 className="mb-3 text-[15px] font-semibold text-[#1f241b]">{copy.agenda.inviteTitle}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-[13px] font-semibold text-[#1f241b]">
-                Patient
+                {copy.agenda.patient}
                 <select
                   value={caseId}
                   onChange={(e) => setCaseId(e.target.value)}
                   className="mt-1.5 h-11 w-full rounded-[12px] border border-black/10 bg-white px-3.5 text-[13.5px] font-medium outline-none"
                 >
-                  <option value="">Select patient…</option>
+                  <option value="">{copy.agenda.selectPatient}</option>
                   {patients.map((patient) => (
                     <option key={patient.caseId} value={patient.caseId}>
                       {patient.fullName} · {patient.city}
@@ -301,7 +313,7 @@ function AgendaPageInner() {
                 </select>
               </label>
               <label className="text-[13px] font-semibold text-[#1f241b]">
-                Date and time
+                {copy.agenda.dateTime}
                 <input
                   type="datetime-local"
                   value={startsAt}
@@ -310,19 +322,19 @@ function AgendaPageInner() {
                 />
               </label>
               <label className="text-[13px] font-semibold text-[#1f241b]">
-                Length
+                {copy.agenda.length}
                 <select
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(Number(e.target.value))}
                   className="mt-1.5 h-11 w-full rounded-[12px] border border-black/10 bg-white px-3.5 text-[13.5px] font-medium outline-none"
                 >
-                  <option value={15}>15 minutes</option>
-                  <option value={20}>20 minutes</option>
-                  <option value={30}>30 minutes</option>
+                  <option value={15}>{copy.settings.minutes(15)}</option>
+                  <option value={20}>{copy.settings.minutes(20)}</option>
+                  <option value={30}>{copy.settings.minutes(30)}</option>
                 </select>
               </label>
               <label className="text-[13px] font-semibold text-[#1f241b]">
-                Reason
+                {copy.agenda.reason}
                 <input
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -337,20 +349,22 @@ function AgendaPageInner() {
               onClick={() => void invite()}
               className="mt-4 rounded-[12px] bg-[#2f5f4f] px-4 py-2.5 text-[13.5px] font-semibold text-white disabled:opacity-50"
             >
-              Send invite
+              {copy.agenda.sendInvite}
             </button>
           </section>
         ) : null}
 
         {requests.length > 0 ? (
           <section className="mb-5 rounded-[16px] border border-[#f0d7b0] bg-[#fff8ee] p-4 sm:p-5">
-            <h2 className="mb-3 text-[15px] font-semibold text-[#1f241b]">Waiting for you to confirm</h2>
+            <h2 className="mb-3 text-[15px] font-semibold text-[#1f241b]">{copy.agenda.waitingConfirm}</h2>
             <div className="space-y-3">
               {requests.map((item) => (
                 <AppointmentCard
                   key={item.id}
                   item={item}
                   busy={busy}
+                  locale={locale}
+                  copy={copy}
                   onConfirm={() => void act(item.id, "confirm")}
                   onCancel={() => void act(item.id, "cancel")}
                 />
@@ -360,12 +374,14 @@ function AgendaPageInner() {
         ) : null}
 
         <section className="space-y-3">
-          <h2 className="text-[15px] font-semibold text-[#1f241b]">{selectedDay ? formatDay(selectedDay) : "Select a day"}</h2>
+          <h2 className="text-[15px] font-semibold text-[#1f241b]">{selectedDay ? formatDay(selectedDay, locale) : copy.agenda.selectDay}</h2>
           {dayItems.map((item) => (
             <AppointmentCard
               key={item.id}
               item={item}
               busy={busy}
+              locale={locale}
+              copy={copy}
               onConfirm={() => void act(item.id, "confirm")}
               onCancel={() => void act(item.id, "cancel")}
               onComplete={() => void act(item.id, "complete")}
@@ -373,9 +389,7 @@ function AgendaPageInner() {
           ))}
           {dayItems.length === 0 ? (
             <div className="rounded-[16px] border border-dashed border-black/10 bg-white px-6 py-12 text-center text-[14px] font-medium text-black/40">
-              {loadError
-                ? "Could not load the agenda. Is the local database running?"
-                : "No video visits on this day. Invite a patient or confirm a request."}
+              {loadError ? copy.agenda.loadError : copy.agenda.emptyDay}
             </div>
           ) : null}
         </section>
@@ -384,25 +398,27 @@ function AgendaPageInner() {
   );
 }
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 function CalendarGrid({
   days,
   selectedDay,
   mutedMonth,
   onSelect,
   visibleAppointments,
+  locale,
+  weekdays,
 }: {
   days: Date[];
   selectedDay: Date | null;
   mutedMonth: Date | null;
   onSelect: (day: Date) => void;
   visibleAppointments: (day: Date) => VideoAppointment[];
+  locale: string;
+  weekdays: string[];
 }) {
   return (
     <div className="mb-5 overflow-hidden rounded-[16px] bg-white">
       <div className="grid grid-cols-7" style={{ borderBottom: "1px solid #d8d5cc" }}>
-        {WEEKDAYS.map((label, index) => {
+        {weekdays.map((label, index) => {
           const weekend = index >= 5;
           return (
             <p
@@ -451,7 +467,7 @@ function CalendarGrid({
                       item.status === "requested" ? "bg-[#fff1dc] text-[#9a4e07]" : "bg-[#e6f1e2] text-[#3f5f35]"
                     }`}
                   >
-                    {formatTime(item.startsAt)} {item.patientName.split(" ")[0]}
+                    {formatTime(item.startsAt, locale)} {item.patientName.split(" ")[0]}
                   </p>
                 ))}
                 {items.length > 2 ? (
@@ -469,12 +485,16 @@ function CalendarGrid({
 function AppointmentCard({
   item,
   busy,
+  locale,
+  copy,
   onConfirm,
   onCancel,
   onComplete,
 }: {
   item: VideoAppointment;
   busy: boolean;
+  locale: string;
+  copy: DoctorCopy;
   onConfirm: () => void;
   onCancel: () => void;
   onComplete?: () => void;
@@ -492,37 +512,43 @@ function AppointmentCard({
               {item.patientName}
             </Link>
             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusClass(item.status)}`}>
-              {statusLabel(item.status)}
+              {item.status === "requested"
+                ? copy.agenda.requested
+                : item.status === "scheduled"
+                  ? copy.agenda.scheduled
+                  : item.status === "completed"
+                    ? copy.agenda.completed
+                    : copy.agenda.cancelled}
             </span>
           </div>
           <p className="mt-1 text-[13.5px] font-medium text-black/55">
-            {formatTime(item.startsAt)} · {item.durationMinutes} min · {item.city}
+            {formatTime(item.startsAt, locale)} · {item.durationMinutes} min · {item.city}
           </p>
           {item.reason ? <p className="mt-1 text-[13.5px] text-[#1f241b]">{item.reason}</p> : null}
           {item.notes ? <p className="mt-1 line-clamp-2 text-[13px] text-black/50">{item.notes}</p> : null}
           <p className="mt-1 text-[12px] text-black/40">
-            {item.requestedBy === "patient" ? "Requested by patient" : "Invited by physician"}
+            {item.requestedBy === "patient" ? copy.agenda.requestedByPatient : copy.agenda.invitedByPhysician}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {item.status === "requested" ? (
             <button type="button" disabled={busy} onClick={onConfirm} className="rounded-full bg-[#2f5f4f] px-3.5 py-2 text-[13px] font-semibold text-white disabled:opacity-50">
-              Confirm
+              {copy.agenda.confirm}
             </button>
           ) : null}
           {canJoin ? (
             <Link href={`/call/${item.id}`} className="rounded-full bg-[#2f5f4f] px-3.5 py-2 text-[13px] font-semibold text-white">
-              Join call
+              {copy.agenda.joinCall}
             </Link>
           ) : null}
           {item.status === "scheduled" && onComplete && now > item.startsAt ? (
             <button type="button" disabled={busy} onClick={onComplete} className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-[13px] font-semibold disabled:opacity-50">
-              Mark complete
+              {copy.agenda.markComplete}
             </button>
           ) : null}
           {item.status === "requested" || item.status === "scheduled" ? (
             <button type="button" disabled={busy} onClick={onCancel} className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-[13px] font-semibold disabled:opacity-50">
-              Cancel
+              {copy.agenda.cancel}
             </button>
           ) : null}
         </div>
@@ -531,9 +557,18 @@ function AppointmentCard({
   );
 }
 
+function AgendaFallback() {
+  const { copy } = useDoctorLanguage();
+  return (
+    <DoctorChrome active="agenda" title={copy.pages.agenda}>
+      <main className="px-6 py-16 text-black/40">{copy.agenda.loading}</main>
+    </DoctorChrome>
+  );
+}
+
 export default function DoctorAgendaPage() {
   return (
-    <Suspense fallback={<DoctorChrome active="agenda" title="Agenda"><main className="px-6 py-16 text-black/40">Loading agenda…</main></DoctorChrome>}>
+    <Suspense fallback={<AgendaFallback />}>
       <AgendaPageInner />
     </Suspense>
   );

@@ -4,43 +4,68 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 type Message = { id: string; role: "assistant" | "user"; content: string };
 
-function getGreeting() {
+type CareChatProps = {
+  firstName?: string | null;
+  doctorName?: string | null;
+  treatmentName?: string | null;
+  followUp?: string | null;
+  isPremium?: boolean;
+};
+
+function greetingPrefix() {
   const h = new Date().getHours();
-  if (h >= 6 && h < 12) return "Good morning, Martijn";
-  if (h >= 12 && h < 18) return "Good afternoon, Martijn";
-  if (h >= 18 && h < 24) return "Good evening, Martijn";
-  return "Good night, Martijn";
+  if (h >= 6 && h < 12) return "Good morning";
+  if (h >= 12 && h < 18) return "Good afternoon";
+  if (h >= 18 && h < 24) return "Good evening";
+  return "Good night";
 }
 
-function getReply(msg: string): string {
+function getGreeting(firstName?: string | null) {
+  const prefix = greetingPrefix();
+  return firstName ? `${prefix}, ${firstName}` : prefix;
+}
+
+function getReply(
+  msg: string,
+  { doctorName, treatmentName, followUp, isPremium }: CareChatProps,
+): string {
   const t = msg.toLowerCase();
-  if (t.includes("side effect") || t.includes("bijwerking"))
-    return "Side effects with Topical Finasteride 0.25% are uncommon and usually mild. If you notice anything that concerns you, please describe it here and I'll flag it for Dr. Emre Yilmaz to review.";
-  if (t.includes("delivery") || t.includes("order") || t.includes("ship") || t.includes("when"))
-    return "Your order is currently being prepared and is estimated to arrive Tuesday 14 June. Once it ships you'll get a tracking notification.";
-  if (t.includes("how") && (t.includes("use") || t.includes("apply") || t.includes("apply")))
-    return "Apply a small amount of Topical Finasteride 0.25% to the affected area once daily, ideally at the same time each day. Wash your hands after use. If you have questions about technique, I can connect you with Dr. Emre Yilmaz.";
-  if (t.includes("photo") || t.includes("baseline") || t.includes("progress"))
-    return "Baseline photos help track your progress over time. You can upload them from the 'Next up' card on your dashboard. It only takes a minute and makes follow-up reviews much more useful.";
-  if (t.includes("doctor") || t.includes("dr") || t.includes("emre") || t.includes("yilmaz"))
-    return "Dr. Emre Yilmaz reviewed and approved your treatment plan. He typically responds within 24 hours. Want me to send him a message on your behalf?";
-  if (t.includes("review") || t.includes("next"))
-    return "Your next treatment review is scheduled for July 12. Dr. Emre Yilmaz will assess your progress and adjust the plan if needed.";
-  if (t.includes("cancel") || t.includes("stop") || t.includes("pause"))
-    return "If you'd like to pause or cancel your treatment, I can pass that request to the care team. Would you like me to do that, or would you prefer to speak with Dr. Emre Yilmaz first?";
-  if (t.includes("payment") || t.includes("invoice") || t.includes("cost") || t.includes("price"))
-    return "For billing questions, our care team can help directly. Would you like me to flag this for them?";
+  const doctor = doctorName || "your physician";
+  const treatment = treatmentName || "your treatment";
+  if (t.includes("side effect") || t.includes("bijwerking")) {
+    return `Side effects with ${treatment} are uncommon and usually mild. If you notice anything that concerns you, please describe it here and I'll flag it for ${doctor} to review.`;
+  }
+  if (t.includes("delivery") || t.includes("order") || t.includes("ship") || t.includes("when")) {
+    return "Order updates appear on your dashboard as soon as they’re available. If something looks off, I can pass it to the care team.";
+  }
+  if (t.includes("how") && (t.includes("use") || t.includes("apply"))) {
+    return `Apply ${treatment} as prescribed, ideally at the same time each day. Wash your hands after use. If you have questions about technique, I can connect you with the care team.`;
+  }
+  if (t.includes("photo") || t.includes("baseline") || t.includes("progress")) {
+    return "Photos help track your progress over time. You can upload them from Progress or the Photos page. It only takes a minute and makes follow-up reviews much more useful.";
+  }
+  if (t.includes("doctor") || t.includes("physician") || t.includes("message")) {
+    if (isPremium) {
+      return `${doctor} typically responds within 24 hours. You can message them from the Messages tab.`;
+    }
+    return `${doctor} typically responds within 24 hours. Direct physician messaging is included in Hiros Premium. You can still book a call or keep chatting with the care team here.`;
+  }
+  if (t.includes("review") || t.includes("next")) {
+    return followUp
+      ? `Your next treatment review is scheduled for ${followUp}. ${doctor} will assess your progress and adjust the plan if needed.`
+      : `Your next review date will appear here once ${doctor} sets it.`;
+  }
+  if (t.includes("cancel") || t.includes("stop") || t.includes("pause")) {
+    return `If you'd like to pause or cancel your treatment, I can pass that request to the care team. Would you like me to do that, or would you prefer to speak with ${doctor} first?`;
+  }
+  if (t.includes("payment") || t.includes("invoice") || t.includes("cost") || t.includes("price") || t.includes("premium")) {
+    return "Direct messages with your physician are included in Hiros Premium. For billing questions, our care team can help directly.";
+  }
   return "I'm here to help with anything related to your Hiros treatment. Feel free to ask about side effects, your order, how to use your treatment, or anything else on your mind.";
 }
 
-const quickActions = [
-  "How do I use my treatment?",
-  "When does my order arrive?",
-  "Side effects I should know about",
-  "Message Dr. Emre Yilmaz",
-];
-
-export function DashboardCareChat() {
+export function DashboardCareChat(props: CareChatProps) {
+  const [greeting, setGreeting] = useState("Hello");
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -48,17 +73,35 @@ export function DashboardCareChat() {
     {
       id: "init",
       role: "assistant",
-      content: `${getGreeting()} 👋 I'm your Hiros care assistant. How can I help you with your treatment today?`,
+      content: "I'm your Hiros care assistant. How can I help you with your treatment today?",
     },
   ]);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const quickActions = [
+    "How do I use my treatment?",
+    "When does my order arrive?",
+    "Side effects I should know about",
+    props.isPremium ? `Message ${props.doctorName || "my physician"}` : "How does a physician review work?",
+  ];
+
+  useEffect(() => {
+    const next = getGreeting(props.firstName);
+    setGreeting(next);
+    setMessages((current) =>
+      current[0]?.id === "init"
+        ? [{ id: "init", role: "assistant", content: `${next} 👋 I'm your Hiros care assistant. How can I help you with your treatment today?` }, ...current.slice(1)]
+        : current,
+    );
+  }, [props.firstName]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen, thinking]);
 
-  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
 
   const send = (text: string) => {
     const trimmed = text.trim();
@@ -67,12 +110,15 @@ export function DashboardCareChat() {
     setInput("");
     setThinking(true);
     timeoutRef.current = setTimeout(() => {
-      setMessages((m) => [...m, { id: `a-${Date.now()}`, role: "assistant", content: getReply(trimmed) }]);
+      setMessages((m) => [...m, { id: `a-${Date.now()}`, role: "assistant", content: getReply(trimmed, props) }]);
       setThinking(false);
     }, 400);
   };
 
-  const handleSubmit = (e: FormEvent) => { e.preventDefault(); send(input); };
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    send(input);
+  };
 
   return (
     <>
@@ -83,11 +129,10 @@ export function DashboardCareChat() {
           aria-label="Hiros care assistant"
           className="fixed inset-x-4 bottom-4 z-[70] flex h-[min(520px,calc(100dvh-2rem))] w-auto max-w-none flex-col overflow-hidden rounded-[28px] border border-[#e4e0d8] bg-white shadow-[0_24px_60px_rgba(31,51,41,0.18)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[520px] sm:w-[360px] sm:max-w-[calc(100vw-2rem)]"
         >
-          {/* Header */}
           <div className="flex items-start justify-between bg-[#1f4033] px-5 py-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">Hiros Care</p>
-              <h3 className="mt-0.5 font-title text-[20px] font-medium leading-tight text-white">{getGreeting()}</h3>
+              <h3 className="mt-0.5 font-title text-[20px] font-medium leading-tight text-white">{greeting}</h3>
             </div>
             <button
               type="button"
@@ -101,7 +146,6 @@ export function DashboardCareChat() {
             </button>
           </div>
 
-          {/* Quick actions */}
           <div className="flex flex-wrap gap-1.5 border-b border-[#f0ebe2] bg-[#faf9f6] px-4 py-3">
             {quickActions.map((a) => (
               <button
@@ -115,7 +159,6 @@ export function DashboardCareChat() {
             ))}
           </div>
 
-          {/* Messages */}
           <div className="flex-1 space-y-3 overflow-y-auto bg-white px-4 py-4">
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -140,7 +183,6 @@ export function DashboardCareChat() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
           <form onSubmit={handleSubmit} className="border-t border-[#f0ebe2] bg-white p-3">
             <div className="flex items-center gap-2 rounded-full border border-[#e4e0d8] bg-[#faf9f6] px-4 py-2">
               <input
@@ -164,7 +206,6 @@ export function DashboardCareChat() {
         </div>
       )}
 
-      {/* Trigger button — wired to "Message us" via custom event */}
       <button
         id="dashboard-care-chat-trigger"
         type="button"

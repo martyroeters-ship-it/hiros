@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidEmail, normalizeEmail, setSessionCookie, verifyPassword } from "@/lib/auth";
+import { patientHasCompletedIntake } from "@/lib/cases-repo";
 import { sql } from "@/lib/db";
 import { ready } from "@/lib/ensure-db";
 
@@ -22,8 +23,9 @@ export async function POST(request: Request) {
       last_name: string | null;
       password_hash: string | null;
       is_active: boolean;
+      role: string;
     }[]>`
-      select id, email, first_name, last_name, password_hash, is_active
+      select id, email, first_name, last_name, password_hash, is_active, role
       from public.profiles
       where lower(email) = ${email}
       limit 1
@@ -38,6 +40,8 @@ export async function POST(request: Request) {
       email: row.email,
       firstName: row.first_name,
       lastName: row.last_name,
+      role: row.role,
+      hasCase: await patientHasCompletedIntake(row.id),
     });
   } catch (error) {
     console.error(error);

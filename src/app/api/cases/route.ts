@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { listCases, persistIntake, type IntakePersistInput } from "@/lib/cases-repo";
+import { ready } from "@/lib/ensure-db";
+import { requireStaff } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
+    const { error } = await requireStaff();
+    if (error) return error;
     const cases = await listCases();
     return NextResponse.json(cases);
   } catch (error) {
@@ -16,6 +20,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await ready();
     const body = (await request.json()) as IntakePersistInput;
     if (!body?.answers || typeof body.answers !== "object") {
       return NextResponse.json({ error: "Invalid intake" }, { status: 400 });

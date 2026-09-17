@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 
-type Props = { cardClassName: string; titleClassName: string };
+type Props = { cardClassName: string; titleClassName: string; treatmentName?: string | null };
 
-export function DoseCheckCard({ cardClassName, titleClassName }: Props) {
+export function DoseCheckCard({ cardClassName, titleClassName, treatmentName }: Props) {
   const [logged, setLogged] = useState<"taken" | "missed" | null>(null);
 
   return (
     <div className={`flex min-h-0 min-w-0 flex-col ${cardClassName}`}>
       <p className={titleClassName}>Today's dose</p>
-      <p className="text-[11px] text-[#8a9288]">Finasteride 0.25%</p>
+      <p className="text-[11px] text-[#8a9288]">{treatmentName || "Waiting for your plan"}</p>
 
       {logged === null ? (
         <div className="mt-1 flex flex-1 items-center gap-1.5">

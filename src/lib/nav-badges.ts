@@ -30,13 +30,14 @@ export async function getDoctorNavBadges(): Promise<DoctorNavBadges> {
     select count(*)::int as n
     from public.cases c
     join lateral (
-      select sender_role
+      select sender_role, created_at
       from public.messages
       where case_id = c.id
       order by created_at desc
       limit 1
     ) m on true
     where m.sender_role = 'patient'
+      and (c.doctor_last_read_at is null or m.created_at > c.doctor_last_read_at)
       and c.assigned_doctor_id is not null
       and c.status in ('approved', 'trial_active')
   `;
