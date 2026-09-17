@@ -6,6 +6,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { blogArticles, blogTopics, type BlogArticle } from "@/data/blogArticles";
 import { hasBlogPost } from "@/data/blogPostSlugs";
+import { getBlogPost, getBlogPostCopy } from "@/data/blogPosts";
+import { secondaryCopy } from "@/i18n/secondaryCopy";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
+import type { Locale } from "@/i18n/homeCopy";
 
 export const BLOG_COLUMN_CLASS = "mx-auto w-[min(1080px,83.076923%,calc(100%-3rem))]";
 export const HOME_SECTION_COUNT = 6;
@@ -33,6 +37,21 @@ export function resolvedTopic(topicFromUrl: string | null) {
   return "all";
 }
 
+function localizeArticle(article: BlogArticle, locale: Locale): BlogArticle {
+  const post = getBlogPost(article.slug);
+  const topicLabel = secondaryCopy[locale].blog.topics[article.topic] ?? article.category;
+  const copy = post ? getBlogPostCopy(post, locale) : null;
+
+  return {
+    ...article,
+    title: copy?.title ?? article.title,
+    excerpt: copy?.excerpt ?? article.excerpt,
+    author: copy?.author ?? article.author,
+    category: topicLabel,
+    tag: article.tag ? topicLabel : article.tag,
+  };
+}
+
 function ArticleShell({
   article,
   className,
@@ -57,11 +76,12 @@ function ArticleShell({
   return <article className={className}>{children}</article>;
 }
 
-function ArticleByline({ article }: { article: BlogArticle }) {
+function ArticleByline({ article, locale }: { article: BlogArticle; locale: Locale }) {
+  const copy = secondaryCopy[locale].blog;
   return (
     <p className="mt-1.5 text-[13px] font-medium text-[#11110f]/45">
       <span className="text-[#11110f]/70">{article.author}</span>
-      {` in ${article.category}`}
+      {locale === "tr" ? ` · ${article.category}` : ` ${copy.inCategory} ${article.category}`}
     </p>
   );
 }
@@ -82,7 +102,7 @@ function ArticleTags({ article }: { article: BlogArticle }) {
   );
 }
 
-function FeaturedPrimary({ article }: { article: BlogArticle }) {
+function FeaturedPrimary({ article, locale }: { article: BlogArticle; locale: Locale }) {
   return (
     <>
       <ArticleShell
@@ -96,7 +116,7 @@ function FeaturedPrimary({ article }: { article: BlogArticle }) {
         <h2 className="text-[32px] font-medium leading-[1.05] tracking-[-0.04em] text-[#11110f] underline-offset-[6px] transition-colors group-hover:underline sm:text-[40px] lg:text-[44px] lg:tracking-[-0.05em]">
           {article.title}
         </h2>
-        <ArticleByline article={article} />
+        <ArticleByline article={article} locale={locale} />
         <p className="mt-2 max-w-2xl text-[15px] font-medium leading-[1.5] text-[#11110f]/65 sm:text-[16px]">{article.excerpt}</p>
         <ArticleTags article={article} />
       </ArticleShell>
@@ -104,14 +124,14 @@ function FeaturedPrimary({ article }: { article: BlogArticle }) {
   );
 }
 
-function FeaturedSecondary({ article }: { article: BlogArticle }) {
+function FeaturedSecondary({ article, locale }: { article: BlogArticle; locale: Locale }) {
   return (
     <ArticleShell article={article} className="group flex items-start gap-4 sm:gap-5">
       <div className="min-w-0 flex-1">
         <h3 className="text-[20px] font-medium leading-[1.1] tracking-[-0.03em] text-[#11110f] underline-offset-[5px] transition-colors group-hover:underline sm:text-[22px]">
           {article.title}
         </h3>
-        <ArticleByline article={article} />
+        <ArticleByline article={article} locale={locale} />
         <p className="mt-2 line-clamp-2 text-[14px] font-medium leading-[1.45] text-[#11110f]/65">{article.excerpt}</p>
         <ArticleTags article={article} />
       </div>
@@ -122,7 +142,7 @@ function FeaturedSecondary({ article }: { article: BlogArticle }) {
   );
 }
 
-function FeaturedTrio({ articles }: { articles: BlogArticle[] }) {
+function FeaturedTrio({ articles, locale }: { articles: BlogArticle[]; locale: Locale }) {
   const [primary, ...rest] = articles;
 
   if (!primary) return null;
@@ -135,11 +155,11 @@ function FeaturedTrio({ articles }: { articles: BlogArticle[] }) {
           : "grid grid-cols-1"
       }
     >
-      <FeaturedPrimary article={primary} />
+      <FeaturedPrimary article={primary} locale={locale} />
       {rest.length > 0 ? (
         <div className="order-3 mt-10 flex flex-col gap-6 lg:col-start-2 lg:row-start-1 lg:mt-0">
           {rest.map((article) => (
-            <FeaturedSecondary key={article.slug} article={article} />
+            <FeaturedSecondary key={article.slug} article={article} locale={locale} />
           ))}
         </div>
       ) : null}
@@ -147,7 +167,7 @@ function FeaturedTrio({ articles }: { articles: BlogArticle[] }) {
   );
 }
 
-function ArticleCard({ article }: { article: BlogArticle }) {
+function ArticleCard({ article, locale }: { article: BlogArticle; locale: Locale }) {
   return (
     <ArticleShell article={article} className="group flex flex-col">
       <div className="relative aspect-[3/2] overflow-hidden rounded-[20px] bg-[#eeeae2]">
@@ -156,7 +176,7 @@ function ArticleCard({ article }: { article: BlogArticle }) {
       <h3 className="mt-4 text-[28px] font-medium leading-[1em] tracking-[-0.03em] text-[#11110f] underline-offset-[5px] transition-colors group-hover:underline">
         {article.title}
       </h3>
-      <ArticleByline article={article} />
+      <ArticleByline article={article} locale={locale} />
       <p className="mt-2 line-clamp-2 text-[14px] font-medium leading-[1.5] text-[#11110f]/65">{article.excerpt}</p>
       <ArticleTags article={article} />
     </ArticleShell>
@@ -164,14 +184,18 @@ function ArticleCard({ article }: { article: BlogArticle }) {
 }
 
 export function ArticleGrid({ articles }: { articles: BlogArticle[] }) {
-  if (articles.length === 0) {
-    return <p className="text-[15px] font-medium text-[#11110f]/55">No articles in this topic yet.</p>;
+  const locale = useHydratedLocale();
+  const copy = secondaryCopy[locale].blog;
+  const localized = articles.map((article) => localizeArticle(article, locale));
+
+  if (localized.length === 0) {
+    return <p className="text-[15px] font-medium text-[#11110f]/55">{copy.empty}</p>;
   }
 
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-12">
-      {articles.map((article) => (
-        <ArticleCard key={article.slug} article={article} />
+      {localized.map((article) => (
+        <ArticleCard key={article.slug} article={article} locale={locale} />
       ))}
     </div>
   );
@@ -182,13 +206,16 @@ function SectionDivider() {
 }
 
 function SeeAllLink({ href }: { href: string }) {
+  const locale = useHydratedLocale();
+  const copy = secondaryCopy[locale].blog;
+
   return (
     <div className="mt-12 flex justify-center sm:mt-16">
       <Link
         href={href}
         className="rounded-full bg-[#f0eee8] px-6 py-3.5 text-[14px] font-medium text-[#11110f] transition-colors hover:bg-[#e7e4dc]"
       >
-        See all articles
+        {copy.seeAll}
       </Link>
     </div>
   );
@@ -202,6 +229,8 @@ export function TopicPills({
   basePath: TopicPillsPath;
 }) {
   const router = useRouter();
+  const locale = useHydratedLocale();
+  const labels = secondaryCopy[locale].blog.topics;
 
   return (
     <div className="-mx-6 mt-8 flex gap-2 overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 lg:flex-nowrap">
@@ -220,7 +249,7 @@ export function TopicPills({
               isActive ? "bg-[#11110f] text-white" : "bg-[#f0eee8] text-[#11110f] hover:bg-[#e7e4dc]"
             }`}
           >
-            {item.label}
+            {labels[item.slug] ?? item.label}
           </button>
         );
       })}
@@ -243,8 +272,10 @@ export function useBlogTopic() {
 }
 
 export default function BlogIndex() {
+  const locale = useHydratedLocale();
+  const copy = secondaryCopy[locale].blog;
   const { topic, filtered } = useBlogTopic();
-  const featured = filtered.slice(0, 3);
+  const featured = filtered.slice(0, 3).map((article) => localizeArticle(article, locale));
   const remaining = filtered.slice(3);
   const latest = remaining.filter((article) => article.section === "latest");
   const guides = remaining.filter((article) => article.section === "guides");
@@ -263,10 +294,10 @@ export default function BlogIndex() {
       <div className="sticky top-[52px] z-0 bg-white pt-12 sm:top-[56px] sm:pt-16">
         <div className={`${BLOG_COLUMN_CLASS} pb-8 sm:pb-10`}>
           <h1 className="font-title text-[48px] font-normal leading-[1.02] tracking-[-0.06em] text-[#11110f] sm:text-[64px] lg:text-[80px] lg:tracking-[-0.08em]">
-            Clearer answers
+            {copy.title}
           </h1>
           <p className="mt-3 max-w-2xl text-[16px] font-medium leading-[1.5] text-[#11110f] sm:text-[18px]">
-            Notes on hair loss, private care, and how the process works—from Hiros.
+            {copy.subtitle}
           </p>
           <TopicPills topic={topic} basePath="/blog" />
         </div>
@@ -281,13 +312,13 @@ export default function BlogIndex() {
         {featured.length > 0 ? (
           <section className={sectionClass({ bottom: hasLatest || hasGuides, extra: hasLatest || hasGuides ? "rounded-t-none" : "" })}>
             <div className={BLOG_COLUMN_CLASS}>
-              <FeaturedTrio articles={featured} />
+              <FeaturedTrio articles={featured} locale={locale} />
             </div>
           </section>
         ) : (
           <section className="relative bg-white pb-24 pt-4 sm:pb-32 sm:pt-5">
             <div className={BLOG_COLUMN_CLASS}>
-              <p className="text-[15px] font-medium text-[#11110f]/55">No articles in this topic yet.</p>
+              <p className="text-[15px] font-medium text-[#11110f]/55">{copy.empty}</p>
             </div>
           </section>
         )}
@@ -298,7 +329,7 @@ export default function BlogIndex() {
           <section className={sectionClass({ top: featured.length > 0, bottom: hasGuides })}>
             <div className={BLOG_COLUMN_CLASS}>
               <h2 className="mb-8 overflow-visible pt-[0.12em] font-title text-[36px] font-normal leading-[1.15] tracking-[-0.04em] text-[#11110f] sm:mb-10 sm:text-[48px] lg:text-[60px] lg:tracking-[-0.07em]">
-                Latest
+                {copy.latest}
               </h2>
               <ArticleGrid articles={latestPreview} />
               <SeeAllLink href={topicHref("/blog/all", topic)} />
@@ -312,7 +343,7 @@ export default function BlogIndex() {
           <section className={sectionClass({ top: featured.length > 0 || hasLatest, extra: "rounded-b-none" })}>
             <div className={BLOG_COLUMN_CLASS}>
               <h2 className="mb-8 overflow-visible pt-[0.12em] font-title text-[36px] font-normal leading-[1.15] tracking-[-0.04em] text-[#11110f] sm:mb-10 sm:text-[48px] lg:text-[60px] lg:tracking-[-0.07em]">
-                Lifestyle guides
+                {copy.guides}
               </h2>
               <ArticleGrid articles={guidesPreview} />
               <SeeAllLink href={topicHref("/blog/guides", topic)} />

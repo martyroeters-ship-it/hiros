@@ -72,6 +72,15 @@ function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
   }
 }
 
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px] shrink-0" stroke="currentColor" strokeWidth="1.6">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function SidebarContent({
   pathname,
   onNavigate,
@@ -115,6 +124,19 @@ function SidebarContent({
             );
           })}
         </ul>
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            void fetch("/api/auth/logout", { method: "POST" }).then(() => {
+              window.location.href = "/";
+            });
+          }}
+          className="mt-0.5 flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-[14px] font-medium text-[#5a6458] transition-colors hover:bg-[#eee9df] hover:text-black"
+        >
+          <LogoutIcon />
+          <span>Log out</span>
+        </button>
       </nav>
 
       <div className="mt-4 rounded-[16px] bg-[#f0ebe2]/90 p-3 backdrop-blur-[1px]">

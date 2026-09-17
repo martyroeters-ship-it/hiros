@@ -23,8 +23,8 @@ export async function generateMetadata({ params }: FaqCategoryPageProps): Promis
   }
 
   return {
-    title: `${category.title} | Hiros`,
-    description: category.description,
+    title: `${category.title.tr} | Hiros`,
+    description: category.description.tr,
   };
 }
 

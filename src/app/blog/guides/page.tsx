@@ -16,7 +16,7 @@ export default function BlogGuidesPage() {
       <LegalHeader elevateOnScroll />
       <main className="min-h-screen overflow-x-clip bg-white text-[#11110f]">
         <Suspense>
-          <BlogAllArticles section="guides" title="Lifestyle guides" crumb="Guides" basePath="/blog/guides" />
+          <BlogAllArticles section="guides" basePath="/blog/guides" />
         </Suspense>
         <div className="relative z-20">
           <SiteFooter />

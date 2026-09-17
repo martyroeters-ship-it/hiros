@@ -1,6 +1,10 @@
+"use client";
+
 import type { ReactNode } from "react";
 import LegalHeader from "@/components/LegalHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { secondaryCopy } from "@/i18n/secondaryCopy";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
 
 export function LegalSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -28,6 +32,9 @@ export function LegalPage({
   lastUpdated?: string;
   children: ReactNode;
 }) {
+  const locale = useHydratedLocale();
+  const lastUpdatedLabel = secondaryCopy[locale].legal.lastUpdated;
+
   return (
     <>
       <LegalHeader />
@@ -38,7 +45,9 @@ export function LegalPage({
             {title}
           </h1>
           {lastUpdated ? (
-            <p className="mt-4 text-[14px] font-medium text-[#11110f]/55">Last updated: {lastUpdated}</p>
+            <p className="mt-4 text-[14px] font-medium text-[#11110f]/55">
+              {lastUpdatedLabel} {lastUpdated}
+            </p>
           ) : null}
           <div className="mt-5 space-y-5 text-[15px] font-medium leading-[1.7] tracking-[-0.01em] text-[#2b2a28]/88 sm:text-[16px] sm:leading-[1.75]">
             {children}
