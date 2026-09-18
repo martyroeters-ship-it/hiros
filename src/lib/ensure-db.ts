@@ -73,6 +73,13 @@ async function applyIfNeeded() {
     await applyFile("db/migrations/006_photo_bytes.sql");
   }
 
+  const [{ has_lifestyle }] = await sql`
+    select to_regclass('public.care_lifestyle_checkins') as has_lifestyle
+  `;
+  if (!has_lifestyle) {
+    await applyFile("db/migrations/007_care_lifestyle.sql");
+  }
+
   await applyFile("db/seed/001_demo.sql");
   await applyFile("db/seed/002_treatment_patients.sql");
   await applyFile("db/seed/003_appointments.sql");
@@ -112,6 +119,7 @@ export async function ready() {
   await ensureDemoDoctorPassword();
   await ensureDoctorReadColumn();
   await ensurePhotoBytesColumn();
+  await ensureCareLifestyleTable();
 }
 
 async function ensureDoctorReadColumn() {
@@ -141,5 +149,14 @@ async function ensurePhotoBytesColumn() {
   `;
   if (!has_photo_bytes) {
     await applyFile("db/migrations/006_photo_bytes.sql");
+  }
+}
+
+async function ensureCareLifestyleTable() {
+  const [{ has_lifestyle }] = await sql`
+    select to_regclass('public.care_lifestyle_checkins') as has_lifestyle
+  `;
+  if (!has_lifestyle) {
+    await applyFile("db/migrations/007_care_lifestyle.sql");
   }
 }

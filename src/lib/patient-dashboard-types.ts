@@ -68,6 +68,7 @@ export type PatientDashboardSnapshot = {
   doctorLabel: string;
   treatmentName: string | null;
   treatmentStart: string | null;
+  treatmentStartedAt: number | null;
   treatmentFollowUp: string | null;
   treatmentNotes: string | null;
   treatmentApproved: boolean;

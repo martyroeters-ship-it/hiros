@@ -1,0 +1,22 @@
+---
+description: Upcoming Care labs / blood-test feature (Hims Labs-style)
+alwaysApply: true
+---
+
+# Care labs (soon)
+
+Do not build this yet unless asked. When working on `/care` Hair health, Action Plan, or treatment support, remember this planned follow-up.
+
+## Product
+
+- Optional **blood test / labs** in Care, in the spirit of Hims Labs.
+- Show **blood values** in Hair health (or a linked labs surface).
+- A **licensed physician personally reviews** the report and can add a **note on each value** explaining how it relates to that patient’s condition and treatment.
+- Care **displays** those physician notes. Do not auto-match papers or thresholds to a patient’s number and call it “just research.”
+- Tips stay next to the prescription, not instead of it. Do not auto-titrate minoxidil/finasteride from labs.
+
+## Legal shape (Turkey — not legal advice)
+
+- Testing via a **licensed Turkish lab**; Hiros is not the lab.
+- Interpretation and per-value notes sit with the **treating physician**.
+- Values are special-category health data (KVKK). Physician-in-the-loop, not an algorithm claiming a personal hair-loss conclusion.

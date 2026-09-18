@@ -118,6 +118,7 @@ function emptySnapshot(signedIn: boolean): PatientDashboardSnapshot {
     doctorLabel: "Your physician",
     treatmentName: null,
     treatmentStart: null,
+    treatmentStartedAt: null,
     treatmentFollowUp: null,
     ...extras(),
     nextUp: signedIn
@@ -619,6 +620,11 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
       ? formatShortDate(row.treatment_started_at)
       : isApproved && row.reviewed_at
         ? formatShortDate(row.reviewed_at)
+        : null,
+    treatmentStartedAt: row.treatment_started_at
+      ? new Date(row.treatment_started_at).getTime()
+      : isApproved && row.reviewed_at
+        ? new Date(row.reviewed_at).getTime()
         : null,
     treatmentFollowUp: row.follow_up_at ? formatShortDate(row.follow_up_at) : null,
     treatmentNotes: row.treatment_notes?.trim() || null,
