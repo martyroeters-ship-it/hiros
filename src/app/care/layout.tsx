@@ -1,3 +1,9 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Care Dashboard | Hiros",
+};
+
 export default function CareRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <>

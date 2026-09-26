@@ -43,7 +43,7 @@ export default function CareProgress() {
                   : "No photos yet"}
             </p>
           </div>
-          <Link href="/dashboard/photos" className="text-[12px] font-semibold text-[#1f4033]">
+          <Link href="/care/photos" className="text-[12px] font-semibold text-[#1f4033]">
             Upload photos
           </Link>
         </div>

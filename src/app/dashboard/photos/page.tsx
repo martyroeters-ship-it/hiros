@@ -416,10 +416,10 @@ export default function BaselinePhotosPage() {
 
             <div className="flex min-h-[56px] w-full items-end">
               <Link
-                href="/dashboard"
+                href="/care"
                 className={`w-full max-w-[500px] rounded-full bg-[#11110f] px-6 py-4 text-center text-[16px] font-medium tracking-[-0.03em] text-white transition-all duration-300 hover:bg-[#2b2a28] ${doneButtonVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0 pointer-events-none"}`}
               >
-                Continue to dashboard
+                Continue to Care Dashboard
               </Link>
             </div>
           </div>

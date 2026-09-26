@@ -6,6 +6,7 @@ import {
   type PreviousTreatment,
   type TriageFinding,
 } from "./data";
+import { ageFromDateOfBirth } from "@/lib/age";
 
 /* ------------------------------------------------------------------ *
  * Intake submission payload (collected by the intake flow)
@@ -114,6 +115,8 @@ export const QUESTION_LABELS: Record<string, string> = {
   "recent-changes": "Recent changes",
   "previous-hair-loss-treatments": "Previous treatments",
   "final-notes": "Additional notes",
+  dateOfBirth: "Date of birth",
+  age: "Age",
 };
 
 const ANSWER_ORDER = [
@@ -582,7 +585,12 @@ export function buildCaseFromIntake(input: IntakeSubmission): PatientCase {
     confidence: triage.confidence,
     status: "Submitted",
     submittedAt: Date.now(),
-    ageRange: "Not provided",
+    ageRange: (() => {
+      const fromDob = ageFromDateOfBirth(input.answers.dateOfBirth ?? "");
+      if (fromDob !== null) return String(fromDob);
+      const rawAge = Number(input.answers.age);
+      return Number.isFinite(rawAge) && rawAge > 0 ? String(rawAge) : "Not provided";
+    })(),
     reason: input.answers["current-situation"] ?? "Hair loss consultation",
     location: input.city ?? "Not provided",
     reportedOnset: input.answers["timeline"] ?? "Not provided",

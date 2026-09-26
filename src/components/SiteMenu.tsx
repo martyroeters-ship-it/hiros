@@ -81,7 +81,7 @@ export default function SiteMenu({ iconClassName = "text-[#11110f]" }: { iconCla
               <div className="flex items-center gap-4">
                 {session ? (
                   <Link
-                    href="/dashboard"
+                    href="/care"
                     aria-label={menu.account}
                     className="flex h-8 w-8 items-center justify-center text-black"
                     onClick={() => setOpen(false)}

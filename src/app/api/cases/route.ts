@@ -26,6 +26,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid intake" }, { status: 400 });
     }
     const session = await getSessionUser();
+    if (!session?.id) {
+      return NextResponse.json({ error: "Sign in to submit your intake." }, { status: 401 });
+    }
     const created = await persistIntake(
       {
         answers: body.answers,
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
         postalCode: body.postalCode,
         phone: body.phone,
         province: body.province,
+        preferredDoctorId: body.preferredDoctorId,
       },
       session?.id,
     );

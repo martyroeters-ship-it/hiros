@@ -4,39 +4,41 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import ActionPlan from "@/components/care/ActionPlan";
 import { NextPhotoSlot } from "@/components/care/NextPhotoSlot";
+import { IbanPayPanel } from "@/components/dashboard/IbanPayPanel";
 import { hairHabitCategories } from "@/data/hairHabits";
 import type { CareLifestyleSnapshot } from "@/lib/care-lifestyle";
 import { actionPlanCategories, pendingLifestyleCheckIns } from "@/lib/habitPlan";
 import type { PatientDashboardSnapshot } from "@/lib/patient-dashboard-types";
 import { getPhotoCheckIn } from "@/lib/photoCheckIn";
+import { careCopy } from "@/i18n/careCopy";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
 import { displayName, useSessionUser } from "@/lib/use-session-user";
 
 function CareGreeting() {
   const user = useSessionUser();
-  const [text, setText] = useState("Hello");
+  const locale = useHydratedLocale();
+  const care = careCopy[locale];
+  const [text, setText] = useState(care.greetingHello);
 
   useEffect(() => {
     const hour = new Date().getHours();
     const prefix =
       hour >= 6 && hour < 12
-        ? "Good morning"
+        ? care.greetingMorning
         : hour >= 12 && hour < 18
-          ? "Good afternoon"
+          ? care.greetingAfternoon
           : hour >= 18 && hour < 24
-            ? "Good evening"
-            : "Good night";
+            ? care.greetingEvening
+            : care.greetingNight;
     const name = user ? displayName(user) : "";
     setText(name ? `${prefix}, ${name}` : prefix);
-  }, [user]);
+  }, [user, care]);
 
   return <>{text}</>;
 }
 
 function careHref(href: string) {
-  if (href.startsWith("/dashboard/progress")) return "/care/progress";
-  if (href.startsWith("/dashboard/treatment")) return "/care/treatment";
-  if (href.startsWith("/dashboard/messages")) return "/care/messages";
-  if (href.startsWith("/dashboard/doctor")) return "/care/doctor";
+  if (href.startsWith("/dashboard")) return `/care${href.slice("/dashboard".length)}`;
   return href;
 }
 
@@ -114,6 +116,8 @@ export function CareHome({
   initial: PatientDashboardSnapshot;
   health: CareLifestyleSnapshot;
 }) {
+  const locale = useHydratedLocale();
+  const care = careCopy[locale];
   const [snapshot, setSnapshot] = useState(initial);
   const [health, setHealth] = useState(initialHealth);
 
@@ -158,26 +162,18 @@ export function CareHome({
 
   return (
     <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[12px] font-medium text-[var(--care-faint)]">Care preview · original stays at /dashboard</p>
-          <h1 className="mt-1 font-title text-[28px] font-medium leading-[1.1] tracking-[-0.04em] text-[var(--care-ink)] lg:text-[36px]">
-            Insights
-          </h1>
-          <p className="mt-1 text-[15px] font-medium text-[var(--care-muted)]">
-            <CareGreeting />
-          </p>
-        </div>
-        <Link
-          href="/dashboard"
-          className="shrink-0 rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] px-3.5 py-2 text-[12px] font-semibold text-[var(--care-surface-ink)]"
-        >
-          Original
-        </Link>
+      <div>
+        <p className="text-[12px] font-medium text-[var(--care-faint)]">{care.brand}</p>
+        <h1 className="mt-1 font-title text-[28px] font-medium leading-[1.1] tracking-[-0.04em] text-[var(--care-ink)] lg:text-[36px]">
+          {care.insights}
+        </h1>
+        <p className="mt-1 text-[15px] font-medium text-[var(--care-muted)]">
+          <CareGreeting />
+        </p>
       </div>
 
       <section className="care-hero-panel overflow-hidden px-6 py-6 sm:px-8 sm:py-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/50">Next</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/50">{care.next}</p>
         <p className="mt-2 font-title text-[22px] font-medium leading-snug tracking-[-0.03em] sm:text-[26px]">
           {next.title}
         </p>
@@ -190,24 +186,32 @@ export function CareHome({
         </Link>
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-3">
           <div>
-            <dt className="text-[11px] font-medium text-white/45">Treatment</dt>
+            <dt className="text-[11px] font-medium text-white/45">{care.treatment}</dt>
             <dd className="mt-1 text-[14px] font-semibold text-white">{treatmentLabel}</dd>
           </div>
           <div>
-            <dt className="text-[11px] font-medium text-white/45">Photos</dt>
+            <dt className="text-[11px] font-medium text-white/45">{care.photos}</dt>
             <dd className="mt-1 text-[14px] font-semibold text-white">
               {snapshot.photos.length ? `${snapshot.photos.length} on file` : "None yet"}
             </dd>
           </div>
           <div className="col-span-2 sm:col-span-1">
-            <dt className="text-[11px] font-medium text-white/45">Physician</dt>
-            <dd className="mt-1 text-[14px] font-semibold text-white">{snapshot.doctorName || "Not assigned yet"}</dd>
+            <dt className="text-[11px] font-medium text-white/45">{care.physician}</dt>
+            <dd className="mt-1 text-[14px] font-semibold text-white">
+              {snapshot.doctorName ? (
+                <Link href="/care/doctor" className="underline-offset-2 hover:underline">
+                  {snapshot.doctorName}
+                </Link>
+              ) : (
+                "Not assigned yet"
+              )}
+            </dd>
           </div>
         </dl>
       </section>
 
       <section>
-        <h2 className="font-title text-[22px] font-medium tracking-[-0.03em] text-[var(--care-ink)]">Hair health</h2>
+        <h2 className="font-title text-[22px] font-medium tracking-[-0.03em] text-[var(--care-ink)]">{care.hairHealth}</h2>
         <p className="mt-1 text-[14px] font-medium text-[var(--care-muted)]">
           Keep your treatment on track with better sleep, nutrition, and monthly photos.
         </p>
@@ -286,12 +290,15 @@ export function CareHome({
             Open treatment
           </Link>
           {snapshot.paymentDue ? (
-            <Link href="/dashboard#pay" className="rounded-full bg-[#c4715a] px-4 py-2 text-[13px] font-semibold text-white">
-              Payment is on the original dashboard
+            <Link href="/care#pay" className="rounded-full bg-[#c4715a] px-4 py-2 text-[13px] font-semibold text-white">
+              Pay first month
             </Link>
           ) : null}
         </div>
       </section>
+      {snapshot.paymentDue || snapshot.paymentClaimed ? (
+        <IbanPayPanel snapshot={snapshot} onUpdated={setSnapshot} />
+      ) : null}
     </div>
   );
 }

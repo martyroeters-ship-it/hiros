@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/*": ["./db/**/*"],
   },
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/care", permanent: false },
+      { source: "/dashboard/:path*", destination: "/care/:path*", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

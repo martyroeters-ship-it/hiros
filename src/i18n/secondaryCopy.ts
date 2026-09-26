@@ -70,7 +70,7 @@ export const secondaryCopy = {
       medicalTitle: "Tıbbi sorular",
       medicalIntro: "Sağlığınız, değerlendirmeniz veya bakımınız hakkında bir sorunuz mu var?",
       medicalBeforeAccount: "Tıbbi sorular, bakımınıza katılan bağımsız sağlık uzmanlarınca ele alınır. Aktif bir dosyanız varsa, ",
-      medicalAccount: "hasta hesabınız",
+      medicalAccount: "Care Dashboard",
       medicalAfterAccount: " üzerinden hekiminize ulaşabilirsiniz.",
       medicalClose: "Hiros tıbbi tavsiye vermez ve tıbbi karar almaz.",
     },
@@ -172,7 +172,7 @@ export const secondaryCopy = {
       medicalIntro: "Have a question about your health, assessment or care?",
       medicalBeforeAccount:
         "Medical questions are handled by the independent healthcare professionals involved in your care. If you already have an active case, you can contact your healthcare provider through your ",
-      medicalAccount: "patient account",
+      medicalAccount: "Care Dashboard",
       medicalAfterAccount: ".",
       medicalClose: "Hiros does not provide medical advice or make medical decisions.",
     },

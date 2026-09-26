@@ -5,6 +5,10 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createAppointmentRequest, fetchAppointments } from "@/app/doctor/agenda/store";
 import type { VideoAppointment } from "@/app/doctor/agenda/types";
+import { PhysicianPicker } from "@/components/PhysicianPicker";
+import { careCopy } from "@/i18n/careCopy";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
+import { DEFAULT_PHYSICIAN_ID, LICENSED_PHYSICIANS, physicianById } from "@/lib/physicians";
 import { usePatientDashboard } from "@/lib/use-patient-dashboard";
 
 const HOW_REVIEWS = [
@@ -15,17 +19,24 @@ const HOW_REVIEWS = [
 ];
 
 export default function DoctorPage() {
-  const { snapshot, loading } = usePatientDashboard();
+  const { snapshot, loading, reload } = usePatientDashboard();
+  const locale = useHydratedLocale();
+  const care = careCopy[locale];
   const [bookingOpen, setBookingOpen] = useState(false);
   const [startsAt, setStartsAt] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [appointments, setAppointments] = useState<VideoAppointment[]>([]);
+  const [choosingPhysician, setChoosingPhysician] = useState(false);
+  const [physicianBusy, setPhysicianBusy] = useState(false);
 
   const caseId = snapshot?.caseId ?? null;
-  const doctorName = snapshot?.doctorName || "Your physician";
-  const specialty = snapshot?.doctorSpecialty || "Physician";
+  const matchedPhysician = LICENSED_PHYSICIANS.find((physician) => physician.fullName === snapshot?.doctorName);
+  const selectedPhysicianId = matchedPhysician?.id ?? DEFAULT_PHYSICIAN_ID;
+  const selectedPhysician = physicianById(selectedPhysicianId);
+  const doctorName = snapshot?.doctorName || selectedPhysician.fullName;
+  const specialty = snapshot?.doctorSpecialty || selectedPhysician.specialty;
 
   const loadVisits = (id: string) => {
     void fetchAppointments(id).then(setAppointments).catch(() => setAppointments([]));
@@ -90,7 +101,7 @@ export default function DoctorPage() {
           <div className="rounded-[24px] bg-[#1f4033] p-6 text-white shadow-[0_8px_32px_rgba(31,64,51,0.18)]">
             <div className="flex flex-col items-start gap-5 sm:flex-row">
               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-white/15 sm:h-32 sm:w-32">
-                <Image src="/why_hiros_doctors.webp" alt={doctorName} fill className="object-cover object-top" />
+                <Image src={selectedPhysician.imageSrc} alt={doctorName} fill className="object-cover object-top" />
               </div>
               <div className="flex-1">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -120,7 +131,7 @@ export default function DoctorPage() {
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               {snapshot.isPremium ? (
                 <Link
-                  href="/dashboard/messages"
+                  href="/care/messages"
                   className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white/15 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-white/20"
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
@@ -160,6 +171,48 @@ export default function DoctorPage() {
                 </p>
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => setChoosingPhysician((open) => !open)}
+              className="mt-3 text-[13px] font-semibold text-white underline underline-offset-[3px]"
+            >
+              {care.changePhysician}
+            </button>
+            {choosingPhysician ? (
+              <div className="mt-4 rounded-[16px] bg-white p-4 text-[#2b2a28]">
+                <p className="mb-3 text-[14px] font-semibold">{care.choosePhysician}</p>
+                <PhysicianPicker
+                  physicians={LICENSED_PHYSICIANS}
+                  selectedId={selectedPhysicianId}
+                  onSelect={(id) => {
+                    if (id === selectedPhysicianId) {
+                      setChoosingPhysician(false);
+                      return;
+                    }
+                    setPhysicianBusy(true);
+                    void fetch("/api/care/physician", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ doctorId: id }),
+                    })
+                      .then(async (res) => {
+                        if (!res.ok) {
+                          const body = (await res.json().catch(() => ({}))) as { error?: string };
+                          throw new Error(body.error || "Could not change physician");
+                        }
+                        reload();
+                        setChoosingPhysician(false);
+                      })
+                      .catch((err) => {
+                        setError(err instanceof Error ? err.message : "Could not change physician");
+                      })
+                      .finally(() => setPhysicianBusy(false));
+                  }}
+                  copy={{ suggested: care.suggestedPhysician, selected: care.selectedPhysician }}
+                />
+                {physicianBusy ? <p className="mt-3 text-[12px] text-black/45">…</p> : null}
+              </div>
+            ) : null}
             {bookingOpen ? (
               <div className="mt-4 space-y-3 rounded-[16px] bg-white/10 p-4">
                 <label className="block text-left text-[12px] font-semibold text-white/80">

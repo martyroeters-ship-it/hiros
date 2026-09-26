@@ -9,7 +9,7 @@ export default async function IntakeLayout({ children }: { children: React.React
   const user = await getSessionUser();
   if (user && !isStaffRole(user.role)) {
     await ready();
-    if (await patientHasCompletedIntake(user.id)) redirect("/dashboard");
+    if (await patientHasCompletedIntake(user.id)) redirect("/care");
   }
   return children;
 }

@@ -9,6 +9,6 @@ export async function GET() {
     return NextResponse.json(snapshot);
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Could not load dashboard" }, { status: 500 });
+    return NextResponse.json({ error: "Could not load Care Dashboard" }, { status: 500 });
   }
 }

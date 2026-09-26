@@ -73,7 +73,7 @@ export function NextPhotoSlot({
         {inner}
       </div>
     );
-    return check.overdue && !disableLink ? <Link href="/dashboard/photos">{banner}</Link> : banner;
+    return check.overdue && !disableLink ? <Link href="/care/photos">{banner}</Link> : banner;
   }
 
   const tile = (
@@ -89,7 +89,7 @@ export function NextPhotoSlot({
 
   return (
     <div className="flex flex-col gap-2">
-      {check.overdue && !disableLink ? <Link href="/dashboard/photos">{tile}</Link> : tile}
+      {check.overdue && !disableLink ? <Link href="/care/photos">{tile}</Link> : tile}
       <div>
         <p className="text-[12px] font-semibold text-[#3d4540]">{check.overdue ? "Update due" : "Next monthly set"}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-[#8a9288]">

@@ -8,6 +8,7 @@ export type IntakePersistPayload = IntakeSubmission & {
   postalCode?: string;
   phone?: string;
   province?: string;
+  preferredDoctorId?: string | null;
 };
 
 function notify() {

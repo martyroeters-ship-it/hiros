@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useHomeCopy } from "@/i18n/LanguageProvider";
 import { useSessionUser } from "@/lib/use-session-user";
 
 /* ─── shared primitives ──────────────────────────────────────────── */
@@ -47,7 +48,7 @@ export default function SettingsPage() {
   const user = useSessionUser();
   const [notifications, setNotifications] = useState({ treatment: true, messages: true, photos: true, orders: true });
   const [physicianAccess, setPhysicianAccess] = useState(true);
-  const [language, setLanguage] = useState<"en" | "tr">("en");
+  const { locale, setLocale } = useHomeCopy();
   const toggle = (key: keyof typeof notifications) => setNotifications((n) => ({ ...n, [key]: !n[key] }));
 
   return (
@@ -117,14 +118,14 @@ export default function SettingsPage() {
         <div>
           <SectionHeader label="Language" />
           <Card>
-            <button type="button" onClick={() => setLanguage("en")} className="flex w-full items-center justify-between px-4 py-3.5 transition-colors hover:bg-[#f5f3ee]">
-              <span className="text-[14px] font-medium text-[#1f3329]">English</span>
-              {language === "en" && <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[#1f4033]" stroke="currentColor" strokeWidth="2.5"><path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+            <button type="button" onClick={() => setLocale("tr")} className="flex w-full items-center justify-between px-4 py-3.5 transition-colors hover:bg-[#f5f3ee]">
+              <span className="text-[14px] font-medium text-[#1f3329]">Türkçe</span>
+              {locale === "tr" && <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[#1f4033]" stroke="currentColor" strokeWidth="2.5"><path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" /></svg>}
             </button>
             <Divider />
-            <button type="button" onClick={() => setLanguage("tr")} className="flex w-full items-center justify-between px-4 py-3.5 transition-colors hover:bg-[#f5f3ee]">
-              <span className="text-[14px] font-medium text-[#1f3329]">Türkçe</span>
-              {language === "tr" && <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[#1f4033]" stroke="currentColor" strokeWidth="2.5"><path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+            <button type="button" onClick={() => setLocale("en")} className="flex w-full items-center justify-between px-4 py-3.5 transition-colors hover:bg-[#f5f3ee]">
+              <span className="text-[14px] font-medium text-[#1f3329]">English</span>
+              {locale === "en" && <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-[#1f4033]" stroke="currentColor" strokeWidth="2.5"><path d="m5 12 4 4L19 6" strokeLinecap="round" strokeLinejoin="round" /></svg>}
             </button>
           </Card>
         </div>

@@ -26,21 +26,21 @@ export function DoctorHeaderActions() {
       <div className="flex rounded-full border border-black/10 bg-white p-0.5">
         <button
           type="button"
-          onClick={() => setLanguage("en")}
-          className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
-            language === "en" ? "bg-[#2f5f4f] text-white" : "text-[#2b2a28] hover:bg-black/[0.04]"
-          }`}
-        >
-          {copy.header.languageEn}
-        </button>
-        <button
-          type="button"
           onClick={() => setLanguage("tr")}
           className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
             language === "tr" ? "bg-[#2f5f4f] text-white" : "text-[#2b2a28] hover:bg-black/[0.04]"
           }`}
         >
           {copy.header.languageTr}
+        </button>
+        <button
+          type="button"
+          onClick={() => setLanguage("en")}
+          className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+            language === "en" ? "bg-[#2f5f4f] text-white" : "text-[#2b2a28] hover:bg-black/[0.04]"
+          }`}
+        >
+          {copy.header.languageEn}
         </button>
       </div>
 

@@ -5,15 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CareThemeProvider, useCareTheme } from "@/components/care/CareTheme";
+import { careCopy } from "@/i18n/careCopy";
+import { useHydratedLocale } from "@/i18n/LanguageProvider";
 
 const navItems = [
-  { id: "insights", label: "Insights", href: "/care", icon: "home" },
-  { id: "treatment", label: "Treatment", href: "/care/treatment", icon: "treatment" },
-  { id: "habits", label: "Habits", href: "/care/habits", icon: "habits" },
-  { id: "progress", label: "Progress", href: "/care/progress", icon: "progress" },
-  { id: "messages", label: "Messages", href: "/care/messages", icon: "messages" },
-  { id: "doctor", label: "Doctor", href: "/care/doctor", icon: "doctor" },
-  { id: "settings", label: "Settings", href: "/care/settings", icon: "settings" },
+  { id: "insights", labelKey: "insights", href: "/care", icon: "home" },
+  { id: "treatment", labelKey: "treatment", href: "/care/treatment", icon: "treatment" },
+  { id: "habits", labelKey: "habits", href: "/care/habits", icon: "habits" },
+  { id: "progress", labelKey: "progress", href: "/care/progress", icon: "progress" },
+  { id: "messages", labelKey: "messages", href: "/care/messages", icon: "messages" },
+  { id: "doctor", labelKey: "doctor", href: "/care/doctor", icon: "doctor" },
+  { id: "settings", labelKey: "settings", href: "/care/settings", icon: "settings" },
 ] as const;
 
 function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
@@ -93,10 +95,12 @@ function SidebarContent({
   unreadCount: number;
   logoPriority?: boolean;
 }) {
+  const locale = useHydratedLocale();
+  const care = careCopy[locale];
   return (
     <div className="relative z-10 flex min-h-0 flex-1 flex-col">
       <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--care-faint)]">
-        Care preview
+        {care.brand}
       </p>
       <Link href="/" onClick={onNavigate} className="mb-6 inline-flex px-2">
         <Image
@@ -127,7 +131,7 @@ function SidebarContent({
                   }`}
                 >
                   <NavIcon name={item.icon} />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="flex-1">{care[item.labelKey]}</span>
                   {badge > 0 ? (
                     <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8965a] px-1.5 text-[11px] font-semibold text-white">
                       {badge > 9 ? "9+" : badge}
@@ -149,13 +153,13 @@ function SidebarContent({
           className="mt-0.5 flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-[14px] font-medium text-[var(--care-nav)] transition-colors hover:bg-[var(--care-nav-hover)] hover:text-[var(--care-nav-active-ink)]"
         >
           <LogoutIcon />
-          <span>Log out</span>
+          <span>{care.logOut}</span>
         </button>
       </nav>
 
       <div className="mt-4 rounded-[16px] bg-[var(--care-help)] p-3 backdrop-blur-[1px]">
-        <p className="text-[13px] font-semibold text-[var(--care-ink)]">Need help?</p>
-        <p className="mt-0.5 text-[12px] leading-snug text-[var(--care-muted)]">Our care team is here for you.</p>
+        <p className="text-[13px] font-semibold text-[var(--care-ink)]">{care.needHelp}</p>
+        <p className="mt-0.5 text-[12px] leading-snug text-[var(--care-muted)]">{care.helpBody}</p>
         <button
           type="button"
           onClick={() => {
@@ -164,7 +168,7 @@ function SidebarContent({
           }}
           className="mt-2.5 w-full rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--care-surface-ink)] transition-colors"
         >
-          Message us
+          {care.messageUs}
         </button>
       </div>
     </div>
