@@ -69,7 +69,7 @@ export default function Header() {
     };
   }, []);
 
-  const headerPaddingY = 12;
+  const headerPaddingY = 20;
   const buttonPaddingX = 16;
   const buttonPaddingY = 8;
   const buttonFontSize = 12;
@@ -123,7 +123,7 @@ export default function Header() {
             height={46}
             priority
             unoptimized
-            className="h-auto w-[80px] sm:w-[104px]"
+            className="h-auto w-[80px]"
           />
           <nav
             style={{ color: navTextColor }}

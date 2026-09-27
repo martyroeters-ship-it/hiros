@@ -11,6 +11,7 @@ import { determineTreatmentRecommendation, type TreatmentRecommendation } from "
 import { useIntakeCopy } from "@/i18n/LanguageProvider";
 import { signInWithGoogle } from "@/lib/google-signin";
 import { ageFromDateOfBirth } from "@/lib/age";
+import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
 import { PhysicianPicker } from "@/components/PhysicianPicker";
 import { DEFAULT_PHYSICIAN_ID, LICENSED_PHYSICIANS, assignedPhysicianForLocation, physicianById } from "@/lib/physicians";
 
@@ -1970,7 +1971,7 @@ export default function IntakePage() {
         <div className="absolute right-[8%] bottom-[16%] h-[20rem] w-[24rem] rounded-full bg-[#eee5d8]/50 blur-3xl" />
       </div>
 
-      <div className={`relative flex min-w-0 flex-col px-4 sm:px-8 lg:px-10 ${
+      <div className={`relative flex min-w-0 flex-col ${HOME_PAGE_GUTTER_CLASS} ${
         isCameraCaptureStep
           ? "h-dvh overflow-hidden pb-24 pt-6 sm:h-screen sm:pb-6 sm:pt-5"
           : isMatchingStep
@@ -1997,7 +1998,7 @@ export default function IntakePage() {
                 height={46}
                 priority
                 unoptimized
-                className={`h-auto ${isMedicalStep ? "w-[70px]" : "w-[72px] sm:w-[96px]"}`}
+                className="h-auto w-[80px]"
               />
             </a>
 
