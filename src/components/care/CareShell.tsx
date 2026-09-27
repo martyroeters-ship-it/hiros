@@ -124,7 +124,7 @@ function SidebarContent({
                 <Link
                   href={item.href}
                   onClick={onNavigate}
-                  className={`flex items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-[14px] font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 rounded-full px-3 py-2.5 text-[14px] font-medium transition-colors ${
                     isActive
                       ? "care-nav-link-active"
                       : "text-[var(--care-nav)] hover:bg-[var(--care-nav-hover)] hover:text-[var(--care-nav-active-ink)]"
@@ -150,14 +150,14 @@ function SidebarContent({
               window.location.href = "/";
             });
           }}
-          className="mt-0.5 flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-[14px] font-medium text-[var(--care-nav)] transition-colors hover:bg-[var(--care-nav-hover)] hover:text-[var(--care-nav-active-ink)]"
+          className="mt-0.5 flex w-full items-center gap-2.5 rounded-full px-3 py-2.5 text-[14px] font-medium text-[var(--care-nav)] transition-colors hover:bg-[var(--care-nav-hover)] hover:text-[var(--care-nav-active-ink)]"
         >
           <LogoutIcon />
           <span>{care.logOut}</span>
         </button>
       </nav>
 
-      <div className="mt-4 rounded-[16px] bg-[var(--care-help)] p-3 backdrop-blur-[1px]">
+      <div className="mt-4 rounded-[22px] border border-[var(--care-hairline)] bg-[var(--care-help)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-[20px]">
         <p className="text-[13px] font-semibold text-[var(--care-ink)]">{care.needHelp}</p>
         <p className="mt-0.5 text-[12px] leading-snug text-[var(--care-muted)]">{care.helpBody}</p>
         <button
@@ -166,7 +166,7 @@ function SidebarContent({
             onNavigate?.();
             document.getElementById("dashboard-care-chat-trigger")?.click();
           }}
-          className="mt-2.5 w-full rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--care-surface-ink)] transition-colors"
+          className="mt-2.5 w-full rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] px-3 py-2 text-[13px] font-semibold text-[var(--care-surface-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-[12px] transition-colors"
         >
           {care.messageUs}
         </button>
@@ -253,17 +253,24 @@ function CareShellInner({
     <div
       data-care-theme={theme}
       suppressHydrationWarning
-      className={`care-app flex h-dvh min-w-0 flex-col overflow-hidden lg:h-screen lg:flex-row ${canvasClass}`}
+      className={`care-app relative flex h-dvh min-w-0 flex-col overflow-hidden lg:h-screen lg:flex-row ${canvasClass}`}
     >
+      {isDark ? (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-[12%] top-[-8%] h-[42vh] w-[42vh] rounded-full bg-[radial-gradient(circle,rgba(154,196,168,0.34)_0%,transparent_70%)] blur-2xl" />
+          <div className="absolute -right-[8%] top-[18%] h-[34vh] w-[34vh] rounded-full bg-[radial-gradient(circle,rgba(90,140,124,0.28)_0%,transparent_72%)] blur-2xl" />
+          <div className="absolute bottom-[-10%] left-[28%] h-[40vh] w-[50vh] rounded-full bg-[radial-gradient(circle,rgba(36,72,64,0.55)_0%,transparent_70%)] blur-3xl" />
+        </div>
+      ) : null}
       <header
-        className={`shrink-0 items-center gap-3 px-4 py-3 lg:hidden ${isActionPlan || isCheckIn ? "hidden" : "flex"}`}
+        className={`relative z-10 shrink-0 items-center gap-3 px-4 py-3 lg:hidden ${isActionPlan || isCheckIn ? "hidden" : "flex"}`}
       >
         <button
           type="button"
           aria-label="Open menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--care-surface)] text-[var(--care-ink)] shadow-[0_2px_12px_rgba(31,51,41,0.06)]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] text-[var(--care-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-[18px]"
         >
           <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
@@ -281,7 +288,7 @@ function CareShellInner({
         </Link>
       </header>
 
-      <aside className="relative hidden h-full w-[228px] shrink-0 flex-col overflow-hidden rounded-tr-[36px] rounded-br-[36px] bg-[var(--care-sidebar)] px-4 py-5 shadow-[4px_0_24px_rgba(31,51,41,0.04)] lg:flex">
+      <aside className="relative z-10 hidden h-full w-[236px] shrink-0 flex-col overflow-hidden rounded-tr-[36px] rounded-br-[36px] border-r border-[var(--care-hairline)] bg-[var(--care-sidebar)] px-4 py-5 shadow-[4px_0_32px_rgba(0,0,0,0.12)] backdrop-blur-[28px] lg:flex">
         <SidebarBackdrop />
         <SidebarContent pathname={pathname} unreadCount={unreadCount} logoPriority />
       </aside>
@@ -291,15 +298,15 @@ function CareShellInner({
           <button
             type="button"
             aria-label="Close menu"
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] lg:hidden"
             onClick={() => setMenuOpen(false)}
           />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(288px,86vw)] flex-col overflow-hidden rounded-tr-[36px] rounded-br-[36px] bg-[var(--care-sidebar)] px-4 py-5 shadow-[4px_0_24px_rgba(31,51,41,0.12)] lg:hidden">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(288px,86vw)] flex-col overflow-hidden rounded-tr-[36px] rounded-br-[36px] border-r border-[var(--care-hairline)] bg-[var(--care-sidebar)] px-4 py-5 shadow-[4px_0_32px_rgba(0,0,0,0.2)] backdrop-blur-[28px] lg:hidden">
             <button
               type="button"
               aria-label="Close menu"
               onClick={() => setMenuOpen(false)}
-              className="absolute right-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--care-surface)] text-[var(--care-ink)] shadow-[0_2px_8px_rgba(31,51,41,0.08)]"
+              className="absolute right-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] text-[var(--care-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-[12px]"
             >
               <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
@@ -312,7 +319,7 @@ function CareShellInner({
       ) : null}
 
       <main
-        className={`min-h-0 min-w-0 flex-1 ${
+        className={`relative z-10 min-h-0 min-w-0 flex-1 ${
           isMessages ? "overflow-hidden" : "overflow-y-auto"
         } ${isDark || isActionPlan || !isMessages ? "bg-transparent" : "bg-white"}`}
       >

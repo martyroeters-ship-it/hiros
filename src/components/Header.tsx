@@ -123,7 +123,7 @@ export default function Header() {
             height={46}
             priority
             unoptimized
-            className="h-auto w-[56px] sm:w-[68px]"
+            className="h-auto w-[80px] sm:w-[104px]"
           />
           <nav
             style={{ color: navTextColor }}

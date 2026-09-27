@@ -34,6 +34,10 @@ const SCORE_MAP: Record<string, Record<string, number>> = {
     "I’m not sure yet": 1,
   },
   "change-location": {
+    "Along the hairline": 2,
+    "At the top": 2,
+    "All over": 2,
+    // Legacy answers still stored on older cases
     "Hairline / temples": 2,
     Crown: 2,
     "Overall thinning": 2,
@@ -42,11 +46,13 @@ const SCORE_MAP: Record<string, Record<string, number>> = {
     "Not sure": 1,
   },
   timeline: {
-    "Less than 3 months": 0,
-    "3–6 months": 1,
+    "Less than 6 months": 0,
     "6–12 months": 1,
     "1–3 years": 2,
     "More than 3 years": 2,
+    // Legacy
+    "Less than 3 months": 0,
+    "3–6 months": 1,
   },
   clarity: {
     "Whether this looks normal": 1,
@@ -56,25 +62,32 @@ const SCORE_MAP: Record<string, Record<string, number>> = {
     "I’m not sure yet": 1,
   },
   progression: {
-    "Slow and steady over years": 2,
-    "Gradual over months": 2,
+    "Gradual over time": 2,
     "Comes and goes": 1,
     "Sudden increase in shedding": 0,
     "Not sure": 1,
+    // Legacy
+    "Slow and steady over years": 2,
+    "Gradual over months": 2,
   },
   symptoms: {
     "No symptoms": 2,
-    "Mild dandruff or dryness": 1,
-    Itching: 1,
+    "Mild dryness or itching": 1,
     "Redness or irritation": 0,
     "Pain, sores, or infection": -2,
+    // Legacy
+    "Mild dandruff or dryness": 1,
+    Itching: 1,
   },
   "family-history": {
+    "Yes — on my father’s side": 2,
+    "Yes — on my mother’s side": 2,
+    "No known family history": 0,
+    "Not sure": 1,
+    // Legacy
     "Father or grandfather experienced hair loss": 2,
     "Mother’s side experienced hair loss": 2,
     "Some family thinning": 1,
-    "No known family history": 0,
-    "Not sure": 1,
   },
   "medical-conditions": {
     "No known conditions": 2,
@@ -85,9 +98,11 @@ const SCORE_MAP: Record<string, Record<string, number>> = {
   "recent-changes": {
     "Major stress": 0,
     "Illness or fever": 0,
+    "Diet, weight, or medication change": 0,
+    "None of these": 2,
+    // Legacy
     "Weight or diet change": 0,
     "New medication or supplement": 0,
-    "None of these": 2,
     "Not sure": 1,
   },
   "previous-hair-loss-treatments": { No: 1, Yes: 1 },
@@ -204,12 +219,15 @@ const RED_ANSWER_FLAGS: FlagRule[] = [
 ];
 
 const ORANGE_ANSWER_FLAGS: FlagRule[] = [
+  { step: "timeline", value: "Less than 6 months", note: "Very recent onset — consider telogen effluvium or temporary shedding vs. AGA." },
   { step: "timeline", value: "Less than 3 months", note: "Very recent onset — consider telogen effluvium or temporary shedding vs. AGA." },
   { step: "family-history", value: "No known family history", note: "No family history reported — less typical for androgenetic alopecia." },
   { step: "symptoms", value: "Redness or irritation", note: "Scalp redness/irritation — physician review advised." },
+  { step: "symptoms", value: "Mild dryness or itching", note: "Scalp dryness/itching — physician review advised." },
   { step: "symptoms", value: "Itching", note: "Scalp itching — physician review advised." },
   { step: "recent-changes", value: "Major stress", note: "Recent severe stress — possible telogen effluvium." },
   { step: "recent-changes", value: "Illness or fever", note: "Recent illness/fever — possible telogen effluvium." },
+  { step: "recent-changes", value: "Diet, weight, or medication change", note: "Recent diet, weight, or medication change — possible telogen effluvium." },
   { step: "recent-changes", value: "Weight or diet change", note: "Recent weight/diet change — possible telogen effluvium." },
   { step: "recent-changes", value: "New medication or supplement", note: "New medication or supplement — review for shedding cause." },
   { step: "medical-conditions", value: "Yes — ongoing concerns I’d like to mention", note: "Ongoing medical concern reported — requires physician review." },
@@ -413,6 +431,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
     location === "Patchy or unusual areas" ||
     progression === "Sudden increase in shedding" ||
     recentChanges === "Illness or fever" ||
+    recentChanges === "Diet, weight, or medication change" ||
     recentChanges === "New medication or supplement" ||
     medicalConditions === "Yes — ongoing concerns I'd like to mention"
   ) {
@@ -433,8 +452,8 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
     finasterideScore += 3;
   }
   
-  // Location: Hairline / temples (+3)
-  if (location === "Hairline / temples") {
+  // Location: Along the hairline (+3)
+  if (location === "Along the hairline" || location === "Hairline / temples") {
     finasterideScore += 3;
   }
   
@@ -448,16 +467,23 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
     finasterideScore += 2;
   }
   
-  // Slow progression (+2)
-  if (progression === "Slow and steady over years" || progression === "Gradual over months") {
+  // Gradual progression (+2)
+  if (
+    progression === "Gradual over time" ||
+    progression === "Slow and steady over years" ||
+    progression === "Gradual over months"
+  ) {
     finasterideScore += 2;
   }
   
   // Family history (+1)
   const familyHistory = input.answers["family-history"];
   if (
+    familyHistory === "Yes — on my father’s side" ||
+    familyHistory === "Yes — on my mother’s side" ||
     familyHistory === "Father or grandfather experienced hair loss" ||
     familyHistory === "Mother's side experienced hair loss" ||
+    familyHistory === "Mother’s side experienced hair loss" ||
     familyHistory === "Some family thinning"
   ) {
     finasterideScore += 1;
@@ -471,13 +497,13 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
     minoxidilScore += 3;
   }
   
-  // Crown (+3)
-  if (location === "Crown") {
+  // At the top / crown (+3)
+  if (location === "At the top" || location === "Crown") {
     minoxidilScore += 3;
   }
   
-  // Overall thinning (+3)
-  if (location === "Overall thinning") {
+  // All over / overall thinning (+3)
+  if (location === "All over" || location === "Overall thinning") {
     minoxidilScore += 3;
   }
   
