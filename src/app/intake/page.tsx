@@ -3249,20 +3249,6 @@ export default function IntakePage() {
         </section>
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          closeDoctorPopup();
-          setIsTreatmentInfoOpen(false);
-          setIsFading(false);
-          setIsAdvancing(false);
-          setCurrentStepIndex(nextStepsStepIndex >= 0 ? nextStepsStepIndex : shippingInfoStepIndex);
-        }}
-        className="fixed bottom-20 left-4 z-[80] rounded-full border border-black/10 bg-white/90 px-3.5 py-2 text-[12px] font-semibold tracking-[-0.02em] text-black/55 shadow-[0_8px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white hover:text-[#2b2a28]"
-      >
-        Skip to end
-      </button>
-
       {isTreatmentInfoOpen ? (
         <>
           <button

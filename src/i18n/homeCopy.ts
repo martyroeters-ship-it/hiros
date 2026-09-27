@@ -84,8 +84,8 @@ export const homeCopy = {
       cards: [
         {
           href: "/intake?condition=hair-loss",
-          title: "Saç dökülmesi",
-          badge: "Online form",
+          title: "Saç dökülmesi formuna başla",
+          badge: null,
           description: "Kendi durumunuza göre rehberlik alın",
         },
         {
@@ -298,8 +298,8 @@ export const homeCopy = {
       cards: [
         {
           href: "/intake?condition=hair-loss",
-          title: "Hair loss",
-          badge: "Online intake",
+          title: "Start hair loss intake",
+          badge: null,
           description: "Get guidance based on your situation",
         },
         {
