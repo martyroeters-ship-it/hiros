@@ -69,7 +69,7 @@ export default function Header() {
     };
   }, []);
 
-  const headerPaddingY = 12;
+  const headerPaddingY = 20;
   const buttonPaddingX = 16;
   const buttonPaddingY = 8;
   const buttonFontSize = 12;
