@@ -45,7 +45,7 @@ function HomeContent() {
                       }`}
                     >
                       <div className="flex w-full min-w-0 items-center justify-between gap-3 lg:items-end">
-                        <h3 className="text-[20px] font-semibold leading-[1.1] tracking-[-0.03em] text-[#1f241b] lg:text-[26px]">{card.title}</h3>
+                        <h3 className="min-w-0 whitespace-nowrap text-[18px] font-semibold leading-[1.1] tracking-[-0.03em] text-[#1f241b] sm:text-[20px] lg:text-[22px]">{card.title}</h3>
                         <div className="flex shrink-0 items-center gap-3">
                           {card.badge ? (
                             <span className="rounded-full bg-[#dce4d6] px-3 py-1 text-[11px] font-medium text-[#3f5f35] lg:-translate-y-1">{card.badge}</span>
