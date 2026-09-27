@@ -9,8 +9,9 @@ import { createCaseFromIntake } from "../doctor/store";
 import { determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
 import { useIntakeCopy } from "@/i18n/LanguageProvider";
 import { signInWithGoogle } from "@/lib/google-signin";
-import { IbanTransferCard } from "@/components/IbanTransferCard";
-import { DEMO_PHYSICIAN } from "@/lib/demo-physician";
+import { ageFromDateOfBirth } from "@/lib/age";
+import { PhysicianPicker } from "@/components/PhysicianPicker";
+import { DEFAULT_PHYSICIAN_ID, LICENSED_PHYSICIANS, assignedPhysicianForLocation, physicianById } from "@/lib/physicians";
 
 type IntakeStep = {
   id: string;
@@ -205,7 +206,6 @@ const medicalSteps: IntakeStep[] = [
       "Weight or diet change",
       "New medication or supplement",
       "None of these",
-      "Not sure",
     ],
   },
   {
@@ -228,20 +228,14 @@ const medicalSteps: IntakeStep[] = [
   },
   {
     id: "shipping-info",
-    title: "Confirm your delivery details",
-    description: "If treatment is approved, we’ll use these details to prepare your treatment for discreet delivery in plain, unbranded packaging.",
+    title: "Let's set up your account",
+    description: "We need a few of your details so the physician can review your intake.",
     options: [],
   },
   {
     id: "recommendation-interstitial",
     title: "",
     description: "",
-    options: [],
-  },
-  {
-    id: "payment-method",
-    title: "Payment",
-    description: "₺750 for the first month. Refunded if your physician does not approve.",
     options: [],
   },
   {
@@ -258,30 +252,90 @@ const medicalSteps: IntakeStep[] = [
   },
 ];
 
-const assignedDoctor = {
-  name: DEMO_PHYSICIAN.fullName,
-  role: DEMO_PHYSICIAN.role,
-  imageSrc: DEMO_PHYSICIAN.imageSrc,
-  intro: "Assigned to review your medical intake and help guide the next appropriate step based on the answers you share.",
-  details: [
-    "Focused on structured hair-loss intake review",
-    "Reviews symptom pattern, medical history, and treatment context",
-    "Helps determine the next appropriate physician-guided step",
-  ],
-};
 
 const treatmentDetailOptions = ["Topical", "Oral", "Supplements", "Procedures", "Other"];
 const sideEffectLevelOptions = ["None", "Mild", "Moderate", "Significant"];
+
+const INTAKE_WORD_STAGGER_MS = 48;
+const INTAKE_WORD_DURATION_MS = 420;
+const INTAKE_LINE_STAGGER_MS = 260;
+const INTAKE_LINE_DURATION_MS = 780;
+
+function countInterstitialWords(text: string) {
+  return text.split(/\s+/).filter((part) => part.length > 0).length;
+}
+
+function interstitialRevealDurationMs(title: string, body: string) {
+  const words = countInterstitialWords(title);
+  const lines = body.split("\n").length;
+  const titleMs = INTAKE_WORD_DURATION_MS + Math.max(0, words - 1) * INTAKE_WORD_STAGGER_MS;
+  const bodyStart = Math.round(titleMs * 0.45);
+  const bodyMs = INTAKE_LINE_DURATION_MS + Math.max(0, lines - 1) * INTAKE_LINE_STAGGER_MS;
+  return bodyStart + bodyMs + 320;
+}
+
+function FadeWords({ text, delayMs = 0, nowrap = false }: { text: string; delayMs?: number; nowrap?: boolean }) {
+  let wordIndex = 0;
+  return (
+    <>
+      {text.split("\n").map((line, lineIndex) => (
+        <span key={`line-${lineIndex}`} className={nowrap ? "block whitespace-nowrap" : "block"}>
+          {line.length === 0
+            ? "\u00A0"
+            : line.split(/(\s+)/).map((part, partIndex) => {
+                if (!part.trim()) {
+                  return <span key={`space-${lineIndex}-${partIndex}`}>{part}</span>;
+                }
+                const delay = delayMs + wordIndex * INTAKE_WORD_STAGGER_MS;
+                wordIndex += 1;
+                return (
+                  <span
+                    key={`word-${lineIndex}-${partIndex}`}
+                    className="inline-block"
+                    style={{
+                      animation: `intake-fade-from-right ${INTAKE_WORD_DURATION_MS}ms ease-out both`,
+                      animationDelay: `${delay}ms`,
+                    }}
+                  >
+                    {part}
+                  </span>
+                );
+              })}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function FadeLines({ text, delayMs = 0 }: { text: string; delayMs?: number }) {
+  return (
+    <>
+      {text.split("\n").map((line, lineIndex) => (
+        <span
+          key={`fade-line-${lineIndex}`}
+          className="block"
+          style={{
+            animation: `intake-fade-from-bottom ${INTAKE_LINE_DURATION_MS}ms ease-out both`,
+            animationDelay: `${delayMs + lineIndex * INTAKE_LINE_STAGGER_MS}ms`,
+          }}
+        >
+          {line === "" ? "\u00A0" : line}
+        </span>
+      ))}
+    </>
+  );
+}
 
 export default function IntakePage() {
   const intake = useIntakeCopy();
   const photoCheckTextBlocks = [...intake.photoCheck];
   const postCameraInterstitialTextBlocks = [...intake.postCamera];
   const preAuthInterstitialTextBlocks = [...intake.preAuth];
+  const nextStepsInterstitialTextBlocks = [
+    intake.nextSteps.title,
+    intake.nextSteps.steps.map((step) => `${step.title}\n${step.body}`).join("\n\n"),
+  ];
   const cameraPrepPoints = [...intake.cameraPrep.points];
-  const totalPhotoCheckCharacters = photoCheckTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-  const totalPostCameraInterstitialCharacters = postCameraInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
-  const totalPreAuthInterstitialCharacters = preAuthInterstitialTextBlocks.reduce((totalCount, textBlock) => totalCount + textBlock.length, 0);
   const totalCameraPrepPoints = cameraPrepPoints.length;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -290,7 +344,6 @@ export default function IntakePage() {
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isFading, setIsFading] = useState(false);
   const [matchingStage, setMatchingStage] = useState<"loading" | "success">("loading");
-  const [photoCheckVisibleCharacterCount, setPhotoCheckVisibleCharacterCount] = useState(0);
   const [isPhotoCheckButtonVisible, setIsPhotoCheckButtonVisible] = useState(false);
   const [cameraPrepVisiblePointCount, setCameraPrepVisiblePointCount] = useState(0);
   const [isCameraPrepButtonVisible, setIsCameraPrepButtonVisible] = useState(false);
@@ -315,9 +368,13 @@ export default function IntakePage() {
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [hasAcceptedLocationConsent, setHasAcceptedLocationConsent] = useState(false);
+  const [preferredDoctorId, setPreferredDoctorId] = useState(DEFAULT_PHYSICIAN_ID);
+  const [isChoosingPhysician, setIsChoosingPhysician] = useState(false);
+  const [isViewingPhysicianProfile, setIsViewingPhysicianProfile] = useState(false);
   const [isDoctorPopupOpen, setIsDoctorPopupOpen] = useState(false);
   const [isDoctorPopupVisible, setIsDoctorPopupVisible] = useState(false);
   const [shouldShowDoctorPopupAbout, setShouldShowDoctorPopupAbout] = useState(false);
+  const assignedDoctor = physicianById(preferredDoctorId);
   const [isDoctorAssignmentNoticeVisible, setIsDoctorAssignmentNoticeVisible] = useState(false);
   const [medicalFollowUpText, setMedicalFollowUpText] = useState<Record<string, string>>({});
   const [treatmentSelections, setTreatmentSelections] = useState<Record<string, boolean>>({});
@@ -328,25 +385,28 @@ export default function IntakePage() {
   const [shippingFormData, setShippingFormData] = useState<ShippingFormData>({
     firstName: "",
     lastName: "",
+    dateOfBirth: "",
     streetAddress: "",
     aptSuite: "",
     city: "",
     province: "",
     postalCode: "",
     phone: "",
+    email: "",
   });
-  const [nextStepsTitleVisibleCount, setNextStepsTitleVisibleCount] = useState(0);
-  const [nextStepsContainerIndex, setNextStepsContainerIndex] = useState(0);
   const [shippingRevealIndex, setShippingRevealIndex] = useState(0);
   const [recommendationReveal, setRecommendationReveal] = useState(false);
   const [shippingFlowStep, setShippingFlowStep] = useState<1 | 2>(1);
-  const [authMode, setAuthMode] = useState<"signup" | "login">("login");
+  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
+  const [identityAuthMethod, setIdentityAuthMethod] = useState<"email" | "phone">("email");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authConfirm, setAuthConfirm] = useState("");
+  const [authPasswordVisible, setAuthPasswordVisible] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const [signedInEmail, setSignedInEmail] = useState("");
+  const [authAfterGuestSubmit, setAuthAfterGuestSubmit] = useState(false);
   const [intakeSaveStatus, setIntakeSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const advanceTimeoutRef = useRef<number | null>(null);
   const fadeTimeoutRef = useRef<number | null>(null);
@@ -357,12 +417,11 @@ export default function IntakePage() {
   const doctorPopupAutoCloseTimeoutRef = useRef<number | null>(null);
   const doctorPopupFadeTimeoutRef = useRef<number | null>(null);
   const doctorPopupOpenTimeoutRef = useRef<number | null>(null);
+  const doctorPopupIsIntroRef = useRef(false);
   const shippingRevealTimeoutRef = useRef<number | null>(null);
   const recommendationRevealTimeoutRef = useRef<number | null>(null);
   const photoCheckRevealIntervalRef = useRef<number | null>(null);
   const photoCheckButtonTimeoutRef = useRef<number | null>(null);
-  const nextStepsTitleIntervalRef = useRef<number | null>(null);
-  const nextStepsContainerTimeoutRef = useRef<number | null>(null);
   const cameraReadyDelayTimeoutRef = useRef<number | null>(null);
   const cameraCountdownTimeoutRef = useRef<number | null>(null);
   const cameraCaptureFlashTimeoutRef = useRef<number | null>(null);
@@ -382,7 +441,6 @@ export default function IntakePage() {
   const photoCheckStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "photo-check");
   const finalReviewStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "review-submit-interstitial");
   const shippingInfoStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "shipping-info");
-  const paymentMethodStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "payment-method");
   const nextStepsStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "next-steps");
   const recommendationStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "recommendation-interstitial");
   const prePhotoCheckStepIndex = Math.max(photoCheckStepIndex - 1, medicalStartIndex);
@@ -397,7 +455,7 @@ export default function IntakePage() {
         if (!res.ok) return;
         const user = (await res.json()) as { email?: string; hasCase?: boolean };
         if (user.hasCase) {
-          window.location.replace("/dashboard");
+          window.location.replace("/care");
           return;
         }
         if (user.email) setSignedInEmail(user.email);
@@ -425,8 +483,6 @@ export default function IntakePage() {
     "recent-changes",
     "previous-hair-loss-treatments",
     "final-notes",
-    "shipping-info",
-    "recommendation-interstitial",
     "treatment-details",
     // placeholder to reserve final segment so shipping sits ~90%
     "progress-end",
@@ -450,34 +506,59 @@ export default function IntakePage() {
   const needsPreviousTreatmentsText = currentStep?.id === "previous-hair-loss-treatments" && selectedOption === "Yes";
   const needsFinalNotesText = currentStep?.id === "final-notes" && selectedOption === "Yes";
   const isMedicalDoctorIntroStep = currentStep?.id === "progression";
-  const isFamilyHistoryStep = currentStep?.id === "family-history";
+  const whyWeAskNote =
+    currentStep?.id === "family-history"
+      ? { body: intake.whyWeAsk.familyHistory, href: intake.whyWeAsk.familyHistoryHref }
+      : currentStep?.id === "recent-changes"
+        ? { body: intake.whyWeAsk.recentChanges, href: intake.whyWeAsk.recentChangesHref }
+        : null;
   const isPhotoCheckStep = currentStep?.id === "photo-check";
   const isCameraPrepStep = currentStep?.id === "camera-prep";
   const isCameraCaptureStep = currentStep?.id === "camera-capture";
   const isPostCameraInterstitialStep = currentStep?.id === "post-camera-interstitial";
   const isFinalReviewInterstitialStep = currentStep?.id === "review-submit-interstitial";
   const finalReviewInterstitialTextBlocks =
-    intakeSaveStatus === "saved"
-      ? [...intake.finalReview]
-      : intakeSaveStatus === "error"
-        ? [intake.save.errorTitle, intake.save.errorBody]
-        : [intake.save.savingTitle, intake.save.savingBody];
-  const totalFinalReviewInterstitialCharacters = finalReviewInterstitialTextBlocks.reduce(
-    (totalCount, textBlock) => totalCount + textBlock.length,
-    0,
-  );
+    intakeSaveStatus === "error"
+      ? [intake.save.errorTitle, intake.save.errorBody]
+      : [...intake.finalReview];
   const isNextStepsInterstitialStep = currentStep?.id === "next-steps";
+  const isTypedPauseStep = isPreAuthInterstitialStep || isNextStepsInterstitialStep;
   const isRecommendationInterstitialStep = currentStep?.id === "recommendation-interstitial";
   const isShippingInfoStep = currentStep?.id === "shipping-info";
-  const isPaymentMethodStep = currentStep?.id === "payment-method";
+  const derivedAge = ageFromDateOfBirth(shippingFormData.dateOfBirth);
+  const canContinueDetails =
+    authMode === "login"
+      ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingFormData.email.trim()) && Boolean(authPassword)
+      : Boolean(shippingFormData.firstName.trim()) &&
+        Boolean(shippingFormData.lastName.trim()) &&
+        derivedAge !== null &&
+        derivedAge >= 18 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingFormData.email.trim()) &&
+        authPassword.length >= 8;
+  const detailsContinueHint =
+    authMode === "login"
+      ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingFormData.email.trim())
+        ? intake.shipping.emailRequired
+        : !authPassword
+          ? intake.shipping.passwordRequired
+          : ""
+      : !shippingFormData.firstName.trim() || !shippingFormData.lastName.trim()
+        ? ""
+        : derivedAge === null
+          ? intake.shipping.dobRequired
+          : derivedAge < 18
+            ? intake.shipping.dobAdult
+            : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingFormData.email.trim())
+                ? intake.shipping.emailRequired
+                : authPassword.length < 8
+                  ? intake.auth.passwordTooShort
+                  : "";
   const isAgeStartedStep = currentStep?.id === "age-started";
-  const displayedMedicalProgress = isMedicalStep ? (isPaymentMethodStep ? 95 : displayedMedicalProgressBase) : 0;
-  const [hasAcknowledgedPhysicianReview, setHasAcknowledgedPhysicianReview] = useState(false);
-  const [selectedTreatmentPlan, setSelectedTreatmentPlan] = useState<'primary' | 'alternative'>('primary');
+  const displayedMedicalProgress = isMedicalStep ? displayedMedicalProgressBase : 0;
+  const [isTreatmentInfoOpen, setIsTreatmentInfoOpen] = useState(false);
   const [recommendedTreatment, setRecommendedTreatment] = useState<TreatmentRecommendation | null>(null);
   useEffect(() => {
     if (isRecommendationInterstitialStep) {
-      setHasAcknowledgedPhysicianReview(false);
       // Determine treatment recommendation based on intake answers
       const recommendation = determineTreatmentRecommendation({
         answers: selectedAnswers,
@@ -492,29 +573,11 @@ export default function IntakePage() {
       setRecommendedTreatment(recommendation);
     }
   }, [isRecommendationInterstitialStep, selectedAnswers, medicalFollowUpText, treatmentSelections, treatmentOtherDetail, treatmentSideEffectsLevel, selectedCity, shippingFormData.firstName, capturedPhotos]);
-  useEffect(() => {
-    if (isPaymentMethodStep) {
-      setSelectedTreatmentPlan('primary');
-      // Also determine treatment for payment step if not already set
-      if (!recommendedTreatment) {
-        const recommendation = determineTreatmentRecommendation({
-          answers: selectedAnswers,
-          followUpText: medicalFollowUpText,
-          treatmentSelections,
-          treatmentOtherDetail,
-          sideEffectsLevel: treatmentSideEffectsLevel,
-          city: selectedCity,
-          firstName: shippingFormData.firstName,
-          photos: Object.values(capturedPhotos),
-        });
-        setRecommendedTreatment(recommendation);
-      }
-    }
-  }, [isPaymentMethodStep, recommendedTreatment, selectedAnswers, medicalFollowUpText, treatmentSelections, treatmentOtherDetail, treatmentSideEffectsLevel, selectedCity, shippingFormData.firstName, capturedPhotos]);
 
   // Persist the completed intake as a doctor-dashboard case (once).
-  const persistCompletedIntake = useCallback(async () => {
-    if (hasSubmittedCaseRef.current) return;
+  const persistCompletedIntake = useCallback(async (): Promise<boolean> => {
+    if (!signedInEmail && !shippingFormData.phone.trim()) return false;
+    if (hasSubmittedCaseRef.current) return false;
     hasSubmittedCaseRef.current = true;
     setIntakeSaveStatus("saving");
     try {
@@ -531,12 +594,15 @@ export default function IntakePage() {
         phone: shippingFormData.phone,
         province: shippingFormData.province,
         photos: Object.values(capturedPhotos),
+        preferredDoctorId,
       });
       setIntakeSaveStatus("saved");
+      return true;
     } catch (error) {
       hasSubmittedCaseRef.current = false;
       setIntakeSaveStatus("error");
       console.error(error);
+      return false;
     }
   }, [
     selectedAnswers,
@@ -547,14 +613,21 @@ export default function IntakePage() {
     selectedCity,
     shippingFormData,
     capturedPhotos,
+    signedInEmail,
+    preferredDoctorId,
   ]);
 
   useEffect(() => {
     if (!isFinalReviewInterstitialStep || intakeSaveStatus !== "idle") {
       return;
     }
+    if (!signedInEmail && !shippingFormData.phone.trim()) {
+      setAuthAfterGuestSubmit(true);
+      setCurrentStepIndex(shippingInfoStepIndex);
+      return;
+    }
     void persistCompletedIntake();
-  }, [isFinalReviewInterstitialStep, intakeSaveStatus, persistCompletedIntake]);
+  }, [isFinalReviewInterstitialStep, intakeSaveStatus, persistCompletedIntake, signedInEmail, shippingFormData.phone, shippingInfoStepIndex]);
   useEffect(() => {
     if (isShippingInfoStep) {
       setShippingFlowStep(1);
@@ -574,19 +647,6 @@ export default function IntakePage() {
     };
   }, [shippingFlowStep]);
 
-  // Ensure reveal animation also runs when entering the dedicated payment step
-  useEffect(() => {
-    if (!isPaymentMethodStep) return;
-    setShippingRevealIndex(0);
-    const timer = setTimeout(() => setShippingRevealIndex(1), 50);
-    const timer2 = setTimeout(() => setShippingRevealIndex(2), 100);
-    const timer3 = setTimeout(() => setShippingRevealIndex(3), 150);
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  }, [isPaymentMethodStep]);
   const shouldShowSelectedAnswerContinue = Boolean(
     currentStep &&
       returnedStepIndexForContinue === currentStepIndex &&
@@ -625,37 +685,26 @@ export default function IntakePage() {
           : intake.camera.capture;
   const interstitialPrimaryButtonLabel =
     isFinalReviewInterstitialStep
-      ? intakeSaveStatus === "saved"
-        ? intake.goToProfile
-        : intakeSaveStatus === "error"
-          ? intake.save.retry
-          : intake.save.savingButton
+      ? intakeSaveStatus === "error"
+        ? intake.save.retry
+        : intake.goToProfile
       : intake.continue;
   const isInterstitialButtonVisible = isFinalReviewInterstitialStep
-    ? intakeSaveStatus !== "idle"
+    ? intakeSaveStatus === "saved" || intakeSaveStatus === "error"
     : isPhotoCheckButtonVisible;
   const activeInterstitialTextBlocks = isPreAuthInterstitialStep
     ? preAuthInterstitialTextBlocks
+    : isNextStepsInterstitialStep
+      ? nextStepsInterstitialTextBlocks
     : isPostCameraInterstitialStep
       ? postCameraInterstitialTextBlocks
       : isFinalReviewInterstitialStep
         ? finalReviewInterstitialTextBlocks
         : photoCheckTextBlocks;
-  const totalActiveInterstitialCharacters = isPreAuthInterstitialStep
-    ? totalPreAuthInterstitialCharacters
-    : isPostCameraInterstitialStep
-      ? totalPostCameraInterstitialCharacters
-      : isFinalReviewInterstitialStep
-        ? totalFinalReviewInterstitialCharacters
-        : totalPhotoCheckCharacters;
-  let remainingInterstitialCharacters = photoCheckVisibleCharacterCount;
-  const visibleInterstitialTextBlocks = (isFinalReviewInterstitialStep
-    ? activeInterstitialTextBlocks
-    : activeInterstitialTextBlocks.map((textBlock) => {
-        const visibleCharacterCount = Math.max(0, Math.min(textBlock.length, remainingInterstitialCharacters));
-        remainingInterstitialCharacters -= textBlock.length;
-        return textBlock.slice(0, visibleCharacterCount);
-      }));
+  const interstitialTitleMs =
+    INTAKE_WORD_DURATION_MS +
+    Math.max(0, countInterstitialWords(activeInterstitialTextBlocks[0] ?? "") - 1) * INTAKE_WORD_STAGGER_MS;
+  const interstitialBodyDelayMs = Math.round(interstitialTitleMs * 0.45);
   const canContinueMedicalFollowUp = currentStep?.id === "final-notes"
     ? (selectedOption === "Yes"
         ? currentMedicalTextValue.trim().length > 0
@@ -771,14 +820,6 @@ export default function IntakePage() {
 
       if (photoCheckButtonTimeoutRef.current) {
         window.clearTimeout(photoCheckButtonTimeoutRef.current);
-      }
-
-      if (nextStepsTitleIntervalRef.current) {
-        window.clearInterval(nextStepsTitleIntervalRef.current);
-      }
-
-      if (nextStepsContainerTimeoutRef.current) {
-        window.clearTimeout(nextStepsContainerTimeoutRef.current);
       }
 
       clearCameraCaptureFlash();
@@ -1095,74 +1136,22 @@ export default function IntakePage() {
       return;
     }
 
-    if (isNextStepsInterstitialStep) {
-      setNextStepsTitleVisibleCount(0);
-      setNextStepsContainerIndex(0);
-
-      const titleText = intake.nextSteps.title;
-      
-      nextStepsTitleIntervalRef.current = window.setInterval(() => {
-        setNextStepsTitleVisibleCount((currentCount) => {
-          if (currentCount >= titleText.length) {
-            if (nextStepsTitleIntervalRef.current) {
-              window.clearInterval(nextStepsTitleIntervalRef.current);
-              nextStepsTitleIntervalRef.current = null;
-            }
-            
-            // Start revealing containers after title is complete
-            const revealNextContainer = (index: number) => {
-              nextStepsContainerTimeoutRef.current = window.setTimeout(() => {
-                setNextStepsContainerIndex(index);
-                if (index < 4) {
-                  revealNextContainer(index + 1);
-                }
-              }, index === 1 ? 200 : 400);
-            };
-            revealNextContainer(1);
-            
-            return currentCount;
-          }
-          return currentCount + 1;
-        });
-      }, 30);
-      
-      return;
-    }
-
-    if (isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep) {
-      setPhotoCheckVisibleCharacterCount(0);
+    if (isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep) {
       setIsPhotoCheckButtonVisible(false);
       setCameraPrepVisiblePointCount(0);
       setIsCameraPrepButtonVisible(false);
 
-      photoCheckRevealIntervalRef.current = window.setInterval(() => {
-        setPhotoCheckVisibleCharacterCount((currentCount) => {
-          if (currentCount >= totalActiveInterstitialCharacters) {
-            return currentCount;
-          }
-
-          const nextCount = currentCount + 1;
-
-          if (nextCount >= totalActiveInterstitialCharacters) {
-            if (photoCheckRevealIntervalRef.current) {
-              window.clearInterval(photoCheckRevealIntervalRef.current);
-              photoCheckRevealIntervalRef.current = null;
-            }
-
-            photoCheckButtonTimeoutRef.current = window.setTimeout(() => {
-              if (isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep) {
-                setIsPhotoCheckButtonVisible(true);
-              }
-
-              photoCheckButtonTimeoutRef.current = null;
-            }, 220);
-          }
-
-          return nextCount;
-        });
-      }, 32);
+      if (isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isNextStepsInterstitialStep) {
+        const revealMs = interstitialRevealDurationMs(
+          activeInterstitialTextBlocks[0] ?? "",
+          activeInterstitialTextBlocks[1] ?? "",
+        );
+        photoCheckButtonTimeoutRef.current = window.setTimeout(() => {
+          setIsPhotoCheckButtonVisible(true);
+          photoCheckButtonTimeoutRef.current = null;
+        }, revealMs);
+      }
     } else {
-      setPhotoCheckVisibleCharacterCount(0);
       setIsPhotoCheckButtonVisible(false);
       setCameraPrepVisiblePointCount(0);
       setIsCameraPrepButtonVisible(false);
@@ -1198,16 +1187,6 @@ export default function IntakePage() {
         photoCheckButtonTimeoutRef.current = null;
       }
 
-      if (nextStepsTitleIntervalRef.current) {
-        window.clearInterval(nextStepsTitleIntervalRef.current);
-        nextStepsTitleIntervalRef.current = null;
-      }
-
-      if (nextStepsContainerTimeoutRef.current) {
-        window.clearTimeout(nextStepsContainerTimeoutRef.current);
-        nextStepsContainerTimeoutRef.current = null;
-      }
-
       if (shippingRevealTimeoutRef.current) {
         window.clearTimeout(shippingRevealTimeoutRef.current);
         shippingRevealTimeoutRef.current = null;
@@ -1218,7 +1197,7 @@ export default function IntakePage() {
         recommendationRevealTimeoutRef.current = null;
       }
     };
-  }, [currentStepIndex, isCameraPrepStep, isPhotoCheckStep, isPostCameraInterstitialStep, isPreAuthInterstitialStep, isFinalReviewInterstitialStep, isNextStepsInterstitialStep, medicalEndIndex, totalActiveInterstitialCharacters, intake.nextSteps.title]);
+  }, [currentStepIndex, isCameraPrepStep, isPhotoCheckStep, isPostCameraInterstitialStep, isPreAuthInterstitialStep, isFinalReviewInterstitialStep, isNextStepsInterstitialStep, medicalEndIndex, activeInterstitialTextBlocks[0], activeInterstitialTextBlocks[1]]);
 
   useEffect(() => {
     // Reset and start staged reveal only on shipping-info step
@@ -1258,6 +1237,7 @@ export default function IntakePage() {
     // Simple bottom-up fade for recommendation page
     if (!isRecommendationInterstitialStep) {
       setRecommendationReveal(false);
+      setIsTreatmentInfoOpen(false);
       if (recommendationRevealTimeoutRef.current) {
         window.clearTimeout(recommendationRevealTimeoutRef.current);
         recommendationRevealTimeoutRef.current = null;
@@ -1280,6 +1260,15 @@ export default function IntakePage() {
   }, [isRecommendationInterstitialStep]);
 
   useEffect(() => {
+    if (!isTreatmentInfoOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsTreatmentInfoOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isTreatmentInfoOpen]);
+
+  useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
       const targetNode = event.target as Node;
 
@@ -1299,21 +1288,41 @@ export default function IntakePage() {
     };
   }, []);
 
+  const clearIntroDoctorPopupClose = () => {
+    if (doctorPopupAutoCloseTimeoutRef.current) {
+      window.clearTimeout(doctorPopupAutoCloseTimeoutRef.current);
+      doctorPopupAutoCloseTimeoutRef.current = null;
+    }
+    if (doctorPopupFadeTimeoutRef.current) {
+      window.clearTimeout(doctorPopupFadeTimeoutRef.current);
+      doctorPopupFadeTimeoutRef.current = null;
+    }
+  };
+
+  const startIntroDoctorPopupClose = (delayMs = 3300) => {
+    clearIntroDoctorPopupClose();
+    doctorPopupAutoCloseTimeoutRef.current = window.setTimeout(() => {
+      setIsDoctorPopupVisible(false);
+      doctorPopupAutoCloseTimeoutRef.current = null;
+    }, delayMs);
+    doctorPopupFadeTimeoutRef.current = window.setTimeout(() => {
+      setIsDoctorPopupVisible(false);
+      setIsDoctorPopupOpen(false);
+      setShouldShowDoctorPopupAbout(false);
+      setIsChoosingPhysician(false);
+      setIsViewingPhysicianProfile(false);
+      setIsDoctorAssignmentNoticeVisible(true);
+      doctorPopupFadeTimeoutRef.current = null;
+    }, delayMs + 220);
+  };
+
   useEffect(() => {
     if (doctorAssignmentNoticeTimeoutRef.current) {
       window.clearTimeout(doctorAssignmentNoticeTimeoutRef.current);
       doctorAssignmentNoticeTimeoutRef.current = null;
     }
 
-    if (doctorPopupAutoCloseTimeoutRef.current) {
-      window.clearTimeout(doctorPopupAutoCloseTimeoutRef.current);
-      doctorPopupAutoCloseTimeoutRef.current = null;
-    }
-
-    if (doctorPopupFadeTimeoutRef.current) {
-      window.clearTimeout(doctorPopupFadeTimeoutRef.current);
-      doctorPopupFadeTimeoutRef.current = null;
-    }
+    clearIntroDoctorPopupClose();
 
     if (doctorPopupOpenTimeoutRef.current) {
       window.clearTimeout(doctorPopupOpenTimeoutRef.current);
@@ -1321,23 +1330,15 @@ export default function IntakePage() {
     }
 
     if (!isMedicalDoctorIntroStep) {
+      doctorPopupIsIntroRef.current = false;
       setIsDoctorPopupVisible(false);
       setIsDoctorAssignmentNoticeVisible(false);
       return;
     }
 
+    doctorPopupIsIntroRef.current = true;
     openDoctorPopup(false);
-
-    doctorPopupAutoCloseTimeoutRef.current = window.setTimeout(() => {
-      setIsDoctorPopupVisible(false);
-      doctorPopupAutoCloseTimeoutRef.current = null;
-    }, 3300);
-
-    doctorPopupFadeTimeoutRef.current = window.setTimeout(() => {
-      closeDoctorPopup();
-      setIsDoctorAssignmentNoticeVisible(true);
-      doctorPopupFadeTimeoutRef.current = null;
-    }, 3520);
+    startIntroDoctorPopupClose(3300);
 
     return () => {
       if (doctorAssignmentNoticeTimeoutRef.current) {
@@ -1412,7 +1413,13 @@ export default function IntakePage() {
     setIsLocationReady(false);
   };
 
-  const openDoctorPopup = (showAbout = true) => {
+  const openDoctorPopup = (showAbout = true, choose = false, expandProfile = false) => {
+    setIsTreatmentInfoOpen(false);
+    if (showAbout || choose) {
+      doctorPopupIsIntroRef.current = false;
+      clearIntroDoctorPopupClose();
+    }
+
     if (doctorPopupOpenTimeoutRef.current) {
       window.clearTimeout(doctorPopupOpenTimeoutRef.current);
       doctorPopupOpenTimeoutRef.current = null;
@@ -1420,7 +1427,9 @@ export default function IntakePage() {
 
     setIsDoctorPopupOpen(true);
     setIsDoctorPopupVisible(false);
-    setShouldShowDoctorPopupAbout(showAbout);
+    setIsChoosingPhysician(choose);
+    setIsViewingPhysicianProfile(expandProfile);
+    setShouldShowDoctorPopupAbout(showAbout && !choose);
     setIsDoctorAssignmentNoticeVisible(false);
 
     doctorPopupOpenTimeoutRef.current = window.setTimeout(() => {
@@ -1438,11 +1447,14 @@ export default function IntakePage() {
     setIsDoctorPopupVisible(false);
     setIsDoctorPopupOpen(false);
     setShouldShowDoctorPopupAbout(false);
+    setIsChoosingPhysician(false);
+    setIsViewingPhysicianProfile(false);
   };
 
   const advanceToStep = (nextStepIndex: number) => {
     setIsAdvancing(true);
     closeDoctorPopup();
+    setIsTreatmentInfoOpen(false);
 
     advanceTimeoutRef.current = window.setTimeout(() => {
       setIsFading(true);
@@ -1475,12 +1487,9 @@ export default function IntakePage() {
         return shippingInfoStepIndex;
       }
       if (currentMedical?.id === "shipping-info") {
-        return recommendationStepIndex >= 0 ? recommendationStepIndex : (paymentMethodStepIndex >= 0 ? paymentMethodStepIndex : currentStepIndex + 1);
+        return recommendationStepIndex >= 0 ? recommendationStepIndex : finalReviewStepIndex;
       }
       if (currentMedical?.id === "recommendation-interstitial") {
-        return paymentMethodStepIndex >= 0 ? paymentMethodStepIndex : finalReviewStepIndex;
-      }
-      if (currentMedical?.id === "payment-method") {
         return finalReviewStepIndex;
       }
       return currentStepIndex + 1;
@@ -1570,7 +1579,15 @@ export default function IntakePage() {
       return;
     }
 
-    advanceToStep(authStepIndex);
+    advanceToStep(locationStepIndex);
+  };
+
+  const handleNextStepsInterstitialContinue = () => {
+    if (!isNextStepsInterstitialStep || !isPhotoCheckButtonVisible) {
+      return;
+    }
+
+    advanceToStep(shippingInfoStepIndex);
   };
 
   const handleCameraRetake = () => {
@@ -1720,10 +1737,72 @@ export default function IntakePage() {
     advanceToStep(nextStepIndex);
   };
 
+  const handleRecommendationContinue = () => {
+    if (intakeSaveStatus === "saving" || isAdvancing) {
+      return;
+    }
+    if (!signedInEmail && !shippingFormData.phone.trim()) {
+      setAuthAfterGuestSubmit(true);
+      setCurrentStepIndex(shippingInfoStepIndex);
+      return;
+    }
+    if (intakeSaveStatus === "saved") {
+      advanceToStep(finalReviewStepIndex);
+      return;
+    }
+    void persistCompletedIntake().then((ok) => {
+      if (ok) {
+        advanceToStep(finalReviewStepIndex);
+      }
+    });
+  };
+
   const continuePastAuth = () => {
+    if (authAfterGuestSubmit) {
+      setAuthAfterGuestSubmit(false);
+      setReturnedStepIndexForContinue(null);
+      setCurrentStepIndex(finalReviewStepIndex);
+      return;
+    }
     setIsLocationDropdownOpen(Boolean(locationQuery.trim()));
     setReturnedStepIndexForContinue(null);
     setCurrentStepIndex(locationStepIndex);
+  };
+
+  const finishIdentityAuth = () => {
+    if (isShippingInfoStep) {
+      if (!canContinueDetails) {
+        return;
+      }
+      advanceToStep(recommendationStepIndex >= 0 ? recommendationStepIndex : shippingInfoStepIndex + 1);
+      return;
+    }
+    continuePastAuth();
+  };
+
+  const handleAuthContinue = () => {
+    if (identityAuthMethod === "phone") {
+      const phone = shippingFormData.phone.trim();
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length < 10) {
+        setAuthError(intake.auth.phoneRequired);
+        return;
+      }
+      setSelectedAnswers((current) => ({ ...current, phone }));
+      finishIdentityAuth();
+      return;
+    }
+    const email = authEmail.trim();
+    if (!email) {
+      setAuthError(intake.auth.emailRequired);
+      return;
+    }
+    if (!authPasswordVisible) {
+      setAuthError("");
+      setAuthPasswordVisible(true);
+      return;
+    }
+    void handleAuthSubmit();
   };
 
   const handleAuthSubmit = async () => {
@@ -1754,11 +1833,11 @@ export default function IntakePage() {
         return;
       }
       if (payload.hasCase) {
-        window.location.replace("/dashboard");
+        window.location.replace("/care");
         return;
       }
       setSignedInEmail(payload.email || email);
-      continuePastAuth();
+      finishIdentityAuth();
     } catch {
       setAuthError(authMode === "signup" ? "Could not create account." : "Could not sign in.");
     } finally {
@@ -1772,11 +1851,11 @@ export default function IntakePage() {
     try {
       const user = await signInWithGoogle();
       if (user.hasCase) {
-        window.location.replace("/dashboard");
+        window.location.replace("/care");
         return;
       }
       if (user.email) setSignedInEmail(user.email);
-      continuePastAuth();
+      finishIdentityAuth();
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Could not sign in with Google.");
     } finally {
@@ -1797,6 +1876,7 @@ export default function IntakePage() {
   const handleCitySelect = (city: string) => {
     setLocationQuery(city);
     setSelectedCity(city);
+    setPreferredDoctorId(assignedPhysicianForLocation(city).id);
     setIsLocationDropdownOpen(false);
     resetLocationButtonState();
     setIsLocationLoading(true);
@@ -1859,9 +1939,15 @@ export default function IntakePage() {
         setReturnedStepIndexForContinue(shippingInfoStepIndex);
         return shippingInfoStepIndex;
       }
+      if (isFinalReviewInterstitialStep && recommendationStepIndex >= 0) {
+        setReturnedStepIndexForContinue(recommendationStepIndex);
+        return recommendationStepIndex;
+      }
 
       const previousStepIndex =
-        currentIndex === medicalStartIndex
+        currentIndex === locationStepIndex
+          ? preAuthInterstitialIndex
+          : currentIndex === medicalStartIndex
           ? locationStepIndex
           : currentIndex === matchingStepIndex
           ? locationStepIndex
@@ -1877,15 +1963,12 @@ export default function IntakePage() {
     });
   };
 
-  const visiblePhotoCheckTextBlocks = photoCheckTextBlocks.reduce<string[]>((visibleBlocks, textBlock) => {
-    const revealedCharacterCount = visibleBlocks.join("").length;
-    const availableCharacterCount = Math.max(photoCheckVisibleCharacterCount - revealedCharacterCount, 0);
-    visibleBlocks.push(textBlock.slice(0, availableCharacterCount));
-    return visibleBlocks;
-  }, []);
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f7f3ea] text-[#232320]">
+    <main className={`relative min-h-screen bg-[#f7f3ea] text-[#232320] ${
+      isShippingInfoStep || isRecommendationInterstitialStep || (whyWeAskNote && !shouldShowSelectedAnswerContinue)
+        ? "overflow-hidden"
+        : "overflow-x-hidden overflow-y-auto"
+    }`}>
       <Script src="https://google.com" strategy="afterInteractive" />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-8%] top-[-12%] h-[26rem] w-[32rem] rounded-full bg-white/70 blur-3xl" />
@@ -1899,10 +1982,20 @@ export default function IntakePage() {
           ? "h-dvh overflow-hidden pb-24 pt-6 sm:h-screen sm:pb-6 sm:pt-5"
           : isMatchingStep
             ? "h-screen overflow-hidden pb-8 pt-4 sm:pb-6 sm:pt-5"
+          : isShippingInfoStep || isRecommendationInterstitialStep
+            ? "h-dvh overflow-hidden pb-4 pt-4 sm:pt-5"
+          : isPhotoCheckStep || isCameraPrepStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep
+            ? "h-dvh overflow-hidden"
+            : whyWeAskNote && !shouldShowSelectedAnswerContinue
+              ? "h-dvh overflow-hidden pb-6 pt-4 sm:pt-5"
+            : whyWeAskNote
+              ? "min-h-dvh overflow-visible pb-8 pt-4 sm:pb-6 sm:pt-5"
             : "min-h-screen overflow-y-auto pb-8 pt-4 sm:pb-6 sm:pt-5"
       }`}>
         {!isMatchingStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isPreAuthInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
-          <div className={`flex w-full shrink-0 items-start justify-between gap-6 ${isCameraCaptureStep ? "" : "mt-[10vh] sm:mt-0"}`}>
+          <div className={`flex w-full shrink-0 items-start justify-between gap-6 ${
+            isCameraCaptureStep || isShippingInfoStep || isRecommendationInterstitialStep ? "" : "mt-[10vh] sm:mt-0"
+          }`}>
             <a href="/" className="inline-flex items-center">
               <Image
                 src="/hiros_logo.png"
@@ -1915,7 +2008,7 @@ export default function IntakePage() {
               />
             </a>
 
-            {!isAuthStep ? (
+            {!isAuthStep && !isShippingInfoStep && !isRecommendationInterstitialStep ? (
               isCameraCaptureStep ? (
                 <div
                   aria-hidden="true"
@@ -1947,18 +2040,25 @@ export default function IntakePage() {
           className={`mx-auto flex w-full min-w-0 max-w-[1440px] flex-1 justify-center ${
             isCameraCaptureStep
               ? "min-h-0 flex-1 flex-col items-center pt-3 sm:pt-0"
-              : isMatchingStep ||
-                  isRecommendationInterstitialStep ||
-                  isPhotoCheckStep ||
+              : isMatchingStep
+                ? "min-h-0 flex-1 flex-col items-center justify-center"
+              : isAuthStep
+                ? "min-h-[calc(100dvh-6rem)] items-center"
+              : isShippingInfoStep
+                ? "min-h-0 flex-1 items-start pt-6 sm:pt-8"
+              : isRecommendationInterstitialStep
+                ? "min-h-0 flex-1 items-center"
+              : isPhotoCheckStep ||
                   isPostCameraInterstitialStep ||
                   isPreAuthInterstitialStep ||
                   isFinalReviewInterstitialStep ||
+                  isNextStepsInterstitialStep ||
                   isCameraPrepStep
-                ? "min-h-[calc(100dvh-5rem)] items-center"
+                ? "min-h-0 flex-1 flex-col items-center justify-center"
                 : "items-start pt-6 sm:pt-12"
           }`}
         >
-          {isMedicalStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
+          {isMedicalStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep && !isAuthStep && !isShippingInfoStep && !isRecommendationInterstitialStep ? (
             <div className={`absolute inset-x-4 top-[53px] max-w-[700px] sm:inset-x-auto sm:left-1/2 sm:top-10 sm:w-full sm:-translate-x-1/2 ${isCameraCaptureStep ? "hidden sm:block" : ""}`}>
               <div className="h-[7px] overflow-hidden rounded-full bg-black/10">
                 <div
@@ -1970,12 +2070,12 @@ export default function IntakePage() {
           ) : null}
 
           {isAuthStep ? (
-            <div className="w-full max-w-[520px] pt-3">
+            <div className="mx-auto w-full max-w-[520px] pt-3">
               <h1 className="text-center font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#2b2a28]">
-                {intake.auth.title}
+                {authAfterGuestSubmit ? intake.auth.submitTitle : intake.auth.contactTitle}
               </h1>
               <p className="mx-auto mt-3 max-w-[34ch] text-center text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:mt-4 sm:text-[17px]">
-                {intake.auth.subtitle}
+                {authAfterGuestSubmit ? intake.auth.submitSubtitle : intake.auth.contactSubtitle}
               </p>
 
               <div className="mx-auto mt-5 w-full max-w-[430px] space-y-2">
@@ -1995,21 +2095,7 @@ export default function IntakePage() {
                     <span>{intake.auth.google}</span>
                   </span>
                 </button>
-
-                <button
-                  type="button"
-                  disabled
-                  title={intake.auth.comingSoon}
-                  className="block w-full cursor-not-allowed rounded-full border border-black/10 bg-white/50 p-[1.5px] opacity-55"
-                >
-                  <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
-                      <path d="M16.63 12.57c-.03-3.12 2.54-4.62 2.66-4.7-1.46-2.13-3.72-2.42-4.52-2.46-1.92-.2-3.75 1.13-4.73 1.13-1 0-2.5-1.1-4.12-1.07-2.1.03-4.07 1.23-5.15 3.12-2.22 3.84-.56 9.48 1.56 12.56 1.06 1.5 2.3 3.17 3.93 3.11 1.59-.06 2.18-1 4.1-1 1.9 0 2.45 1 4.12.96 1.7-.03 2.78-1.52 3.8-3.03 1.23-1.72 1.72-3.43 1.74-3.52-.04-.01-3.33-1.28-3.36-5.1ZM13.5 3.33c.84-1.02 1.42-2.4 1.26-3.8-1.22.05-2.75.84-3.63 1.84-.78.9-1.48 2.3-1.3 3.64 1.37.1 2.78-.69 3.67-1.68Z" />
-                    </svg>
-                    <span>{intake.auth.apple}</span>
-                  </span>
-                </button>
-                {authError ? <p className="text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                {authError && signedInEmail ? <p className="text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
               </div>
 
               <div className="mx-auto mt-4 flex w-full max-w-[430px] items-center gap-4 text-[14px] font-medium tracking-[-0.02em] text-black/38 sm:mt-6 sm:text-[15px]">
@@ -2019,6 +2105,40 @@ export default function IntakePage() {
               </div>
 
               <div className="mx-auto mt-6 w-full max-w-[430px] space-y-3">
+                {!signedInEmail ? (
+                  <div className="flex border-b border-black/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIdentityAuthMethod("email");
+                        setAuthError("");
+                        setAuthPasswordVisible(false);
+                      }}
+                      className={`flex-1 pb-2.5 text-center text-[14px] font-semibold tracking-[-0.02em] transition-colors ${
+                        identityAuthMethod === "email"
+                          ? "border-b-2 border-[#c77e57] text-[#2b2a28]"
+                          : "border-b-2 border-transparent text-black/38 hover:text-black/55"
+                      }`}
+                    >
+                      {intake.auth.emailLabel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIdentityAuthMethod("phone");
+                        setAuthError("");
+                        setAuthPasswordVisible(false);
+                      }}
+                      className={`flex-1 pb-2.5 text-center text-[14px] font-semibold tracking-[-0.02em] transition-colors ${
+                        identityAuthMethod === "phone"
+                          ? "border-b-2 border-[#c77e57] text-[#2b2a28]"
+                          : "border-b-2 border-transparent text-black/38 hover:text-black/55"
+                      }`}
+                    >
+                      {intake.auth.phoneLabel}
+                    </button>
+                  </div>
+                ) : null}
                 {signedInEmail ? (
                   <>
                     <p className="text-center text-[14px] font-medium text-black/55">
@@ -2032,13 +2152,13 @@ export default function IntakePage() {
                             if (res.ok) {
                               const user = (await res.json()) as { hasCase?: boolean };
                               if (user.hasCase) {
-                                window.location.replace("/dashboard");
+                                window.location.replace("/care");
                                 return;
                               }
                             }
-                            continuePastAuth();
+                            finishIdentityAuth();
                           })
-                          .catch(() => continuePastAuth());
+                          .catch(() => finishIdentityAuth());
                       }}
                       className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white"
                     >
@@ -2050,65 +2170,71 @@ export default function IntakePage() {
                     className="space-y-3"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      void handleAuthSubmit();
+                      handleAuthContinue();
                     }}
                   >
-                    <label className="block text-[13px] font-semibold text-[#2b2a28]">
-                      {intake.auth.emailLabel}
+                    {identityAuthMethod === "phone" ? (
                       <input
-                        type="email"
-                        autoComplete="email"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        className="mt-1.5 h-12 w-full rounded-[14px] border border-black/10 bg-white px-4 text-[15px] font-medium outline-none focus:border-[#8ea57a]"
+                        type="tel"
+                        autoComplete="tel"
+                        value={shippingFormData.phone}
+                        onChange={(e) => setShippingFormData((current) => ({ ...current, phone: e.target.value }))}
+                        placeholder={intake.auth.phonePlaceholder}
+                        className="h-12 w-full rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
                       />
-                    </label>
-                    <label
-                      className={`block text-[13px] font-semibold ${
-                        authPasswordTooShortLive ? "text-[#c24b3a]" : "text-[#2b2a28]"
-                      }`}
-                    >
-                      {intake.auth.passwordLabel}
-                      <input
-                        type="password"
-                        autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        aria-invalid={authPasswordTooShortLive}
-                        aria-describedby={authPasswordTooShortLive ? "intake-password-min-length" : undefined}
-                        className={`mt-1.5 h-12 w-full rounded-[14px] border bg-white px-4 text-[15px] font-medium outline-none ${
-                          authPasswordTooShortLive
-                            ? "border-[#c24b3a] focus:border-[#c24b3a]"
-                            : "border-black/10 focus:border-[#8ea57a]"
-                        }`}
-                      />
-                      {authPasswordTooShortLive ? (
-                        <p
-                          id="intake-password-min-length"
-                          role="status"
-                          className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium leading-none text-[#c24b3a]"
-                        >
-                          <span
-                            className="inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border-[1.4px] border-current text-[10px] font-semibold"
-                            aria-hidden="true"
-                          >
-                            !
-                          </span>
-                          {intake.auth.passwordMinLength}
-                        </p>
-                      ) : null}
-                    </label>
-                    {authMode === "signup" ? (
-                      <label className="block text-[13px] font-semibold text-[#2b2a28]">
-                        {intake.auth.confirmLabel}
+                    ) : (
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                      placeholder={intake.auth.emailLabel}
+                      className="h-12 w-full rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
+                    />
+                    )}
+                    {identityAuthMethod === "email" && authPasswordVisible ? (
+                      <>
                         <input
                           type="password"
-                          autoComplete="new-password"
-                          value={authConfirm}
-                          onChange={(e) => setAuthConfirm(e.target.value)}
-                          className="mt-1.5 h-12 w-full rounded-[14px] border border-black/10 bg-white px-4 text-[15px] font-medium outline-none focus:border-[#8ea57a]"
+                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          placeholder={intake.auth.passwordLabel}
+                          autoFocus
+                          aria-invalid={authPasswordTooShortLive}
+                          aria-describedby={authPasswordTooShortLive ? "intake-password-min-length" : undefined}
+                          className={`h-12 w-full rounded-full border bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 ${
+                            authPasswordTooShortLive
+                              ? "border-[#c24b3a] focus:border-[#c24b3a]"
+                              : "border-black/10 focus:border-[#8ea57a]"
+                          }`}
                         />
-                      </label>
+                        {authPasswordTooShortLive ? (
+                          <p
+                            id="intake-password-min-length"
+                            role="status"
+                            className="flex items-center gap-1.5 px-2 text-[13px] font-medium leading-none text-[#c24b3a]"
+                          >
+                            <span
+                              className="inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border-[1.4px] border-current text-[10px] font-semibold"
+                              aria-hidden="true"
+                            >
+                              !
+                            </span>
+                            {intake.auth.passwordMinLength}
+                          </p>
+                        ) : null}
+                        {authMode === "signup" ? (
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={authConfirm}
+                            onChange={(e) => setAuthConfirm(e.target.value)}
+                            placeholder={intake.auth.confirmLabel}
+                            className="h-12 w-full rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
+                          />
+                        ) : null}
+                      </>
                     ) : null}
                     {authError ? <p className="text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
                     <button
@@ -2116,26 +2242,22 @@ export default function IntakePage() {
                       disabled={authBusy}
                       className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white disabled:opacity-50"
                     >
-                      {authBusy ? "…" : authMode === "signup" ? intake.auth.createAccount : intake.auth.signIn}
+                      {authBusy ? "…" : intake.auth.continueAs}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode(authMode === "signup" ? "login" : "signup");
-                        setAuthError("");
-                      }}
-                      className={`w-full text-center text-[13.5px] font-semibold ${
-                        authMode === "signup" ? "text-[#3f5f35]" : ""
-                      }`}
-                    >
-                      {authMode === "signup" ? (
-                        intake.auth.haveAccount
-                      ) : (
-                        <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#6a8255] bg-clip-text text-transparent">
-                          {intake.auth.needAccount}
-                        </span>
-                      )}
-                    </button>
+                    <p className="w-full text-center text-[13.5px] font-medium text-black/45">
+                      {authMode === "signup" ? intake.auth.haveAccount : intake.auth.needAccount}{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIdentityAuthMethod("email");
+                          setAuthMode(authMode === "signup" ? "login" : "signup");
+                          setAuthError("");
+                        }}
+                        className="font-semibold text-[#3f5f35]"
+                      >
+                        {authMode === "signup" ? intake.auth.logInLink : intake.auth.createAccountLink}
+                      </button>
+                    </p>
                   </form>
                 )}
               </div>
@@ -2250,7 +2372,7 @@ export default function IntakePage() {
               </button>
             </div>
           ) : isMatchingStep ? (
-            <div className="flex w-full max-w-[560px] flex-col items-center justify-center px-4 text-center">
+            <div className="flex w-full max-w-[560px] flex-col items-center justify-center px-4 text-center self-center">
               <div className="relative flex h-16 w-16 items-center justify-center sm:h-24 sm:w-24">
                 <span
                   className={`absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-[#5f7f4f] border-r-[#8ea57a] border-b-[#4b6942] transition-opacity duration-500 sm:border-[3px] ${
@@ -2281,220 +2403,299 @@ export default function IntakePage() {
                 {intake.matching}
               </p>
             </div>
-          ) : isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? (
-            <div className={`w-full min-w-0 max-w-[700px] transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
+          ) : isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep || isShippingInfoStep ? (
+            <div className={`w-full min-w-0 transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"} ${isTypedPauseStep || isFinalReviewInterstitialStep ? "max-w-[560px]" : "max-w-[700px]"}`}>
               <div
                 className={`flex w-full min-w-0 flex-col gap-6 ${
-                  isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep ? "pb-0" : "pb-2"
+                  isFinalReviewInterstitialStep || isRecommendationInterstitialStep || isShippingInfoStep ? "pb-0" : "pb-2"
                 } ${
-                  isNextStepsInterstitialStep || isRecommendationInterstitialStep
-                    ? "items-stretch sm:items-center sm:gap-16"
+                  isRecommendationInterstitialStep || isShippingInfoStep
+                    ? "items-stretch"
                     : "items-center gap-8 sm:gap-16"
                 }`}
               >
-                <div className={`mx-auto min-w-0 ${isPostCameraInterstitialStep ? "w-full max-w-[34rem]" : isRecommendationInterstitialStep ? "w-full" : "w-full max-w-[34rem]"}`}>
+                <div className={`min-w-0 ${isRecommendationInterstitialStep || isShippingInfoStep ? "mx-auto w-full" : isTypedPauseStep ? "w-max max-w-full" : isFinalReviewInterstitialStep ? "mx-auto flex w-full max-w-[29em] flex-col items-center" : "mx-auto w-full max-w-[34rem]"}`}>
                   <div
-                    className="space-y-4 text-left sm:space-y-10"
+                    className={`space-y-4 sm:space-y-10 ${isFinalReviewInterstitialStep ? "w-full text-center" : "text-left"}`}
                   >
-                    {isNextStepsInterstitialStep ? (
-                      <div className="w-full">
-                        <div className="relative">
-                          <h1 className="invisible whitespace-pre-wrap break-words font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">{intake.nextSteps.title}</h1>
-                          <h1 className="absolute inset-0 whitespace-pre-wrap break-words font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">
-                            {intake.nextSteps.title.slice(0, nextStepsTitleVisibleCount)}
+                    {isShippingInfoStep ? (
+                      <div className="mx-auto w-full max-w-[520px]">
+                        <div className="rounded-[28px] bg-white px-8 pb-6 pt-8 shadow-[0_18px_50px_rgba(40,50,90,0.08)] sm:px-10 sm:pb-7 sm:pt-9">
+                          <p className="text-[14px] font-medium text-[#6b6b6b]">
+                            {authMode === "login" ? intake.shipping.signIn : intake.shipping.eyebrow}
+                          </p>
+                          <h1 className="mt-1 text-left text-[38px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">
+                            {authMode === "login" ? intake.shipping.loginTitle : stepTitle}
                           </h1>
+                          <div className="mt-[40px]">
+                            <ShippingForm
+                              formData={shippingFormData}
+                              onChange={setShippingFormData}
+                              password={authPassword}
+                              onPasswordChange={setAuthPassword}
+                              passwordVisible={authPasswordVisible}
+                              onTogglePassword={() => setAuthPasswordVisible((current) => !current)}
+                              mode={authMode}
+                            />
+                          </div>
+
+                          {authError ? <p className="mt-4 text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void (async () => {
+                                const dateOfBirth = shippingFormData.dateOfBirth.trim();
+                                const age = ageFromDateOfBirth(dateOfBirth);
+                                const email = shippingFormData.email.trim();
+                                if (age !== null) {
+                                  setSelectedAnswers((current) => ({
+                                    ...current,
+                                    dateOfBirth,
+                                    age: String(age),
+                                    email,
+                                  }));
+                                }
+                                if (!signedInEmail) {
+                                  setAuthBusy(true);
+                                  setAuthError("");
+                                  try {
+                                    const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/signup";
+                                    const res = await fetch(endpoint, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        email,
+                                        password: authPassword,
+                                        firstName: shippingFormData.firstName.trim(),
+                                        lastName: shippingFormData.lastName.trim(),
+                                      }),
+                                    });
+                                    const payload = (await res.json().catch(() => ({}))) as {
+                                      error?: string;
+                                      email?: string;
+                                      hasCase?: boolean;
+                                    };
+                                    if (!res.ok) {
+                                      setAuthError(payload.error || intake.shipping.emailRequired);
+                                      return;
+                                    }
+                                    if (payload.hasCase) {
+                                      window.location.replace("/care");
+                                      return;
+                                    }
+                                    setSignedInEmail(payload.email || email);
+                                  } catch {
+                                    setAuthError(intake.shipping.emailRequired);
+                                    return;
+                                  } finally {
+                                    setAuthBusy(false);
+                                  }
+                                }
+                                advanceToStep(
+                                  recommendationStepIndex >= 0 ? recommendationStepIndex : shippingInfoStepIndex + 1,
+                                );
+                              })();
+                            }}
+                            disabled={!canContinueDetails || authBusy}
+                            className={`${authError ? "mt-3" : "mt-5"} w-full rounded-full px-6 py-3 text-[16px] font-semibold tracking-[-0.02em] transition-colors ${
+                              canContinueDetails && !authBusy
+                                ? "bg-[#11110f] text-white"
+                                : "cursor-not-allowed bg-black/10 text-black/30"
+                            }`}
+                          >
+                            {authBusy ? "…" : authMode === "login" ? intake.shipping.signIn : intake.shipping.createAccountCta}
+                          </button>
+                          <div className="my-3 flex items-center gap-3 text-[13px] text-[#8a8a8a]">
+                            <span className="h-px flex-1 bg-[#e6e6e6]" />
+                            <span>{intake.shipping.or}</span>
+                            <span className="h-px flex-1 bg-[#e6e6e6]" />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={authBusy}
+                            onClick={() => {
+                              void (async () => {
+                                const dateOfBirth = shippingFormData.dateOfBirth.trim();
+                                const age = ageFromDateOfBirth(dateOfBirth);
+                                if (age !== null) {
+                                  setSelectedAnswers((current) => ({
+                                    ...current,
+                                    dateOfBirth,
+                                    age: String(age),
+                                    email: shippingFormData.email.trim(),
+                                  }));
+                                }
+                                setAuthBusy(true);
+                                setAuthError("");
+                                try {
+                                  const user = await signInWithGoogle();
+                                  if (user.hasCase) {
+                                    window.location.replace("/care");
+                                    return;
+                                  }
+                                  if (user.email) setSignedInEmail(user.email);
+                                  advanceToStep(
+                                    recommendationStepIndex >= 0 ? recommendationStepIndex : shippingInfoStepIndex + 1,
+                                  );
+                                } catch (error) {
+                                  setAuthError(error instanceof Error ? error.message : intake.auth.google);
+                                } finally {
+                                  setAuthBusy(false);
+                                }
+                              })();
+                            }}
+                            className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e6e6e6] bg-white px-6 py-3 text-[16px] font-semibold tracking-[-0.02em] text-[#1a1a1a] transition-colors hover:bg-[#fafafa] disabled:opacity-50"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                              <path fill="#4285F4" d="M21.6 12.23c0-.68-.06-1.33-.18-1.95H12v3.69h5.39a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.97-4.32 2.97-7.26Z" />
+                              <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.81-1.75-5.6-4.1H3.05v2.58A10 10 0 0 0 12 22Z" />
+                              <path fill="#FBBC05" d="M6.4 13.92A5.98 5.98 0 0 1 6.08 12c0-.67.12-1.32.32-1.92V7.5H3.05A10 10 0 0 0 2 12c0 1.61.39 3.14 1.05 4.5l3.35-2.58Z" />
+                              <path fill="#EA4335" d="M12 5.98c1.47 0 2.78.5 3.82 1.48l2.87-2.87C16.95 2.97 14.7 2 12 2A10 10 0 0 0 3.05 7.5l3.35 2.58c.79-2.35 3-4.1 5.6-4.1Z" />
+                            </svg>
+                            {intake.auth.google}
+                          </button>
+                          <p className="mt-3 text-center text-[12px] leading-[1.45] text-[#8a8a8a]">
+                            {intake.shipping.legalBefore}
+                            <Link href="/terms" className="underline underline-offset-[3px]">{intake.shipping.legalTerms}</Link>
+                            {intake.shipping.legalAnd}
+                            <Link href="/privacy" className="underline underline-offset-[3px]">{intake.shipping.legalPrivacy}</Link>{intake.shipping.legalAfter}
+                          </p>
                         </div>
 
-                        <div className="relative mt-8 space-y-5">
-
-                          <div className={`rounded-[20px] bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942] p-[1.5px] shadow-[0_10px_26px_rgba(0,0,0,0.04)] transition-all duration-500 ${nextStepsContainerIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                            <div className="flex items-stretch gap-4 rounded-[18px] bg-[#fffef9] p-5">
-                              <span className="mt-1 z-20 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7d9a68] via-[#6f8f5a] to-[#557546] text-white">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                  <path d="M5 12h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-                                  <path d="M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                              </span>
-                              <div className="flex-1">
-                                <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">{intake.nextSteps.profileTitle}</p>
-                                <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.profileBody}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className={`relative z-10 flex items-stretch gap-4 rounded-[18px] bg-white/80 p-5 shadow-[0_10px_26px_rgba(0,0,0,0.04)] backdrop-blur-[2px] transition-all duration-500 ${nextStepsContainerIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                            <span className="relative mt-1 ml-[2px] z-20 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#b77a61] bg-white text-[#b77a61]">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="2.2"/>
-                                <path d="M12 9v5l3 2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M8.5 4l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <path d="M15.5 4l-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                              </svg>
-                            </span>
-                            <div className="flex-1">
-                              <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">{intake.nextSteps.reviewTitle}</p>
-                              <p className="mt-1 text-[12px] font-semibold leading-[1.45] tracking-[-0.02em] text-[#c77e57]">{intake.nextSteps.reviewTime}</p>
-                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.reviewBody}</p>
-                            </div>
-                          </div>
-
-                          <div className={`relative flex items-stretch gap-4 rounded-[18px] bg-white/80 p-5 shadow-[0_10px_26px_rgba(0,0,0,0.04)] backdrop-blur-[2px] transition-all duration-500 ${nextStepsContainerIndex >= 3 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                            <span className="mt-1 z-20 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#b77a61] bg-white text-[#b77a61]">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="2.2"/>
-                                <path d="M12 9v5l3 2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M8.5 4l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <path d="M15.5 4l-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                              </svg>
-                            </span>
-                            <div className="flex-1">
-                              <p className="text-[18px] font-semibold leading-[1.24] tracking-[-0.04em] text-[#2b2a28] sm:text-[20px]">{intake.nextSteps.planTitle}</p>
-                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.planWhen}</p>
-                              <p className="mt-1 text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/62">{intake.nextSteps.planBody}</p>
-                            </div>
-                          </div>
-
-                          <div className={`transition-all duration-500 ${nextStepsContainerIndex >= 4 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                            <p className="pt-2 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/46">{intake.nextSteps.chargeNote}</p>
-                            <div className="mt-3 flex w-full justify-end">
-                              <button
-                                type="button"
-                                onClick={() => advanceToStep(shippingInfoStepIndex)}
-                                className="inline-flex items-center rounded-full bg-[#1b1b1b] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40"
-                              >
-                                {intake.continue}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                        <p className="mt-3 text-center text-[14px] text-[#6b6b6b]">
+                          {authMode === "login" ? intake.shipping.needAccount : intake.shipping.haveAccount}{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode((current) => (current === "login" ? "signup" : "login"));
+                              setAuthError("");
+                            }}
+                            className="font-medium text-[#111] underline underline-offset-[3px]"
+                          >
+                            {authMode === "login" ? intake.shipping.createAccountLink : intake.shipping.signIn}
+                          </button>
+                        </p>
                       </div>
-
                     ) : null}
                     {isRecommendationInterstitialStep ? (
-                      <>
-                      <div className={`overflow-hidden rounded-[22px] border border-black/5 bg-white/80 p-4 shadow-[0_10px_26px_rgba(0,0,0,0.04)] backdrop-blur-[2px] sm:p-6 transition-all duration-500 ${recommendationReveal ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                        <div className="w-full max-w-[700px] mx-auto">
-                          <p className="mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57]">{intake.shipping.step2}</p>
-                          <h1 className="font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">{intake.recommend.title}</h1>
-
-                          <div className="mt-4 flex items-start gap-4">
-                            <img src={assignedDoctor.imageSrc} alt={assignedDoctor.name} className="h-20 w-20 rounded-full object-cover" />
-                            <div>
-                              <p className="text-[16px] leading-[1.55] tracking-[-0.02em] text-black/70">
-                                {intake.recommend.intro}
-                              </p>
-                              
-                            </div>
-                          </div>
+                      <div className={`mx-auto w-full max-w-[520px] transition-all duration-500 ${recommendationReveal ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                        <div className="rounded-[28px] bg-white px-8 py-6 shadow-[0_18px_50px_rgba(40,50,90,0.08)] sm:px-10 sm:py-6">
+                          <h1 className="text-left text-[38px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">
+                            {intake.recommend.title}
+                          </h1>
+                          <p className="mt-2 text-[14px] font-medium leading-[1.4] text-black/45">
+                            {intake.recommend.titleSubtitle}
+                          </p>
 
                           {recommendedTreatment && recommendedTreatment.type !== "review" ? (
-                          <div className="mt-6 rounded-[18px] border border-black/10 bg-white p-5 shadow-[0_6px_18px_rgba(0,0,0,0.04)] sm:p-6">
+                          <div className="mt-8 border-t border-black/[0.06] pt-4">
                             <div className="flex items-start justify-between gap-4">
                               <div>
-                                <h2 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">{recommendedTreatmentCopy?.title}</h2>
-                                <p className="mt-1 text-[14px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatmentCopy?.description}</p>
+                                <h2 className="text-[20px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#111111]">{recommendedTreatmentCopy?.title}</h2>
+                                <p className="mt-1 text-[14px] font-medium leading-[1.4] text-black/50">{recommendedTreatmentCopy?.description}</p>
                               </div>
-                              <img src={recommendedTreatment.imageSrc} alt="Treatment" className="h-16 w-16 rounded-full object-cover" />
+                              <img src={recommendedTreatment.imageSrc} alt="" className="h-14 w-14 rounded-full object-cover" />
                             </div>
 
                             <ul className="mt-4 space-y-2.5">
-                              <li className="flex items-start gap-3 text-[14px] leading-[1.5] text-[#2b2a28]">
-                                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#c77e57]/10 text-[#c77e57]">
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                    <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                </span>
-                                <span>{intake.recommend.bullets[0]}</span>
-                              </li>
-                              <li className="flex items-start gap-3 text-[14px] leading-[1.5] text-[#2b2a28]">
-                                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#c77e57]/10 text-[#c77e57]">
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                    <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                </span>
-                                <span>{intake.recommend.bullets[1]}</span>
-                              </li>
-                              <li className="flex items-start gap-3 text-[14px] leading-[1.5] text-[#2b2a28]">
-                                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#c77e57]/10 text-[#c77e57]">
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                    <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                </span>
-                                <span>{intake.recommend.bullets[2]}</span>
-                              </li>
+                              {intake.recommend.bullets.slice(0, 2).map((bullet) => (
+                                <li key={bullet} className="flex items-start gap-2.5 text-[14px] font-medium leading-[1.4] text-[#2b2a28]">
+                                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f]/12 text-[#5f7f4f]">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                  </span>
+                                  {bullet}
+                                </li>
+                              ))}
                             </ul>
-
-                            <div className="mt-5 rounded-[14px] bg-[#faf7f2] p-4">
-                              <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#c77e57]">{intake.recommend.expectedCost}</p>
-                              <p className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#2b2a28]">₺750 / month</p>
-                            </div>
-
-                            <div className="mt-4">
-                              <p className="text-[13px] font-semibold tracking-[-0.01em] text-[#2b2a28]">{intake.recommend.included}</p>
-                              <ul className="mt-3 space-y-2.5 text-[14px] text-[#2b2a28]">
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 7c2-2.5 5-2.5 7 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M8 10v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="16" r="6" stroke="currentColor" strokeWidth="2"/><path d="M15 14l3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[0]}</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/0 svg"><path d="M4 16l4-4 3 3 5-6 4 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 20h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[1]}</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22c4-2 8-6 8-10a8 8 0 10-16 0c0 4 4 8 8 10z" stroke="currentColor" strokeWidth="2"/><path d="M12 8v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[2]}</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/><path d="M12 7v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span><span>{intake.recommend.includedItems[3]}</span></li>
-                                <li className="flex items-start gap-3"><span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5f7f4f]/10 text-[#5f7f4f]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M6 7l1.5-3h9L18 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><rect x="4" y="7" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/></svg></span><span>{intake.recommend.includedItems[4]}</span></li>
-                              </ul>
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  closeDoctorPopup();
+                                  setIsTreatmentInfoOpen(true);
+                                }}
+                                aria-expanded={isTreatmentInfoOpen}
+                                className="text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
+                              >
+                                {intake.recommend.moreInfo}
+                              </button>
                             </div>
                           </div>
                           ) : recommendedTreatment && recommendedTreatment.type === "review" ? (
-                          <div className="mt-6 rounded-[18px] border-2 border-[#eac06a] bg-[#fdf3da] p-5 shadow-[0_6px_18px_rgba(0,0,0,0.04)] sm:p-6">
-                            <div className="flex items-start gap-4">
-                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#ec8a1e]/10">
-                                <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-[#ec8a1e]" aria-hidden="true">
-                                  <path d="M12 3 2.5 19.5h19L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                                  <path d="M12 10v3.5M12 16.5h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                                </svg>
-                              </div>
-                              <div className="flex-1">
-                                <h2 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.04em] text-[#2b2a28] sm:text-[24px]">{recommendedTreatmentCopy?.title}</h2>
-                                <p className="mt-2 text-[14px] font-medium leading-[1.45] tracking-[-0.01em] text-black/70">{recommendedTreatmentCopy?.description}</p>
-                                <p className="mt-3 text-[13px] font-medium leading-[1.45] text-black/60">{intake.recommend.reviewNote}</p>
-                              </div>
+                          <div className="mt-8 border-t border-black/[0.06] pt-4">
+                            <div className="rounded-[16px] bg-[#fdf3da] px-4 py-4">
+                              <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-[#111111]">{recommendedTreatmentCopy?.title}</h2>
+                              <p className="mt-1 text-[14px] font-medium leading-[1.4] text-black/60">{recommendedTreatmentCopy?.description}</p>
                             </div>
                           </div>
                           ) : null}
 
-                          <div className="mt-6 flex w-full flex-col gap-3">
-                            <label className="flex items-start gap-3 text-[14px] leading-[1.45] text-[#2b2a28]">
-                              <input
-                                type="checkbox"
-                                className="mt-1 h-[18px] w-[18px] cursor-pointer rounded border-[#c77e57]/60 text-[#2b2a28] accent-[#c77e57] focus:ring-[#c77e57]"
-                                checked={hasAcknowledgedPhysicianReview}
-                                onChange={(e) => setHasAcknowledgedPhysicianReview(e.target.checked)}
-                              />
-                              <span>{intake.recommend.acknowledge}</span>
-                            </label>
+                          <div className="mt-5 border-t border-black/[0.06] pt-4">
                             <button
                               type="button"
-                              onClick={() => advanceToStep(paymentMethodStepIndex)}
-                              disabled={!hasAcknowledgedPhysicianReview}
-                              className="inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-[15px] font-semibold tracking-[-0.02em] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-50 bg-[#1b1b1b] text-white hover:bg-black disabled:hover:bg-[#1b1b1b]"
+                              onClick={() => openDoctorPopup(true, false, true)}
+                              className="flex w-full items-center gap-4 rounded-[22px] bg-[#faf7f2] px-5 py-3 text-left transition-colors hover:bg-[#f4f0e7]"
                             >
-                              {intake.recommend.addPayment}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[20px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">{intake.doctor.specialty}</p>
+                                <p className="mt-2 text-[15px] font-medium tracking-[-0.02em] text-[#1a1a1a]">{assignedDoctor.fullName}</p>
+                                <p className="mt-0.5 text-[13px] font-medium text-black/45">{intake.doctor.role}</p>
+                              </div>
+                              <img
+                                src={assignedDoctor.imageSrc}
+                                alt=""
+                                className="h-16 w-16 shrink-0 rounded-full object-cover object-[center_18%] ring-2 ring-[#c77e57]/25"
+                              />
+                              <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0 text-black/25" aria-hidden="true">
+                                <path d="M7.5 5.25 12.25 10 7.5 14.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
                             </button>
-                            <button type="button" className="inline-flex w-full items-center justify-center rounded-full border border-black/12 bg-white px-5 py-3 text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28] hover:bg-black/[0.03]">
-                              {intake.recommend.learnOther}
-                            </button>
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => openDoctorPopup(false, true)}
+                                className="text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
+                              >
+                                {intake.doctor.change}
+                              </button>
+                            </div>
+                            {recommendedTreatment && recommendedTreatment.type !== "review" ? (
+                            <div className="mt-5 flex items-end justify-between gap-4 border-t border-black/[0.06] pt-5">
+                              <p className="text-[13px] font-medium leading-[1.35] text-black/45">{intake.recommend.chargeAfterApproval}</p>
+                              <p className="shrink-0 text-[22px] font-semibold tracking-[-0.03em] text-[#111111]">
+                                ₺750<span className="text-[14px] font-medium text-black/40"> / {intake.recommend.month}</span>
+                              </p>
+                            </div>
+                            ) : null}
                           </div>
 
-                          <p className="mt-3 text-[12px] font-medium leading-[1.45] tracking-[-0.01em] text-black/46">
-                            {intake.recommend.noCharge}
+                          <p className="mt-6 text-[14px] font-medium leading-[1.4] text-black/45">
+                            {intake.recommend.chargeReassurance}
                           </p>
+                          <button
+                            type="button"
+                            onClick={handleRecommendationContinue}
+                            disabled={intakeSaveStatus === "saving"}
+                            className="mt-5 w-full rounded-full bg-[#11110f] px-6 py-3 text-[16px] font-semibold tracking-[-0.02em] text-white transition-colors disabled:opacity-70"
+                          >
+                            {intakeSaveStatus === "saving"
+                              ? intake.save.savingButton
+                              : intakeSaveStatus === "error"
+                                ? intake.save.retry
+                                : intake.continue}
+                          </button>
                         </div>
                       </div>
-                      </>
                     ) : null}
-                    {isFinalReviewInterstitialStep && intakeSaveStatus === "saved" ? (
+                    {isFinalReviewInterstitialStep && intakeSaveStatus !== "error" ? (
                       <div className="flex w-full items-center justify-center">
                         <svg
                           width="84"
                           height="84"
                           viewBox="0 0 132 132"
-                          className="block mx-auto drop-shadow-sm transform -translate-x-[5px] pr-[2px]"
+                          className="mx-auto block drop-shadow-sm"
                           aria-hidden="true"
                           focusable="false"
                         >
@@ -2514,55 +2715,68 @@ export default function IntakePage() {
                         </svg>
                       </div>
                     ) : null}
-                    {!(isNextStepsInterstitialStep || isRecommendationInterstitialStep) ? (
-                    <div className="relative w-full min-w-0">
-                      <p className="invisible w-full whitespace-pre-wrap break-words text-left font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em]">
-                        {activeInterstitialTextBlocks[0]}
-                      </p>
-                      <p className="absolute inset-0 w-full max-w-full text-left font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">
-                        {visibleInterstitialTextBlocks[0].split("\n").map((line, lineIndex) => (
-                          <span key={`photo-check-primary-${lineIndex}`} className="block whitespace-pre-wrap break-words">
-                            {line === "" ? "\u00A0" : line}
-                          </span>
-                        ))}
+                    {!(isRecommendationInterstitialStep || isShippingInfoStep) ? (
+                    <div className={isTypedPauseStep ? "w-max max-w-full" : "w-full min-w-0"}>
+                      <p className={`${isTypedPauseStep ? "w-max max-w-full" : "w-full"} whitespace-pre-wrap ${isFinalReviewInterstitialStep ? "text-center" : "text-left"} font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]`}>
+                        <FadeWords text={activeInterstitialTextBlocks[0] ?? ""} nowrap={isNextStepsInterstitialStep} />
                       </p>
                     </div>
                     ) : null}
 
-                    {!(isNextStepsInterstitialStep || isRecommendationInterstitialStep) ? (
-                    <div className="relative w-full min-w-0">
+                    {!(isRecommendationInterstitialStep || isShippingInfoStep) ? (
+                    <div className={isTypedPauseStep ? "w-0 min-w-full" : "w-full min-w-0"}>
+                      {isNextStepsInterstitialStep ? (
+                        <div className="space-y-6 sm:space-y-8">
+                          {intake.nextSteps.steps.map((step, stepIndex) => {
+                            const headingDelay = interstitialBodyDelayMs + stepIndex * 2 * INTAKE_LINE_STAGGER_MS;
+                            const stepNumber = String(stepIndex + 1).padStart(2, "0");
+                            return (
+                              <div key={step.title} className="flex items-start gap-3">
+                                <span
+                                  className="mt-[0.35em] w-6 shrink-0 text-[11px] font-medium tabular-nums tracking-[0.08em] text-[#c77e57]/40"
+                                  aria-hidden="true"
+                                  style={{
+                                    animation: `intake-fade-from-bottom ${INTAKE_LINE_DURATION_MS}ms ease-out both`,
+                                    animationDelay: `${headingDelay}ms`,
+                                  }}
+                                >
+                                  {stepNumber}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-left text-[clamp(1.0625rem,0.92rem+1.1vw,1.5rem)] font-medium leading-[1.3] tracking-[-0.03em] text-[#c77e57]">
+                                    <FadeLines text={step.title} delayMs={headingDelay} />
+                                  </p>
+                                  <p className="mt-1 text-left text-[clamp(0.9375rem,0.82rem+1.1vw,1.375rem)] font-medium leading-[1.45] tracking-[-0.03em] text-[#c77e57]/78">
+                                    <FadeLines text={step.body} delayMs={headingDelay + INTAKE_LINE_STAGGER_MS} />
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
                       <p
-                        className={`invisible w-full whitespace-pre-wrap break-words text-left font-medium ${
+                        className={`w-full whitespace-pre-wrap break-words font-medium text-[#c77e57] ${
+                          isFinalReviewInterstitialStep ? "text-center" : "text-left"
+                        } ${
                           isPostCameraInterstitialStep
                             ? "text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] leading-[1.18] tracking-[-0.04em]"
                             : "text-[clamp(0.9375rem,0.82rem+1.1vw,1.375rem)] leading-[1.45] tracking-[-0.03em]"
                         }`}
                       >
-                        {activeInterstitialTextBlocks[1]}
+                        <FadeLines text={activeInterstitialTextBlocks[1] ?? ""} delayMs={interstitialBodyDelayMs} />
                       </p>
-                      <p
-                        className={`absolute inset-0 w-full max-w-full whitespace-pre-wrap break-words text-left font-medium text-[#c77e57] ${
-                          isPostCameraInterstitialStep
-                            ? "text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] leading-[1.18] tracking-[-0.04em]"
-                            : "text-[clamp(0.9375rem,0.82rem+1.1vw,1.375rem)] leading-[1.45] tracking-[-0.03em]"
-                        }`}
-                      >
-                        {visibleInterstitialTextBlocks[1].split("\n").map((line, lineIndex) => (
-                          <span key={`photo-check-secondary-${lineIndex}`} className="block whitespace-pre-wrap break-words">
-                            {line === "" ? "\u00A0" : line}
-                          </span>
-                        ))}
-                      </p>
+                      )}
                     </div>
                     ) : null}
                   </div>
 
-                  {!isNextStepsInterstitialStep && !isRecommendationInterstitialStep ? (
-                  <div className={`flex ${isFinalReviewInterstitialStep ? "mt-8 min-h-[56px] sm:mt-[40px]" : "mt-8 min-h-[56px] sm:mt-[56px] sm:min-h-[72px]"} w-full items-end`}>
-                    {isPreAuthInterstitialStep ? (
+                  {!isRecommendationInterstitialStep && !isShippingInfoStep ? (
+                  <div className={`flex ${isFinalReviewInterstitialStep ? "mt-8 min-h-[56px] justify-center sm:mt-[40px]" : "mt-8 min-h-[56px] sm:mt-[56px] sm:min-h-[72px]"} ${isTypedPauseStep ? "w-0 min-w-full" : "w-full"} items-end`}>
+                    {isTypedPauseStep ? (
                       <button
                         type="button"
-                        onClick={handlePreAuthInterstitialContinue}
+                        onClick={isNextStepsInterstitialStep ? handleNextStepsInterstitialContinue : handlePreAuthInterstitialContinue}
                         disabled={!isInterstitialButtonVisible}
                         aria-hidden={!isInterstitialButtonVisible}
                         tabIndex={isInterstitialButtonVisible ? 0 : -1}
@@ -2577,8 +2791,8 @@ export default function IntakePage() {
                     ) : isFinalReviewInterstitialStep ? (
                       intakeSaveStatus === "saved" ? (
                       <Link
-                        href="/dashboard"
-                        className={`w-full rounded-full px-5 py-3 text-center text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                        href="/care"
+                        className={`inline-flex w-auto rounded-full px-8 py-3 text-center text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2596,7 +2810,7 @@ export default function IntakePage() {
                         disabled={intakeSaveStatus !== "error"}
                         aria-hidden={!isInterstitialButtonVisible}
                         tabIndex={isInterstitialButtonVisible ? 0 : -1}
-                        className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                        className={`inline-flex w-auto rounded-full px-8 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:py-3.5 sm:text-[16px] ${
                           isInterstitialButtonVisible
                             ? "translate-y-0 bg-[#11110f] text-white opacity-100"
                             : "translate-y-2 bg-black/10 text-black/30 opacity-0"
@@ -2777,211 +2991,12 @@ export default function IntakePage() {
               </div>
             </div>
           ) : (
-            <div className={`w-full max-w-[700px] transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"} ${isMedicalStep ? "pt-6 sm:pt-2" : ""}`}>
-              {isShippingInfoStep ? (
-                <>
-                  <div className={`mb-[26px] grid grid-cols-[1fr_auto] items-stretch gap-3 overflow-hidden rounded-2xl border border-[#CCD5C8] bg-[#E7EDE7] p-3.5 text-[#2D3A2F] transition-all duration-300 sm:gap-4 sm:p-4 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    <div className="min-w-0 flex items-center">
-                      <div>
-                        <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] sm:text-[16px] mb-0.5">{intake.shipping.bannerTitle}</div>
-                        <p className="text-[13px] leading-snug text-[#2D3A2F]/90 sm:text-[14px]">
-                          {stepDescription}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="-my-3.5 -mr-3.5 h-auto w-[140px] self-stretch sm:-my-4 sm:-mr-4 sm:w-[170px]">
-                      <img
-                        src="/delivery_intake.webp"
-                        alt="Delivery"
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                  <p className={`mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>{intake.shipping.step1}</p>
-                  <h1 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[20ch]"} mb-2 font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em] transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    {stepTitle}
-                  </h1>
-                  <p className={`mb-4 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-black/55 transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    {intake.shipping.onlyIfApproved}
-                  </p>
-                  <div className={`transition-all duration-300 ${shippingRevealIndex >= 3 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    <ShippingForm
-                      formData={shippingFormData}
-                      onChange={setShippingFormData}
-                      onContinue={() => advanceToStep(recommendationStepIndex >= 0 ? recommendationStepIndex : shippingInfoStepIndex + 1)}
-                    />
-                    <p className="mt-4 text-[12px] leading-[1.4] tracking-[-0.01em] text-black/55">
-                      {intake.shipping.deliveryNote}
-                    </p>
-                  </div>
-                </>
-              ) : isPaymentMethodStep ? (
-                <>
-                  <div className={`mb-[26px] grid grid-cols-[1fr_auto] items-stretch gap-3 overflow-hidden rounded-2xl border border-[#CCD5C8] bg-[#E7EDE7] p-3.5 text-[#2D3A2F] transition-all duration-300 sm:gap-4 sm:p-4 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    <div className="min-w-0 flex items-center">
-                      <div>
-                        <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em] sm:text-[16px] mb-0.5">{intake.shipping.bannerTitle}</div>
-                        <p className="mt-0.5 text-[14px] leading-snug text-[#2D3A2F]/80">
-                          {intake.payment.bannerBody}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="-my-3.5 -mr-3.5 h-auto w-[140px] self-stretch sm:-my-4 sm:-mr-4 sm:w-[170px]">
-                      <img
-                        src="/hiros_intake_doctor.webp"
-                        alt="Doctor"
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                  <p className={`mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#c77e57] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>{intake.shipping.step3}</p>
-                  <h1 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[16ch]"} mb-6 font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em] transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    {intake.payment.almostDone}
-                  </h1>
-                  <div className={`mb-4 transition-all duration-300 ${shippingRevealIndex >= 1 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    <div className="rounded-[22px] border border-black/10 bg-white shadow-[0_16px_40px_rgba(0,0,0,0.06)]">
-                      <div className="px-6 py-5">
-                        <h2 className="font-title text-[22px] font-medium leading-[1.1] tracking-[-0.04em] text-[#2b2a28]">
-                          {intake.payment.overviewTitle(shippingFormData.firstName)}
-                        </h2>
-                      </div>
-                      <div className="px-6 pb-6">
-                        <div className="overflow-hidden rounded-[18px] border border-black/10">
-                          <div className="bg-[#945f41] px-5 py-3 text-[13px] font-semibold tracking-[-0.01em] text-white sm:px-6 sm:py-3.5">
-                            {recommendedTreatment?.type === "review" ? intake.payment.reviewRecommended : intake.payment.mostCommon}
-                          </div>
-                          {recommendedTreatment?.type !== "review" ? (
-                          <div className="flex items-center justify-between gap-4 bg-[#fbfaf5] px-5 py-4 sm:px-6">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-[18px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#2b2a28]">{recommendedTreatmentCopy.title}</p>
-                                <span className="shrink-0 rounded-full bg-[#e1e9e1] px-2.5 py-0.5 text-[11px] font-semibold leading-none text-[#2D3A2F]">{intake.payment.recommended}</span>
-                              </div>
-                              <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatmentCopy.description}</p>
-                            </div>
-                            <img src={recommendedTreatment?.imageSrc || "/treatment-bottle.webp"} alt="Treatment" className="h-16 w-16 rounded-[12px] object-cover" />
-                          </div>
-                          ) : (
-                          <div className="bg-[#fdf3da] px-5 py-4 sm:px-6">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ec8a1e]/10">
-                                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-[#ec8a1e]" aria-hidden="true">
-                                  <path d="M12 3 2.5 19.5h19L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                                  <path d="M12 10v3.5M12 16.5h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                                </svg>
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-[16px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#2b2a28]">{recommendedTreatmentCopy.title}</p>
-                                <p className="mt-1 text-[13px] font-medium leading-[1.45] tracking-[-0.01em] text-black/70">{recommendedTreatmentCopy.description}</p>
-                              </div>
-                            </div>
-                          </div>
-                          )}
-                        </div>
-
-                        <div className="mt-6">
-                          <p className="text-[14px] font-semibold tracking-[-0.02em] text-[#2b2a28]">{intake.payment.included}</p>
-                          <ul className="mt-3 space-y-2 text-[14px] leading-[1.5] text-[#2b2a28]">
-                            {intake.payment.includedItems.map((item) => (
-                              <li key={item} className="flex items-start gap-2"><span>✓</span><span>{item}</span></li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div className="mt-6 border-t border-black/10 pt-5">
-                          <p className="text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28]">{intake.payment.preferredPlan}</p>
-
-                          <div className="mt-4 space-y-3">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTreatmentPlan('primary')}
-                              className={`group block w-full rounded-[17px] p-[1.5px] transition ${selectedTreatmentPlan === 'primary' ? 'bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942]' : 'bg-black/10 hover:bg-black/14'}`}
-                            >
-                              <div className={`rounded-[15px] bg-white px-5 py-4 ${selectedTreatmentPlan === 'primary' ? 'shadow-[0_10px_26px_rgba(0,0,0,0.04)]' : 'shadow-[0_10px_26px_rgba(0,0,0,0.02)]'}`}>
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="flex items-start gap-3 text-left">
-                                    <span
-                                      className={`mt-1.5 inline-block h-3.5 w-3.5 rounded-full border ${
-                                        selectedTreatmentPlan === 'primary'
-                                          ? 'border-transparent bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942]'
-                                          : 'border-black/25 bg-white'
-                                      }`}
-                                      aria-hidden="true"
-                                    />
-                                    <div>
-                                      <p className="text-[16px] font-semibold text-[#2b2a28]">{recommendedTreatmentCopy.title}</p>
-                                      <p className="mt-1 text-[13px] leading-[1.45] tracking-[-0.01em] text-black/60">{recommendedTreatment?.type === "review" ? intake.payment.subjectToReview : intake.payment.similarCases}</p>
-                                    </div>
-                                  </div>
-                                  <div className="shrink-0 text-right text-[15px] font-semibold tracking-[-0.02em] text-[#2b2a28]">
-                                    ₺750/mo
-                                  </div>
-                                </div>
-                              </div>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTreatmentPlan('alternative')}
-                              className={`group block w-full rounded-[17px] p-[1.5px] transition ${selectedTreatmentPlan === 'alternative' ? 'bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942]' : 'bg-black/10 hover:bg-black/14'}`}
-                            >
-                              <div className={`rounded-[15px] bg-white px-5 py-4 ${selectedTreatmentPlan === 'alternative' ? 'shadow-[0_10px_26px_rgba(0,0,0,0.04)]' : 'shadow-[0_10px_26px_rgba(0,0,0,0.02)]'}`}>
-                                <div className="flex items-start gap-3 text-left">
-                                  <span
-                                    className={`mt-1.5 inline-block h-3.5 w-3.5 rounded-full border ${
-                                      selectedTreatmentPlan === 'alternative'
-                                        ? 'border-transparent bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942]'
-                                        : 'border-black/25 bg-white'
-                                    }`}
-                                    aria-hidden="true"
-                                  />
-                                  <p className="text-[16px] font-semibold text-[#2b2a28]">{intake.payment.discussOther}</p>
-                                </div>
-                              </div>
-                            </button>
-
-                            <p className="text-[12px] leading-[1.45] tracking-[-0.01em] text-black/55">
-                              {intake.payment.finalNote}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`mt-8 transition-all duration-300 ${shippingRevealIndex >= 2 ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}>
-                    <h2 className={`${isMedicalStep ? "w-full max-w-full" : "max-w-[20ch]"} mb-2 font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]`}>
-                      {intake.payment.title}
-                    </h2>
-                    <p className="mb-5 text-[16px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:text-[17px]">
-                      {intake.payment.subtitle}
-                    </p>
-
-                    <IbanTransferCard
-                      copy={intake.payment}
-                      reference={
-                        [shippingFormData.firstName, shippingFormData.lastName].filter(Boolean).join(" ").trim() ||
-                        signedInEmail ||
-                        "Hiros"
-                      }
-                      continueLabel={intake.payment.payLater}
-                      onContinue={() => {
-                        const reference =
-                          [shippingFormData.firstName, shippingFormData.lastName].filter(Boolean).join(" ").trim() ||
-                          signedInEmail ||
-                          "Hiros";
-                        setSelectedAnswers((current) => ({
-                          ...current,
-                          payment: `IBAN ₺750 later from dashboard · ${reference}`,
-                        }));
-                        advanceToStep(finalReviewStepIndex);
-                      }}
-                    />
-                  </div>
-                </>
-              ) : (
+            <div
+              key={`question-${currentStepIndex}`}
+              className={`w-full max-w-[700px] ${isMedicalStep ? "pt-6 sm:pt-2" : ""} ${
+                isFading ? "opacity-0" : "intake-enter-from-right"
+              }`}
+            >
                 <>
                   <h1 className="w-full max-w-full font-title text-[22px] font-medium leading-[1.2] tracking-[-0.03em] text-[#2b2a28] sm:text-[42px] sm:leading-[1.02] sm:tracking-[-0.07em]">
                     {stepTitle}
@@ -2991,8 +3006,6 @@ export default function IntakePage() {
                       {stepDescription}
                     </p>
                   ) : null}
-                </>
-              )}
 
               <div className="mt-6 space-y-2.5 sm:mt-8 sm:space-y-3">
                 {currentStep!.options.map((option) => {
@@ -3034,27 +3047,38 @@ export default function IntakePage() {
                 })}
               </div>
 
-              {isCheckboxSelectionStep ? (
-                <button
-                  type="button"
-                  onClick={handleCheckboxStepContinue}
-                  disabled={!hasGoalSelections}
-                  className={`mt-7 w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:px-6 sm:py-3.5 sm:text-[16px] ${
-                    hasGoalSelections ? "cursor-pointer bg-[#11110f] text-white" : "bg-black/10 text-black/30"
-                  }`}
-                >
-                  {intake.continue}
-                </button>
+              {whyWeAskNote ? (
+                <div className="mt-4 rounded-[22px] bg-[#fffef9] px-5 py-5 sm:mt-5 sm:px-6 sm:py-6">
+                  <p className="text-[15px] font-semibold tracking-[-0.02em] text-[#c77e57]">{intake.whyWeAsk.title}</p>
+                  <p className="mt-2 text-[14px] font-medium leading-[1.5] tracking-[-0.02em] text-black/52 sm:text-[15px]">
+                    {whyWeAskNote.body}
+                  </p>
+                  <a
+                    href={whyWeAskNote.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-block text-[14px] font-medium tracking-[-0.02em] text-[#2b2a28] underline underline-offset-[3px]"
+                  >
+                    {intake.whyWeAsk.source}
+                  </a>
+                </div>
               ) : null}
 
-              {shouldShowSelectedAnswerContinue ? (
-                <button
-                  type="button"
-                  onClick={handleSelectedAnswerContinue}
-                  className="mt-7 w-full rounded-full bg-[#11110f] px-5 py-3 text-[15px] font-medium tracking-[-0.03em] text-white transition-colors sm:px-6 sm:py-3.5 sm:text-[16px]"
-                >
-                  {intake.continue}
-                </button>
+              {isCheckboxSelectionStep || shouldShowSelectedAnswerContinue ? (
+                <div className="mt-7">
+                  <button
+                    type="button"
+                    onClick={isCheckboxSelectionStep ? handleCheckboxStepContinue : handleSelectedAnswerContinue}
+                    disabled={isCheckboxSelectionStep ? !hasGoalSelections : false}
+                    className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                      isCheckboxSelectionStep && !hasGoalSelections
+                        ? "bg-black/10 text-black/30"
+                        : "cursor-pointer bg-[#11110f] text-white"
+                    }`}
+                  >
+                    {intake.continue}
+                  </button>
+                </div>
               ) : null}
 
               {isMedicalStep && (needsMedicalConditionsText || needsMedicationText || needsPreviousTreatmentsText || needsFinalNotesText) ? (
@@ -3219,23 +3243,126 @@ export default function IntakePage() {
                   {currentStep?.id === "final-notes" ? intake.submitIntake : intake.continue}
                 </button>
               ) : null}
-
-              
+            </>
             </div>
           )}
         </section>
       </div>
 
-      
+      <button
+        type="button"
+        onClick={() => {
+          closeDoctorPopup();
+          setIsTreatmentInfoOpen(false);
+          setIsFading(false);
+          setIsAdvancing(false);
+          setCurrentStepIndex(nextStepsStepIndex >= 0 ? nextStepsStepIndex : shippingInfoStepIndex);
+        }}
+        className="fixed bottom-20 left-4 z-[80] rounded-full border border-black/10 bg-white/90 px-3.5 py-2 text-[12px] font-semibold tracking-[-0.02em] text-black/55 shadow-[0_8px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white hover:text-[#2b2a28]"
+      >
+        Skip to end
+      </button>
+
+      {isTreatmentInfoOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label={intake.recommend.moreInfoClose}
+            onClick={() => setIsTreatmentInfoOpen(false)}
+            className="fixed inset-0 z-[82] bg-black/35"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="treatment-info-title"
+            className="fixed inset-x-4 bottom-6 z-[83] mx-auto w-[calc(100%-2rem)] max-w-[440px] overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.2)] sm:inset-x-auto sm:bottom-10 sm:right-6 sm:w-[400px]"
+          >
+            <div className="flex items-start justify-between border-b border-black/8 bg-[#fbfaf5] px-5 py-4">
+              <div>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#848484]">{intake.recommend.moreInfo}</p>
+                <h3 id="treatment-info-title" className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-black">
+                  {recommendedTreatmentCopy?.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                aria-label={intake.recommend.moreInfoClose}
+                onClick={() => setIsTreatmentInfoOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-white transition-colors hover:bg-[#1a1a1a]"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[min(70vh,520px)] space-y-5 overflow-y-auto px-5 py-5">
+              <p className="text-[14px] font-medium leading-[1.45] text-black/55">{recommendedTreatmentCopy?.description}</p>
+              <div>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.recommend.moreInfoWhatTitle}</p>
+                <p className="mt-2 text-[14px] font-medium leading-[1.5] text-[#2b2a28]/82">{intake.recommend.moreInfoWhat}</p>
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.recommend.moreInfoHowTitle}</p>
+                <p className="mt-2 text-[14px] font-medium leading-[1.5] text-[#2b2a28]/82">{intake.recommend.moreInfoHow}</p>
+              </div>
+              <ul className="space-y-2.5">
+                {intake.recommend.bullets.map((bullet) => (
+                  <li key={bullet} className="flex items-start gap-2.5 text-[14px] font-medium leading-[1.4] text-[#2b2a28]">
+                    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f]/12 text-[#5f7f4f]">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+              <div>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.recommend.included}</p>
+                <ul className="mt-2.5 space-y-2">
+                  {intake.recommend.includedItems.map((item) => (
+                    <li key={item} className="text-[14px] font-medium leading-[1.4] text-[#2b2a28]/82">{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-[13px] font-medium leading-[1.45] text-black/45">{intake.recommend.reviewNote}</p>
+            </div>
+          </div>
+        </>
+      ) : null}
 
       {isMedicalStep ? (
         <>
           {isDoctorPopupOpen ? (
-            <div className={`fixed bottom-10 right-6 z-[70] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.2)] transition-all duration-220 ease-out ${isDoctorPopupVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.98] opacity-0"}`}>
+            <div
+              onMouseEnter={() => {
+                if (doctorPopupIsIntroRef.current) {
+                  clearIntroDoctorPopupClose();
+                }
+              }}
+              onMouseLeave={() => {
+                if (doctorPopupIsIntroRef.current) {
+                  startIntroDoctorPopupClose(280);
+                }
+              }}
+              className={`fixed bottom-10 right-6 z-[70] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.2)] transition-all duration-220 ease-out ${isDoctorPopupVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.98] opacity-0"}`}
+            >
               <div className="flex items-start justify-between border-b border-black/8 bg-[#fbfaf5] px-5 py-4">
                 <div>
                   <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#848484]">{intake.doctor.assignedLabel}</p>
-                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{assignedDoctor.name}</h3>
+                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{isChoosingPhysician ? intake.doctor.changeTitle : assignedDoctor.fullName}</h3>
+                  {!isChoosingPhysician ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChoosingPhysician(true);
+                        setIsViewingPhysicianProfile(false);
+                      }}
+                      className="mt-1.5 text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
+                    >
+                      {intake.doctor.change}
+                    </button>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -3249,72 +3376,106 @@ export default function IntakePage() {
                 </button>
               </div>
 
+              {isChoosingPhysician ? (
+                <div className="px-4 py-4">
+                  <PhysicianPicker
+                    physicians={LICENSED_PHYSICIANS}
+                    selectedId={preferredDoctorId}
+                    onSelect={(id) => {
+                      setPreferredDoctorId(id);
+                      setIsChoosingPhysician(false);
+                      setIsViewingPhysicianProfile(false);
+                    }}
+                    copy={{ suggested: intake.doctor.suggested, selected: intake.doctor.selected }}
+                  />
+                </div>
+              ) : (
+                <>
               <div className="relative h-[190px] w-full overflow-hidden bg-[#fbfaf5]">
-                <Image src={assignedDoctor.imageSrc} alt={assignedDoctor.name} fill sizes="360px" className="object-cover object-[center_18%]" />
+                <Image src={assignedDoctor.imageSrc} alt={assignedDoctor.fullName} fill sizes="360px" className="object-cover object-[center_18%]" />
                 <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/70 to-transparent" />
               </div>
 
-              <div className="space-y-4 px-5 pb-6 pt-1">
-                <div>
-                  <p className="text-[15px] font-medium tracking-[-0.02em] text-black/55">{intake.doctor.role}</p>
-                  <p className="mt-3 text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">{intake.doctor.intro}</p>
-                </div>
+              <div className="px-5 pb-8 pt-1">
+                <p className="text-[15px] font-medium tracking-[-0.02em] text-black/55">{intake.doctor.role}</p>
+                <p className="mt-3 text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">{intake.doctor.intro}</p>
+              </div>
 
-                {shouldShowDoctorPopupAbout ? (
-                  <div className="rounded-[22px] bg-[#f4f0e7] px-5 py-5">
+              <div className="border-t border-black/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => setIsViewingPhysicianProfile((open) => !open)}
+                  aria-expanded={isViewingPhysicianProfile}
+                  className="flex w-full items-center justify-between px-5 py-3.5 text-left text-[13px] font-medium tracking-[-0.02em] text-black/42 transition-colors hover:text-[#2b2a28]"
+                >
+                  <span>{intake.doctor.seeProfile}</span>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className={`h-3.5 w-3.5 text-black/28 transition-transform duration-200 ${isViewingPhysicianProfile ? "rotate-90" : ""}`}
+                    aria-hidden="true"
+                  >
+                    <path d="M7.5 5.25 12.25 10 7.5 14.75" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {isViewingPhysicianProfile ? (
+                  <div className="px-5 pb-9">
                     <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.doctor.about}</p>
-                    <ul className="mt-3 space-y-2 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
+                    <ul className="mt-3.5 space-y-3">
                       {intake.doctor.details.map((detail) => (
-                        <li key={detail}>{detail}</li>
+                        <li key={detail} className="flex gap-3 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
+                          <span className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c77e57]" aria-hidden="true" />
+                          <span>{detail}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
               </div>
+                </>
+              )}
             </div>
           ) : null}
 
-          {isMedicalDoctorIntroStep && !isDoctorPopupOpen ? (
-            <button
-              type="button"
-              onClick={() => openDoctorPopup(true)}
+          {isMedicalDoctorIntroStep && !isDoctorPopupOpen && !isShippingInfoStep ? (
+            <div
               className={`fixed bottom-6 left-1/2 z-[65] w-[calc(100%-2rem)] max-w-[340px] -translate-x-1/2 rounded-[24px] bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942] p-[1.5px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.16)] transition-all duration-500 ease-out sm:left-auto sm:right-6 sm:w-full sm:translate-x-0 sm:text-left ${
                 isDoctorAssignmentNoticeVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
               }`}
               aria-hidden={!isDoctorAssignmentNoticeVisible}
-              tabIndex={isDoctorAssignmentNoticeVisible ? 0 : -1}
             >
-              <span className="flex items-center justify-center gap-3 rounded-[22px] bg-white/95 px-5 py-4 text-center backdrop-blur-sm sm:items-start sm:justify-start sm:text-left">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f] text-white shadow-[0_6px_14px_rgba(95,127,79,0.25)]">
-                  <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <p className="text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]">
-                  <span className="font-semibold">{assignedDoctor.name}</span> {intake.doctor.assigned}
-                </p>
-              </span>
-            </button>
+              <div className="rounded-[22px] bg-white/95 px-5 py-4 backdrop-blur-sm">
+                <button
+                  type="button"
+                  onClick={() => openDoctorPopup(true)}
+                  tabIndex={isDoctorAssignmentNoticeVisible ? 0 : -1}
+                  className="flex w-full items-center justify-center gap-3 text-center sm:items-start sm:justify-start sm:text-left"
+                >
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f] text-white shadow-[0_6px_14px_rgba(95,127,79,0.25)]">
+                    <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <p className="text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]">
+                    <span className="font-semibold">{assignedDoctor.fullName}</span> {intake.doctor.assigned}
+                  </p>
+                </button>
+              </div>
+            </div>
           ) : null}
 
-          {!isFirstMedicalStep ? (
+          {!isShippingInfoStep && !isRecommendationInterstitialStep && !isDoctorPopupOpen && !isDoctorAssignmentNoticeVisible ? (
             <button
               type="button"
-              aria-label={isDoctorPopupOpen ? "Close assigned doctor info" : "Open assigned doctor info"}
-              aria-expanded={isDoctorPopupOpen}
-              onClick={() => {
-                if (isDoctorPopupOpen) {
-                  closeDoctorPopup();
-                  return;
-                }
-
-                openDoctorPopup(true);
-              }}
+              aria-label="Open assigned doctor info"
+              aria-expanded={false}
+              onClick={() => openDoctorPopup(true)}
               className="fixed bottom-6 right-6 z-[60] flex h-[63px] w-[63px] items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-[#fbfaf5] shadow-[0_12px_30px_rgba(0,0,0,0.28)] transition-transform duration-300 hover:scale-105"
             >
               <Image
                 src={assignedDoctor.imageSrc}
-                alt={assignedDoctor.name}
+                alt={assignedDoctor.fullName}
                 fill
                 sizes="63px"
                 className="object-cover object-[center_18%]"

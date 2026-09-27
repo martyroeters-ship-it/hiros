@@ -85,7 +85,7 @@ export default function ContactPageContent() {
                 <p>{copy.medicalIntro}</p>
                 <p>
                   {copy.medicalBeforeAccount}
-                  <Link href="/dashboard" className={linkClassName}>
+                  <Link href="/care" className={linkClassName}>
                     {copy.medicalAccount}
                   </Link>
                   {copy.medicalAfterAccount}

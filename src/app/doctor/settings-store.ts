@@ -15,7 +15,7 @@ export type DoctorSettings = {
 
 export const defaultDoctorSettings: DoctorSettings = {
   theme: "light",
-  language: "en",
+  language: "tr",
   notifyCases: true,
   notifyVisits: true,
   notifyMessages: true,

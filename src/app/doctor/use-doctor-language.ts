@@ -9,7 +9,7 @@ export function useDoctorLanguage(): {
   copy: DoctorCopy;
   setLanguage: (language: DoctorLocale) => void;
 } {
-  const [language, setLanguageState] = useState<DoctorLocale>("en");
+  const [language, setLanguageState] = useState<DoctorLocale>("tr");
 
   useEffect(() => {
     const apply = () => setLanguageState(loadDoctorSettings().language);

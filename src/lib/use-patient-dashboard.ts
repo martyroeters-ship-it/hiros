@@ -11,13 +11,13 @@ export function usePatientDashboard() {
     void fetch("/api/dashboard", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
-          setError("Could not load your dashboard");
+          setError("Could not load your Care Dashboard");
           return;
         }
         setSnapshot((await res.json()) as PatientDashboardSnapshot);
         setError(null);
       })
-      .catch(() => setError("Could not load your dashboard"));
+      .catch(() => setError("Could not load your Care Dashboard"));
   }, []);
 
   useEffect(() => {

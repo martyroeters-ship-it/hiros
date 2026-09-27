@@ -13,7 +13,7 @@ export function AuthNavLink({ className, style }: { className?: string; style?: 
 
   if (user) {
     return (
-      <Link href="/dashboard" style={style} className={className}>
+      <Link href="/care" style={style} className={className}>
         {displayName(user) || copy.nav.account}
       </Link>
     );

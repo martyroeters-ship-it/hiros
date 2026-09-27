@@ -31,6 +31,24 @@ values
     'Yılmaz',
     'tr',
     true
+  ),
+  (
+    '00000000-0000-4000-a000-0000000000d3',
+    'doctor',
+    'elif.kaya@hiros.local',
+    'Elif',
+    'Kaya',
+    'tr',
+    true
+  ),
+  (
+    '00000000-0000-4000-a000-0000000000d5',
+    'doctor',
+    'mehmet.demir@hiros.local',
+    'Mehmet',
+    'Demir',
+    'tr',
+    true
   )
 on conflict (id) do nothing;
 
@@ -71,6 +89,28 @@ values (
   '00000000-0000-4000-a000-0000000000c1',
   'Dr. Ahmet Yılmaz',
   'DEMO-LICENSE',
+  'Dermatoloji',
+  true,
+  true,
+  now()
+),
+(
+  '00000000-0000-4000-a000-0000000000d2',
+  '00000000-0000-4000-a000-0000000000d3',
+  '00000000-0000-4000-a000-0000000000c1',
+  'Dr. Elif Kaya',
+  'DEMO-LICENSE-EK',
+  'Dermatoloji',
+  true,
+  true,
+  now()
+),
+(
+  '00000000-0000-4000-a000-0000000000d4',
+  '00000000-0000-4000-a000-0000000000d5',
+  '00000000-0000-4000-a000-0000000000c1',
+  'Dr. Mehmet Demir',
+  'DEMO-LICENSE-MD',
   'Dermatoloji',
   true,
   true,

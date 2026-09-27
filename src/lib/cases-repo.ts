@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { buildCaseFromIntake, evaluateIntake, QUESTION_LABELS, type IntakeSubmission } from "@/app/doctor/triage";
 import type { PatientCase, TabKey } from "@/app/doctor/data";
 import { PRE_MEDICAL_STEP_IDS } from "@/types/database";
 import { followUpDateFromLabel } from "./patients-repo";
+import { ageFromDateOfBirth } from "./age";
 import { sql } from "./db";
+import { isLicensedPhysicianId } from "./physicians";
 
 const PHOTO_ROOT = path.join(process.cwd(), "data", "case-photos");
 const PRE_MEDICAL = new Set<string>(PRE_MEDICAL_STEP_IDS);
@@ -16,6 +17,7 @@ export type IntakePersistInput = IntakeSubmission & {
   phone?: string;
   province?: string;
   deferSubmit?: boolean;
+  preferredDoctorId?: string | null;
 };
 
 type CaseRow = {
@@ -118,7 +120,12 @@ async function loadPatientCase(caseId: string): Promise<PatientCase | null> {
     confidence: row.confidence ?? "Low",
     status: statusLabel(row.status),
     submittedAt: new Date(submitted).getTime(),
-    ageRange: "Not provided",
+    ageRange: (() => {
+      const fromDob = ageFromDateOfBirth(answerByStep.dateOfBirth ?? "");
+      if (fromDob !== null) return String(fromDob);
+      const rawAge = Number(answerByStep.age);
+      return Number.isFinite(rawAge) && rawAge > 0 ? String(rawAge) : "Not provided";
+    })(),
     reason: answerByStep["current-situation"] ?? "Hair loss consultation",
     location: row.il ?? "Not provided",
     reportedOnset: answerByStep.timeline ?? "Not provided",
@@ -167,7 +174,10 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
   const built = buildCaseFromIntake(input);
   const triage = evaluateIntake(input);
   const signedInId = patientId?.trim() || null;
-  const newPatientId = signedInId ?? randomUUID();
+  if (!signedInId) {
+    throw new Error("Sign in to submit your intake.");
+  }
+  const newPatientId = signedInId;
   const postal =
     input.postalCode && /^[0-9]{5}$/.test(input.postalCode.trim())
       ? input.postalCode.trim()
@@ -195,22 +205,6 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
           postal_code = coalesce(${postal}, postal_code),
           il = coalesce(${input.city}, il)
         where id = ${signedInId}::uuid
-      `;
-    } else {
-      await tx`
-        insert into public.profiles (
-          id, role, email, first_name, last_name, phone, locale, postal_code, il
-        ) values (
-          ${newPatientId}::uuid,
-          'patient',
-          ${`demo+${newPatientId.slice(0, 8)}@hiros.local`},
-          ${input.firstName.trim() || "Patient"},
-          ${input.lastName?.trim() || null},
-          ${input.phone?.trim() || null},
-          'tr',
-          ${postal},
-          ${input.city}
-        )
       `;
     }
 
@@ -263,6 +257,10 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
       status = "awaiting_consent";
     }
     if (!id) throw new Error("Could not enroll trial patient. Is the demo doctor seeded?");
+
+    if (isLicensedPhysicianId(input.preferredDoctorId)) {
+      await applyPreferredPhysician(tx as typeof sql, id, newPatientId, input.preferredDoctorId);
+    }
 
     if (status === "awaiting_consent") {
       await tx`select accept_named_physician_consent(${id}::uuid, 'trial-v1')`;
@@ -356,7 +354,7 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
     confidence: built.confidence,
     status: "Submitted",
     submittedAt: Date.now(),
-    ageRange: "Not provided",
+    ageRange: built.ageRange,
     reason: "Hair loss consultation",
     location: input.city ?? "Not provided",
     reportedOnset: "Not provided",
@@ -436,6 +434,51 @@ export async function updateCaseTab(
   }
 
   return loadPatientCase(id);
+}
+
+async function applyPreferredPhysician(
+  db: typeof sql,
+  caseId: string,
+  patientId: string,
+  doctorId: string,
+) {
+  const [doctor] = await db<{ id: string; clinic_id: string }[]>`
+    select id, clinic_id
+    from public.doctors
+    where id = ${doctorId}::uuid
+      and is_accepting_cases
+    limit 1
+  `;
+  if (!doctor) return;
+  await db`
+    update public.cases
+    set
+      assigned_doctor_id = ${doctor.id}::uuid,
+      assigned_clinic_id = ${doctor.clinic_id}::uuid
+    where id = ${caseId}::uuid
+      and patient_id = ${patientId}::uuid
+  `;
+}
+
+export async function assignPreferredPhysician(patientId: string, doctorId: string) {
+  if (!isLicensedPhysicianId(doctorId)) {
+    throw new Error("Unknown physician");
+  }
+  const [row] = await sql<{ id: string }[]>`
+    select id
+    from public.cases
+    where patient_id = ${patientId}::uuid
+    order by created_at desc
+    limit 1
+  `;
+  if (!row) {
+    throw new Error("No case to update");
+  }
+  await applyPreferredPhysician(sql, row.id, patientId, doctorId);
+  await sql`
+    insert into public.consents (patient_id, case_id, kind, doctor_id, version)
+    values (${patientId}::uuid, ${row.id}::uuid, 'named_physician', ${doctorId}::uuid, 'trial-v1')
+  `;
 }
 
 export function photoFilePath(caseId: string, filename: string): string {

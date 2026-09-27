@@ -36,7 +36,7 @@ function getReply(
     return `Side effects with ${treatment} are uncommon and usually mild. If you notice anything that concerns you, please describe it here and I'll flag it for ${doctor} to review.`;
   }
   if (t.includes("delivery") || t.includes("order") || t.includes("ship") || t.includes("when")) {
-    return "Order updates appear on your dashboard as soon as they’re available. If something looks off, I can pass it to the care team.";
+    return "Order updates appear on your Care Dashboard as soon as they’re available. If something looks off, I can pass it to the care team.";
   }
   if (t.includes("how") && (t.includes("use") || t.includes("apply"))) {
     return `Apply ${treatment} as prescribed, ideally at the same time each day. Wash your hands after use. If you have questions about technique, I can connect you with the care team.`;

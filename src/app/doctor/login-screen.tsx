@@ -61,8 +61,10 @@ export function DoctorLoginScreen() {
           <label className="block text-[13px] font-semibold text-[#1b1b1b]">
             Email
             <input
-              type="email"
+              type="text"
+              inputMode="email"
               autoComplete="username"
+              spellCheck={false}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="mt-1.5 h-11 w-full rounded-[10px] border border-black/12 bg-white px-3.5 text-[15px] text-[#1b1b1b] outline-none transition-colors focus:border-[#2f5f4f]"

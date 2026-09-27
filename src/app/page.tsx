@@ -17,8 +17,8 @@ function HomeContent() {
       <main className="min-h-screen overflow-x-clip bg-[#fbfaf5] text-[#11110f]">
       <section className="relative z-30 -mt-16 pb-0">
         <div className="relative">
-          <div id="start" className="relative min-h-0 w-full overflow-hidden rounded-b-[34px] rounded-t-[0px] bg-[#718864] bg-[url('/hiros_hero_background.webp')] bg-cover bg-[position:78%_center] sm:min-h-[700px] sm:bg-[position:20%_center] sm:bg-[length:100%_100%]">
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#fbfaf5_0%,#fbfaf5_38%,rgba(251,250,245,0.72)_58%,rgba(251,250,245,0.18)_78%,rgba(251,250,245,0)_100%)] sm:bg-[radial-gradient(ellipse_at_bottom_left,#fbfaf5_0%,#fbfaf5_18%,rgba(251,250,245,0.75)_30%,rgba(251,250,245,0.35)_43%,rgba(251,250,245,0)_58%)]" />
+          <div id="start" className="relative min-h-0 w-full overflow-hidden rounded-b-[34px] rounded-t-[0px] bg-[#f6eade] bg-[url('/hiros-intro-bg.jpg')] bg-cover bg-[position:80%_45%] sm:min-h-[700px] sm:bg-[position:82%_42%]">
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#fbfaf5_0%,#fbfaf5_28%,rgba(251,250,245,0.45)_46%,rgba(251,250,245,0)_64%)]" />
             <div className={`relative z-10 flex h-full w-full max-w-7xl flex-col justify-center pt-28 pb-12 sm:pt-40 sm:pb-20 ${HOME_PAGE_GUTTER_CLASS}`}>
               <div className="text-left">
                 <h1 className="font-title text-[36px] font-normal leading-[1.08] tracking-[-0.06em] text-[#1f241b] sm:text-[48px] lg:text-[64px] lg:leading-[1.1] lg:tracking-[-0.07em]">
@@ -77,19 +77,17 @@ function HomeContent() {
         </div>
       </section>
 
-      <section id="about" className={`bg-[#fbfaf5] pb-16 pt-12 sm:pb-24 sm:pt-20 ${HOME_PAGE_GUTTER_CLASS}`}>
-        <div className="max-w-7xl">
-          <div className="mb-8 flex items-center justify-between sm:mb-10">
-            <h2 className="font-title max-w-5xl text-[32px] font-normal leading-[1.05] tracking-[-0.06em] sm:text-[44px] lg:text-[55px] lg:leading-[1] lg:tracking-[-0.07em]">
-              {copy.about.titleLine1}
-              <br />
-              <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#9aa786] bg-clip-text pr-2 -mr-2 text-transparent">
-                {copy.about.titleLine2}
-              </span>
-            </h2>
-          </div>
-          <PrivacyCarousel />
+      <section id="about" className="bg-[#fbfaf5] pb-16 pt-12 sm:pb-24 sm:pt-20">
+        <div className={`mb-8 max-w-7xl sm:mb-10 ${HOME_PAGE_GUTTER_CLASS}`}>
+          <h2 className="font-title max-w-5xl text-[32px] font-normal leading-[1.05] tracking-[-0.06em] sm:text-[44px] lg:text-[55px] lg:leading-[1] lg:tracking-[-0.07em]">
+            {copy.about.titleLine1}
+            <br />
+            <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#9aa786] bg-clip-text pr-2 -mr-2 text-transparent">
+              {copy.about.titleLine2}
+            </span>
+          </h2>
         </div>
+        <PrivacyCarousel />
       </section>
 
       <section id="how" className={`relative overflow-hidden rounded-t-[34px] bg-[#b77a61] bg-[url('/stay_control_background.webp')] bg-cover bg-[position:20%_center] py-16 text-white sm:py-24 ${HOME_PAGE_GUTTER_CLASS}`}>

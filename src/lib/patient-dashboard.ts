@@ -118,6 +118,7 @@ function emptySnapshot(signedIn: boolean): PatientDashboardSnapshot {
     doctorLabel: "Your physician",
     treatmentName: null,
     treatmentStart: null,
+    treatmentStartedAt: null,
     treatmentFollowUp: null,
     ...extras(),
     nextUp: signedIn
@@ -320,75 +321,75 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
     statusTitle = "Physician reviewing your case";
     statusDetail = `${doctor} is reviewing the answers you submitted.`;
     greetingSubtitle = "Your intake is with your physician. We’ll update you here.";
-    statusCta = { label: "View physician", href: "/dashboard/doctor" };
+    statusCta = { label: "View physician", href: "/care/doctor" };
     estimatedDelivery = "After approval";
     nextUp = hasPhotos
       ? {
           title: "Wait for physician review",
           detail: "You’ll be notified here as soon as there’s a decision.",
           cta: "View physician",
-          href: "/dashboard/doctor",
+          href: "/care/doctor",
         }
       : {
           title: "Add photos for your physician",
           detail: "Photos help your physician understand what you are noticing.",
           cta: "Upload photos",
-          href: "/dashboard/photos",
+          href: "/care/photos",
         };
   } else if (isInPerson) {
     statusTitle = "In-person visit recommended";
     statusDetail = `${doctor} has asked to see you in person before treatment can continue online.`;
     greetingSubtitle = "Your physician has shared a next step.";
-    statusCta = { label: "View physician", href: "/dashboard/doctor" };
+    statusCta = { label: "View physician", href: "/care/doctor" };
     estimatedDelivery = "Not applicable";
     nextUp = {
       title: "Follow up with your physician",
       detail: "An in-person visit was recommended after your intake.",
       cta: "View physician",
-      href: "/dashboard/doctor",
+      href: "/care/doctor",
     };
   } else if (isDeclined) {
     statusTitle = "Online treatment not recommended";
     statusDetail = `${doctor} reviewed your intake and recommended a different next step.`;
     greetingSubtitle = "Your physician has shared a next step.";
-    statusCta = { label: "View physician", href: "/dashboard/doctor" };
+    statusCta = { label: "View physician", href: "/care/doctor" };
     estimatedDelivery = "Not applicable";
     nextUp = {
       title: "Talk with your physician",
       detail: "Ask any questions about the review and what to do next.",
       cta: "Open messages",
-      href: "/dashboard/messages",
+      href: "/care/messages",
     };
   } else if (isApproved && filled) {
     statusTitle = "Treatment underway";
     statusDetail = "Your prescription has been collected. Stay consistent and keep your physician updated.";
     greetingSubtitle = "Everything is on track. We’ll keep you updated.";
-    statusCta = { label: "View treatment", href: "/dashboard/treatment" };
+    statusCta = { label: "View treatment", href: "/care/treatment" };
     estimatedDelivery = row.filled_reported_at ? formatShortDate(row.filled_reported_at) : "Collected";
     nextUp = {
       title: "Log today’s check-in",
       detail: "Small updates help your physician follow how treatment is going.",
       cta: "Open progress",
-      href: "/dashboard/progress",
+      href: "/care/progress",
     };
   } else if (isApproved) {
     statusTitle = "Preparing your treatment";
     statusDetail = "Your plan is approved. The prescription is being prepared.";
     greetingSubtitle = "Everything is on track. We’ll keep you updated.";
-    statusCta = { label: "View treatment", href: "/dashboard/treatment" };
+    statusCta = { label: "View treatment", href: "/care/treatment" };
     estimatedDelivery = "Being prepared";
     nextUp = hasPhotos
       ? {
           title: "Your treatment is being prepared",
           detail: "We’ll update this status when it’s ready for collection.",
           cta: "View treatment",
-          href: "/dashboard/treatment",
+          href: "/care/treatment",
         }
       : {
           title: "Take your baseline photos",
           detail: "Help your physician track your progress from the start.",
           cta: "Get started",
-          href: "/dashboard/photos",
+          href: "/care/photos",
         };
   } else if (isIntake) {
     statusTitle = "Finish your intake";
@@ -406,7 +407,7 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
       badge: "NEW",
       badgeClass: NEW_BADGE,
       icon: "message",
-      href: "/dashboard/messages",
+      href: "/care/messages",
     });
   }
 
@@ -460,7 +461,7 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
       badge: "ACTION REQUIRED",
       badgeClass: ACTION_BADGE,
       icon: "camera",
-      href: "/dashboard/photos",
+      href: "/care/photos",
     });
   }
 
@@ -473,7 +474,7 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
       badge: "ACTION REQUIRED",
       badgeClass: ACTION_BADGE,
       icon: "clock",
-      href: "/dashboard#pay",
+      href: "/care#pay",
     });
   }
 
@@ -486,7 +487,7 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
       badge: visit.status === "requested" ? "NEW" : undefined,
       badgeClass: visit.status === "requested" ? NEW_BADGE : undefined,
       icon: "clock",
-      href: "/dashboard/doctor",
+      href: "/care/doctor",
     });
   }
 
@@ -619,6 +620,11 @@ export async function getPatientDashboardSnapshot(): Promise<PatientDashboardSna
       ? formatShortDate(row.treatment_started_at)
       : isApproved && row.reviewed_at
         ? formatShortDate(row.reviewed_at)
+        : null,
+    treatmentStartedAt: row.treatment_started_at
+      ? new Date(row.treatment_started_at).getTime()
+      : isApproved && row.reviewed_at
+        ? new Date(row.reviewed_at).getTime()
         : null,
     treatmentFollowUp: row.follow_up_at ? formatShortDate(row.follow_up_at) : null,
     treatmentNotes: row.treatment_notes?.trim() || null,

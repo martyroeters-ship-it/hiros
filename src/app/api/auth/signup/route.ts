@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hashPassword, isValidEmail, normalizeEmail, setSessionCookie } from "@/lib/auth";
+import { patientHasCompletedIntake } from "@/lib/cases-repo";
 import { sql } from "@/lib/db";
 import { ready } from "@/lib/ensure-db";
 
@@ -47,9 +48,17 @@ export async function POST(request: Request) {
       email: created.email,
       firstName: created.first_name,
       lastName: created.last_name,
+      hasCase: await patientHasCompletedIntake(created.id),
     });
   } catch (error) {
     console.error(error);
+    const raw = error instanceof Error ? error.message : "";
+    if (/ECONNREFUSED|127\.0\.0\.1|NO_DATABASE|connect/i.test(raw)) {
+      return NextResponse.json(
+        { error: "Could not save your account. The local database is not running." },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: "Could not create account." }, { status: 500 });
   }
 }

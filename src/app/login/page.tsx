@@ -25,16 +25,20 @@ function LoginForm() {
   const safeNext = nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "";
   const activeEmail = signedInEmail || session?.email || "";
 
-  const afterAuth = (created: boolean, hasCase?: boolean) => {
+  const afterAuth = (created: boolean, hasCase?: boolean, role?: string) => {
+    if (role === "doctor" || role === "admin") {
+      router.push("/doctor");
+      return;
+    }
     if (safeNext) {
-      router.push(hasCase ? "/dashboard" : safeNext);
+      router.push(hasCase ? "/care" : safeNext);
       return;
     }
     if (hasCase) {
-      router.push("/dashboard");
+      router.push("/care");
       return;
     }
-    router.push(created ? "/intake?condition=hair-loss" : "/dashboard");
+    router.push(created ? "/intake?condition=hair-loss" : "/care");
   };
 
   const handleSubmit = async () => {
@@ -59,13 +63,13 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmed, password }),
       });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string; hasCase?: boolean };
+      const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string; hasCase?: boolean; role?: string };
       if (!res.ok) {
         setError(payload.error || (mode === "signup" ? "Could not create account." : "Could not sign in."));
         return;
       }
       setSignedInEmail(payload.email || trimmed);
-      afterAuth(mode === "signup", payload.hasCase);
+      afterAuth(mode === "signup", payload.hasCase, payload.role);
     } catch {
       setError(mode === "signup" ? "Could not create account." : "Could not sign in.");
     } finally {
@@ -100,7 +104,7 @@ function LoginForm() {
           <div className="mx-auto mt-8 flex w-full max-w-[430px] flex-col gap-3">
             <p className="text-center text-[14px] font-medium text-black/55">{activeEmail}</p>
             <a
-              href="/dashboard"
+              href="/care"
               className="flex min-h-[48px] items-center justify-center rounded-full bg-[#2f5f4f] px-5 text-[15px] font-semibold text-white"
             >
               {copy.authPage.goToDashboard}
@@ -169,16 +173,19 @@ function LoginForm() {
             >
               {busy ? "…" : mode === "signup" ? intake.auth.createAccount : intake.auth.signIn}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode(mode === "signup" ? "login" : "signup");
-                setError("");
-              }}
-              className="w-full text-center text-[13.5px] font-semibold text-[#3f5f35]"
-            >
-              {mode === "signup" ? intake.auth.haveAccount : intake.auth.needAccount}
-            </button>
+            <p className="w-full text-center text-[13.5px] font-medium text-black/45">
+              {mode === "signup" ? intake.auth.haveAccount : intake.auth.needAccount}{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "signup" ? "login" : "signup");
+                  setError("");
+                }}
+                className="font-semibold text-[#3f5f35]"
+              >
+                {mode === "signup" ? intake.auth.logInLink : intake.auth.createAccountLink}
+              </button>
+            </p>
           </form>
         )}
       </main>
