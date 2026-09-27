@@ -259,7 +259,7 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
     if (!id) throw new Error("Could not enroll trial patient. Is the demo doctor seeded?");
 
     if (isLicensedPhysicianId(input.preferredDoctorId)) {
-      await applyPreferredPhysician(tx as typeof sql, id, newPatientId, input.preferredDoctorId);
+      await applyPreferredPhysician(tx, id, newPatientId, input.preferredDoctorId);
     }
 
     if (status === "awaiting_consent") {
@@ -437,7 +437,9 @@ export async function updateCaseTab(
 }
 
 async function applyPreferredPhysician(
-  db: typeof sql,
+  // postgres.js Sql and TransactionSql share this callable shape but don't type-overlap cleanly.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
   caseId: string,
   patientId: string,
   doctorId: string,

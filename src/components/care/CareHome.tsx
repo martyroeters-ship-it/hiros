@@ -18,7 +18,7 @@ function CareGreeting() {
   const user = useSessionUser();
   const locale = useHydratedLocale();
   const care = careCopy[locale];
-  const [text, setText] = useState(care.greetingHello);
+  const [text, setText] = useState<string>(care.greetingHello);
 
   useEffect(() => {
     const hour = new Date().getHours();
