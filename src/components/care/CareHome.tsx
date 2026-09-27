@@ -180,23 +180,23 @@ export function CareHome({
         <p className="mt-2 max-w-[46ch] text-[15px] leading-relaxed text-white/70">{next.detail}</p>
         <Link
           href={careHref(next.href)}
-          className="mt-5 inline-flex rounded-full bg-white px-4 py-2.5 text-[13px] font-semibold text-[#1f4033]"
+          className="mt-5 inline-flex rounded-full border border-white/25 bg-white/92 px-4 py-2.5 text-[13px] font-semibold text-[#16352e] shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-[8px]"
         >
           {next.cta}
         </Link>
-        <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-3">
+        <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-white/15 pt-5 sm:grid-cols-3">
           <div>
-            <dt className="text-[11px] font-medium text-white/45">{care.treatment}</dt>
+            <dt className="text-[11px] font-medium text-white/50">{care.treatment}</dt>
             <dd className="mt-1 text-[14px] font-semibold text-white">{treatmentLabel}</dd>
           </div>
           <div>
-            <dt className="text-[11px] font-medium text-white/45">{care.photos}</dt>
+            <dt className="text-[11px] font-medium text-white/50">{care.photos}</dt>
             <dd className="mt-1 text-[14px] font-semibold text-white">
               {snapshot.photos.length ? `${snapshot.photos.length} on file` : "None yet"}
             </dd>
           </div>
           <div className="col-span-2 sm:col-span-1">
-            <dt className="text-[11px] font-medium text-white/45">{care.physician}</dt>
+            <dt className="text-[11px] font-medium text-white/50">{care.physician}</dt>
             <dd className="mt-1 text-[14px] font-semibold text-white">
               {snapshot.doctorName ? (
                 <Link href="/care/doctor" className="underline-offset-2 hover:underline">
@@ -220,7 +220,7 @@ export function CareHome({
             <Link
               key={card.key}
               href={card.href}
-              className="care-area-card group relative block rounded-[24px] bg-[var(--care-surface)] px-5 py-5 shadow-[var(--care-card-shadow)]"
+              className="care-area-card group relative block rounded-[28px] bg-[var(--care-surface)] px-5 py-5 shadow-[var(--care-card-shadow)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -276,7 +276,7 @@ export function CareHome({
         </Link>
       </section>
 
-      <section className="care-area-card rounded-[24px] bg-[var(--care-surface)] px-5 py-5 shadow-[var(--care-card-shadow)]">
+      <section className="care-area-card rounded-[28px] bg-[var(--care-surface)] px-5 py-5 shadow-[var(--care-card-shadow)]">
         <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--care-faint)]">Treatment</p>
         <p className="mt-1 font-title text-[20px] font-medium tracking-[-0.03em] text-[var(--care-surface-ink)]">
           {snapshot.treatmentName || "Waiting for physician review"}
@@ -285,7 +285,7 @@ export function CareHome({
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href="/care/treatment"
-            className="rounded-full bg-[#1f4033] px-4 py-2 text-[13px] font-semibold text-white"
+            className="rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface-ink)] px-4 py-2 text-[13px] font-semibold text-[var(--care-canvas)] shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
           >
             Open treatment
           </Link>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ShippingForm, type ShippingFormData } from "./shipping-form";
+import { ChangeLocationIcon, hasChangeLocationIcon } from "./change-location-icons";
 import { createCaseFromIntake } from "../doctor/store";
 import { determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
 import { useIntakeCopy } from "@/i18n/LanguageProvider";
@@ -92,19 +93,24 @@ const intakeSteps: IntakeStep[] = [
     id: "change-location",
     title: "Where are you noticing changes?",
     description: "Choose the option that feels closest to your experience.",
-    options: ["Hairline / temples", "Crown", "Overall thinning", "More shedding than usual", "Patchy or unusual areas", "Not sure"],
+    options: ["Along the hairline", "At the top", "All over"],
   },
   {
     id: "timeline",
     title: "How long have you noticed this?",
     description: "Choose the option that feels closest to your experience.",
-    options: ["Less than 3 months", "3–6 months", "6–12 months", "1–3 years", "More than 3 years"],
+    options: ["Less than 6 months", "6–12 months", "1–3 years", "More than 3 years"],
   },
   {
     id: "clarity",
     title: "What would you like more clarity on?",
     description: "Choose the option that feels closest to your experience.",
-    options: ["Whether this looks normal", "What options might fit my situation", "Whether I should act now or wait", "What a physician may recommend", "I’m not sure yet"],
+    options: [
+      "Whether this looks normal",
+      "What options might fit my situation",
+      "Whether I should act now or wait",
+      "What a physician may recommend",
+    ],
   },
   {
     id: "primary-goal",
@@ -125,8 +131,7 @@ const medicalSteps: IntakeStep[] = [
     title: "How has your hair loss changed over time?",
     description: "Choose the option that feels closest to your experience.",
     options: [
-      "Slow and steady over years",
-      "Gradual over months",
+      "Gradual over time",
       "Comes and goes",
       "Sudden increase in shedding",
       "Not sure",
@@ -138,8 +143,7 @@ const medicalSteps: IntakeStep[] = [
     description: "Choose the option that feels closest to your experience.",
     options: [
       "No symptoms",
-      "Mild dandruff or dryness",
-      "Itching",
+      "Mild dryness or itching",
       "Redness or irritation",
       "Pain, sores, or infection",
     ],
@@ -149,9 +153,8 @@ const medicalSteps: IntakeStep[] = [
     title: "Is there a family history of hair loss?",
     description: "Choose the option that feels closest to your experience.",
     options: [
-      "Father or grandfather experienced hair loss",
-      "Mother’s side experienced hair loss",
-      "Some family thinning",
+      "Yes — on my father’s side",
+      "Yes — on my mother’s side",
       "No known family history",
       "Not sure",
     ],
@@ -203,8 +206,7 @@ const medicalSteps: IntakeStep[] = [
     options: [
       "Major stress",
       "Illness or fever",
-      "Weight or diet change",
-      "New medication or supplement",
+      "Diet, weight, or medication change",
       "None of these",
     ],
   },
@@ -253,7 +255,7 @@ const medicalSteps: IntakeStep[] = [
 ];
 
 
-const treatmentDetailOptions = ["Topical", "Oral", "Supplements", "Procedures", "Other"];
+const treatmentDetailOptions = ["Topical", "Oral", "Supplements", "Other"];
 const sideEffectLevelOptions = ["None", "Mild", "Moderate", "Significant"];
 
 const INTAKE_WORD_STAGGER_MS = 48;
@@ -687,10 +689,12 @@ export default function IntakePage() {
     isFinalReviewInterstitialStep
       ? intakeSaveStatus === "error"
         ? intake.save.retry
-        : intake.goToProfile
+        : intakeSaveStatus === "saving"
+          ? intake.save.savingButton
+          : intake.goToProfile
       : intake.continue;
   const isInterstitialButtonVisible = isFinalReviewInterstitialStep
-    ? intakeSaveStatus === "saved" || intakeSaveStatus === "error"
+    ? intakeSaveStatus === "saved" || intakeSaveStatus === "error" || intakeSaveStatus === "saving"
     : isPhotoCheckButtonVisible;
   const activeInterstitialTextBlocks = isPreAuthInterstitialStep
     ? preAuthInterstitialTextBlocks
@@ -1738,23 +1742,12 @@ export default function IntakePage() {
   };
 
   const handleRecommendationContinue = () => {
-    if (intakeSaveStatus === "saving" || isAdvancing) {
+    if (isAdvancing) {
       return;
     }
-    if (!signedInEmail && !shippingFormData.phone.trim()) {
-      setAuthAfterGuestSubmit(true);
-      setCurrentStepIndex(shippingInfoStepIndex);
-      return;
-    }
-    if (intakeSaveStatus === "saved") {
-      advanceToStep(finalReviewStepIndex);
-      return;
-    }
-    void persistCompletedIntake().then((ok) => {
-      if (ok) {
-        advanceToStep(finalReviewStepIndex);
-      }
-    });
+    // Always show the intake-complete interstitial after the treatment plan.
+    // Persistence runs on that step (or redirects to account setup if needed).
+    advanceToStep(finalReviewStepIndex);
   };
 
   const continuePastAuth = () => {
@@ -2004,7 +1997,7 @@ export default function IntakePage() {
                 height={46}
                 priority
                 unoptimized
-                className="h-auto w-[72px] sm:w-[96px]"
+                className={`h-auto ${isMedicalStep ? "w-[70px]" : "w-[72px] sm:w-[96px]"}`}
               />
             </a>
 
@@ -2579,7 +2572,7 @@ export default function IntakePage() {
                     ) : null}
                     {isRecommendationInterstitialStep ? (
                       <div className={`mx-auto w-full max-w-[520px] transition-all duration-500 ${recommendationReveal ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                        <div className="rounded-[28px] bg-white px-8 py-6 shadow-[0_18px_50px_rgba(40,50,90,0.08)] sm:px-10 sm:py-6">
+                        <div className="rounded-[28px] bg-white px-8 pb-6 pt-[25px] shadow-[0_18px_50px_rgba(40,50,90,0.08)] sm:px-10 sm:pb-6 sm:pt-[25px]">
                           <h1 className="text-left text-[38px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">
                             {intake.recommend.title}
                           </h1>
@@ -2677,14 +2670,10 @@ export default function IntakePage() {
                           <button
                             type="button"
                             onClick={handleRecommendationContinue}
-                            disabled={intakeSaveStatus === "saving"}
+                            disabled={isAdvancing}
                             className="mt-5 w-full rounded-full bg-[#11110f] px-6 py-3 text-[16px] font-semibold tracking-[-0.02em] text-white transition-colors disabled:opacity-70"
                           >
-                            {intakeSaveStatus === "saving"
-                              ? intake.save.savingButton
-                              : intakeSaveStatus === "error"
-                                ? intake.save.retry
-                                : intake.continue}
+                            {intake.continue}
                           </button>
                         </div>
                       </div>
@@ -3012,6 +3001,8 @@ export default function IntakePage() {
                   const isSelected = isCheckboxSelectionStep
                     ? selectedGoalOptions.includes(option)
                     : selectedOption === option;
+                  const optionIcon =
+                    currentStep?.id === "change-location" && hasChangeLocationIcon(option);
                   return (
                   <button
                     key={option}
@@ -3024,11 +3015,14 @@ export default function IntakePage() {
                     }`}
                   >
                     <span
-                      className={`flex min-h-[44px] w-full items-center rounded-[15px] px-4 py-2.5 text-left text-[14px] font-medium leading-[1.35] tracking-[-0.02em] text-[#1a1a1a] sm:min-h-[56px] sm:rounded-[14px] sm:px-6 sm:py-3.5 sm:text-[16px] sm:tracking-[-0.03em] sm:text-[#262522] sm:shadow-[0_10px_26px_rgba(0,0,0,0.02)] sm:backdrop-blur-[2px] ${
+                      className={`flex min-h-[56px] w-full items-center gap-3 rounded-[15px] px-4 py-3.5 text-left text-[14px] font-medium leading-[1.35] tracking-[-0.02em] text-[#1a1a1a] sm:min-h-[68px] sm:gap-3.5 sm:rounded-[14px] sm:px-5 sm:py-4.5 sm:text-[16px] sm:tracking-[-0.03em] sm:text-[#262522] sm:shadow-[0_10px_26px_rgba(0,0,0,0.02)] sm:backdrop-blur-[2px] ${
+                        optionIcon ? "min-h-[64px] sm:min-h-[80px]" : ""
+                      } ${
                         isCheckboxSelectionStep ? "justify-between" : ""
                       } ${isSelected ? "sm:bg-[#fffef9]" : "sm:bg-white/74 sm:group-hover:bg-white/84"}`}
                     >
-                      <span>{intake.option(option)}</span>
+                      {optionIcon ? <ChangeLocationIcon option={option} /> : null}
+                      <span className={optionIcon ? "flex-1" : undefined}>{intake.option(option)}</span>
                       {isCheckboxSelectionStep ? (
                         <span
                           className={`ml-4 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] transition-colors ${
@@ -3337,18 +3331,6 @@ export default function IntakePage() {
                 <div>
                   <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#848484]">{intake.doctor.assignedLabel}</p>
                   <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{isChoosingPhysician ? intake.doctor.changeTitle : assignedDoctor.fullName}</h3>
-                  {!isChoosingPhysician ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsChoosingPhysician(true);
-                        setIsViewingPhysicianProfile(false);
-                      }}
-                      className="mt-1.5 text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
-                    >
-                      {intake.doctor.change}
-                    </button>
-                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -3382,43 +3364,49 @@ export default function IntakePage() {
                 <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/70 to-transparent" />
               </div>
 
-              <div className="px-5 pb-8 pt-1">
+              <div className="px-5 pb-5 pt-1">
                 <p className="text-[15px] font-medium tracking-[-0.02em] text-black/55">{intake.doctor.role}</p>
                 <p className="mt-3 text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">{intake.doctor.intro}</p>
-              </div>
 
-              <div className="border-t border-black/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => setIsViewingPhysicianProfile((open) => !open)}
-                  aria-expanded={isViewingPhysicianProfile}
-                  className="flex w-full items-center justify-between px-5 py-3.5 text-left text-[13px] font-medium tracking-[-0.02em] text-black/42 transition-colors hover:text-[#2b2a28]"
-                >
-                  <span>{intake.doctor.seeProfile}</span>
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    className={`h-3.5 w-3.5 text-black/28 transition-transform duration-200 ${isViewingPhysicianProfile ? "rotate-90" : ""}`}
-                    aria-hidden="true"
+                <div className="mt-5 flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChoosingPhysician(true);
+                      setIsViewingPhysicianProfile(false);
+                    }}
+                    className="flex min-h-[44px] flex-1 items-center justify-center rounded-full border border-black/12 bg-white px-3 text-[13px] font-semibold tracking-[-0.02em] text-[#2b2a28] transition-colors hover:bg-[#fbfaf5]"
                   >
-                    <path d="M7.5 5.25 12.25 10 7.5 14.75" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-
-                {isViewingPhysicianProfile ? (
-                  <div className="px-5 pb-9">
-                    <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.doctor.about}</p>
-                    <ul className="mt-3.5 space-y-3">
-                      {intake.doctor.details.map((detail) => (
-                        <li key={detail} className="flex gap-3 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
-                          <span className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c77e57]" aria-hidden="true" />
-                          <span>{detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
+                    {intake.doctor.change}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsViewingPhysicianProfile((open) => !open)}
+                    aria-expanded={isViewingPhysicianProfile}
+                    className={`flex min-h-[44px] flex-1 items-center justify-center rounded-full border px-3 text-[13px] font-semibold tracking-[-0.02em] transition-colors ${
+                      isViewingPhysicianProfile
+                        ? "border-[#c77e57]/40 bg-[#c77e57]/18 text-[#8a5238]"
+                        : "border-[#c77e57]/28 bg-[#c77e57]/10 text-[#9a5b45] hover:bg-[#c77e57]/16"
+                    }`}
+                  >
+                    {intake.doctor.seeProfile}
+                  </button>
+                </div>
               </div>
+
+              {isViewingPhysicianProfile ? (
+                <div className="border-t border-black/[0.06] px-5 pb-8 pt-5">
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.doctor.about}</p>
+                  <ul className="mt-3.5 space-y-3">
+                    {intake.doctor.details.map((detail) => (
+                      <li key={detail} className="flex gap-3 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
+                        <span className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c77e57]" aria-hidden="true" />
+                        <span>{detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
                 </>
               )}
             </div>

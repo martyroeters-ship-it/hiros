@@ -113,7 +113,7 @@ export function CareThemeIconButton() {
       type="button"
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
       onClick={toggleTheme}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] text-[var(--care-ink)]"
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--care-hairline)] bg-[var(--care-surface)] text-[var(--care-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-[14px]`}
     >
       {isDark ? (
         <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.7">

@@ -6,7 +6,7 @@ import { NextPhotoSlot } from "@/components/care/NextPhotoSlot";
 import { usePatientDashboard } from "@/lib/use-patient-dashboard";
 
 const titleMd = "font-title font-medium tracking-[0.01em]";
-const card = "rounded-[24px] bg-white shadow-[0_2px_16px_rgba(31,51,41,0.05)]";
+const card = "care-area-card rounded-[28px] bg-[var(--care-surface)] shadow-[var(--care-card-shadow)]";
 const cardInner = "rounded-[14px] border border-[#f0ebe2] bg-[#faf9f6] p-3";
 
 export default function CareProgress() {
@@ -31,7 +31,7 @@ export default function CareProgress() {
         )}
       </div>
 
-      <div className="rounded-[24px] bg-white p-5 shadow-[0_2px_16px_rgba(31,51,41,0.05)]">
+      <div className={`${card} p-5`}>
         <div className="flex items-baseline justify-between">
           <div>
             <h2 className={`${titleMd} text-[18px] text-[#1f3329]`}>Progress photos</h2>
@@ -80,7 +80,7 @@ export default function CareProgress() {
           </div>
         </div>
 
-        <div className="rounded-[24px] bg-[#ebe6dc] p-5 shadow-[0_2px_16px_rgba(31,51,41,0.05)]">
+        <div className="care-area-card rounded-[28px] bg-[var(--care-surface)] p-5 shadow-[var(--care-card-shadow)]">
           <h2 className={`${titleMd} text-[18px] text-[#1f3329]`}>Physician observations</h2>
           <p className="mt-0.5 text-[12px] text-[#8a9288]">Notes from {doctorName}</p>
           {notes.length === 0 ? (
