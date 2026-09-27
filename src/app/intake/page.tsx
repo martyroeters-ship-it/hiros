@@ -1997,7 +1997,7 @@ export default function IntakePage() {
                 height={46}
                 priority
                 unoptimized
-                className={`h-auto ${isMedicalStep ? "w-[70px]" : "w-[72px] sm:w-[96px]"}`}
+                className="h-auto w-[70px]"
               />
             </a>
 
