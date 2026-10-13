@@ -34,7 +34,7 @@ export default function SiteFooter({ className = "" }: { className?: string }) {
             </ul>
           </div>
         ))}
-        <div className="min-w-0 text-left">
+        <div className="order-first w-full min-w-0 text-left sm:order-last sm:w-auto">
           <Link href="/" className="inline-block">
             <Image
               src="/hiros_logo.png"

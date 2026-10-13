@@ -73,7 +73,7 @@ function HomeContent() {
                 </h1>
               </div>
               <div className="mt-[15px]">
-                <div className="mb-4 grid w-full grid-cols-1 gap-3 sm:mb-5 lg:grid-cols-2 lg:gap-4">
+                <div className="mb-0 grid w-full grid-cols-1 gap-3 sm:mb-5 lg:grid-cols-2 lg:gap-4">
                   {copy.hero.steps.map((step, index) => (
                       <a
                         key={step.step}
@@ -82,7 +82,7 @@ function HomeContent() {
                       >
                         {index === 0 || index === 1 ? (
                           <div
-                            className={`pointer-events-none absolute bottom-0 right-[6%] ${index === 0 ? "h-[90%] w-[38%]" : "h-[99%] w-[63%]"}`}
+                            className={`pointer-events-none absolute bottom-0 ${index === 1 ? "right-0 min-[734px]:right-[6%]" : "right-[6%]"} ${index === 0 ? "h-[90%] w-[38%]" : "h-[99%] w-[63%]"}`}
                           >
                             <Image
                               src={index === 0 ? "/phone_intro_cut.png" : "/intro_doctor.png"}
@@ -112,6 +112,9 @@ function HomeContent() {
                         </div>
                       </a>
                     ))}
+                </div>
+                <div aria-hidden="true" className="flex h-[50px] items-center sm:hidden">
+                  <div className="h-px w-full bg-[#E8E8E5]" />
                 </div>
                 <div id="get-started" className="grid w-full scroll-mt-28 grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4 lg:items-stretch">
                   {copy.hero.cards.map((card) => {
@@ -206,7 +209,7 @@ function HomeContent() {
       </section>
 
       <section id="about" className="bg-white pt-4 pb-0 sm:pt-6">
-        <div className={`flex w-full flex-col gap-8 min-[1068px]:flex-row min-[1068px]:items-end min-[1068px]:justify-between min-[1068px]:gap-12 ${HOME_PAGE_GUTTER_CLASS}`}>
+        <div className={`flex w-full items-end justify-between gap-4 ${HOME_PAGE_GUTTER_CLASS}`}>
           <div className="min-w-0 max-w-[560px]">
             <p className="font-title text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1f241b]/40 sm:text-[12px]">
               {copy.startGallery.eyebrow}
@@ -217,14 +220,12 @@ function HomeContent() {
               {copy.startGallery.titleLine2}
             </h2>
           </div>
-          <div className="flex min-w-0 flex-1 items-end justify-end min-[1068px]:max-w-[420px]">
-            <GalleryArrowButtons
-              previousLabel={copy.carousel.previous}
-              nextLabel={copy.carousel.next}
-              onPrev={() => startCarouselRef.current?.scrollPrev()}
-              onNext={() => startCarouselRef.current?.scrollNext()}
-            />
-          </div>
+          <GalleryArrowButtons
+            previousLabel={copy.carousel.previous}
+            nextLabel={copy.carousel.next}
+            onPrev={() => startCarouselRef.current?.scrollPrev()}
+            onNext={() => startCarouselRef.current?.scrollNext()}
+          />
         </div>
         <PrivacyCarousel
           ref={startCarouselRef}
@@ -307,14 +308,13 @@ function HomeContent() {
               <a
                 key={card.key}
                 href={card.href}
-                className={`group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-[28px] transition-colors sm:min-h-[360px] lg:min-h-[380px] ${
+                className={`group relative flex min-h-[290px] flex-col justify-end overflow-hidden rounded-[28px] transition-colors sm:min-h-[360px] lg:min-h-[380px] ${
                   index % 2 === 0 ? "bg-[#e8e6e1] hover:bg-[#e0ddd6]" : "bg-[#d9d6cf] hover:bg-[#d1cec6]"
                 }`}
               >
                 {card.key === "physician-workspace" ? (
                   <div
-                    className="pointer-events-none absolute bottom-0 right-0 h-full aspect-[1372/1147]"
-                    style={{ transform: "translateX(12%)" }}
+                    className="pointer-events-none absolute bottom-0 right-0 h-[80%] aspect-[1372/1147] translate-x-[32%] min-[734px]:h-full min-[734px]:translate-x-[12%]"
                   >
                     <Image
                       src="/bottom_doctor.png"
@@ -328,8 +328,7 @@ function HomeContent() {
                 ) : null}
                 {card.key === "patient-care" ? (
                   <div
-                    className="pointer-events-none absolute bottom-0 right-0 h-[98%] aspect-[686/1021]"
-                    style={{ transform: "translateX(12%)" }}
+                    className="pointer-events-none absolute bottom-0 right-0 h-[80%] aspect-[686/1021] translate-x-[50%] min-[734px]:h-[98%] min-[734px]:translate-x-[12%]"
                   >
                     <Image
                       src="/bottom_phone_cut.png"

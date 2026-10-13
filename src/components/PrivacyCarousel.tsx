@@ -271,7 +271,13 @@ const PrivacyCarousel = forwardRef<PrivacyCarouselHandle, Props>(function Privac
                   fill
                   sizes="(max-width: 1024px) 100vw, 92vw"
                   className={`pointer-events-none select-none object-cover ${
-                    slide.objectPosition ?? "object-center"
+                    slide.imageSrc === "/large_section4.jpg"
+                      ? "object-[78%_center] min-[734px]:object-center"
+                      : slide.imageSrc === "/large_section1.jpg"
+                        ? "object-[18%_center] min-[734px]:object-center"
+                        : slide.imageSrc === "/home_large5.jpg"
+                          ? "object-[36%_center] min-[734px]:object-center"
+                          : (slide.objectPosition ?? "object-center")
                   }`}
                   priority={index === middleCopyStart}
                   draggable={false}
