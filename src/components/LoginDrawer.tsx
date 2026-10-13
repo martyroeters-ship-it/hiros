@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useHomeCopy, useIntakeCopy } from "@/i18n/LanguageProvider";
 import { signInWithGoogle } from "@/lib/google-signin";
 
@@ -14,8 +14,13 @@ export function useLoginDrawer() {
 }
 
 export function LoginDrawerProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const openLogin = useCallback(() => setOpen(true), []);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   return (
     <LoginDrawerContext.Provider value={{ openLogin }}>
