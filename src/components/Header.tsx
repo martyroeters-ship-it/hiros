@@ -97,7 +97,7 @@ export default function Header() {
 
   return (
     <>
-      <div className={`relative z-40 ${isIntroPage ? "bg-[#e8e6e1]" : "bg-white"}`}>
+      <div className={`relative z-40 hidden sm:block ${isIntroPage ? "bg-[#e8e6e1]" : "bg-white"}`}>
         <a
           href={copy.announcement.href}
           className="group relative flex w-full items-center justify-center gap-2 overflow-hidden bg-[#e8e6e1] px-4 py-2.5 text-center text-[15px] font-medium leading-none tracking-[-0.02em] text-[#1f241b] transition-[filter] hover:brightness-[0.98] sm:gap-2.5"
