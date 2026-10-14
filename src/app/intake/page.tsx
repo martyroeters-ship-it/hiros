@@ -1,26 +1,23 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ShippingForm, type ShippingFormData } from "./shipping-form";
 import { ChangeLocationIcon, hasChangeLocationIcon } from "./change-location-icons";
+import { getIntakeCatalog, parseIntakeCondition, type IntakeStep } from "./conditions";
 import { createCaseFromIntake } from "../doctor/store";
 import { determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
 import { useIntakeCopy } from "@/i18n/LanguageProvider";
 import { signInWithGoogle } from "@/lib/google-signin";
 import { ageFromDateOfBirth } from "@/lib/age";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
-import { PhysicianPicker } from "@/components/PhysicianPicker";
-import { DEFAULT_PHYSICIAN_ID, LICENSED_PHYSICIANS, assignedPhysicianForLocation, physicianById } from "@/lib/physicians";
-
-type IntakeStep = {
-  id: string;
-  title: string;
-  description: string;
-  options: string[];
-};
+import { DoctorMatchScreen } from "@/components/intake/DoctorMatchScreen";
+import { DEFAULT_PHYSICIAN_ID, physicianById } from "@/lib/physicians";
+import { physiciansNearDistrict } from "@/lib/istanbulGeo";
 
 type FaceDetectionResult = {
   boundingBox: DOMRectReadOnly;
@@ -78,186 +75,9 @@ const istanbulDistricts = [
   "Zeytinburnu",
 ];
 
-const intakeSteps: IntakeStep[] = [
-  {
-    id: "current-situation",
-    title: "What made you start today?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "My hairline has changed",
-      "I’m seeing more thinning or shedding",
-      "I want clarity before it progresses",
-      "I’m not sure yet",
-    ],
-  },
-  {
-    id: "change-location",
-    title: "Where are you noticing changes?",
-    description: "Choose the option that feels closest to your experience.",
-    options: ["Along the hairline", "At the top", "All over"],
-  },
-  {
-    id: "timeline",
-    title: "How long have you noticed this?",
-    description: "Choose the option that feels closest to your experience.",
-    options: ["Less than 6 months", "6–12 months", "1–3 years", "More than 3 years"],
-  },
-  {
-    id: "clarity",
-    title: "What would you like more clarity on?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "Whether this looks normal",
-      "What options might fit my situation",
-      "Whether I should act now or wait",
-      "What a physician may recommend",
-    ],
-  },
-  {
-    id: "primary-goal",
-    title: "What is your primary goal?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "I want to prevent further hair loss",
-      "I want to improve hair density or regrowth",
-      "I want both prevention and regrowth",
-      "I'm not sure yet",
-    ],
-  },
-];
-
-const medicalSteps: IntakeStep[] = [
-  {
-    id: "progression",
-    title: "How has your hair loss changed over time?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "Gradual over time",
-      "Comes and goes",
-      "Sudden increase in shedding",
-      "Not sure",
-    ],
-  },
-  {
-    id: "symptoms",
-    title: "Are you experiencing any scalp symptoms?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "No symptoms",
-      "Mild dryness or itching",
-      "Redness or irritation",
-      "Pain, sores, or infection",
-    ],
-  },
-  {
-    id: "family-history",
-    title: "Is there a family history of hair loss?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "Yes — on my father’s side",
-      "Yes — on my mother’s side",
-      "No known family history",
-      "Not sure",
-    ],
-  },
-  {
-    id: "medical-conditions",
-    title: "Do you currently have any ongoing medical conditions?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "No known conditions",
-      "Yes — stable or managed conditions",
-      "Yes — ongoing concerns I’d like to mention",
-    ],
-  },
-  {
-    id: "medications",
-    title: "Are you currently taking any medications or supplements?",
-    description: "Choose the option that feels closest to your experience.",
-    options: ["No", "Yes"],
-  },
-  {
-    id: "photo-check",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "camera-prep",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "camera-capture",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "post-camera-interstitial",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "recent-changes",
-    title: "Have there been any recent changes that may be relevant?",
-    description: "Choose the option that feels closest to your experience.",
-    options: [
-      "Major stress",
-      "Illness or fever",
-      "Diet, weight, or medication change",
-      "None of these",
-    ],
-  },
-  {
-    id: "previous-hair-loss-treatments",
-    title: "Have you tried anything for your hair loss before?",
-    description: "Choose the option that feels closest to your experience.",
-    options: ["No", "Yes"],
-  },
-  {
-    id: "final-notes",
-    title: "Is there anything else you’d like the physician to know?",
-    description: "",
-    options: ["No", "Yes"],
-  },
-  {
-    id: "next-steps",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "shipping-info",
-    title: "Let's set up your account",
-    description: "We need a few of your details so the physician can review your intake.",
-    options: [],
-  },
-  {
-    id: "recommendation-interstitial",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "review-submit-interstitial",
-    title: "",
-    description: "",
-    options: [],
-  },
-  {
-    id: "next-steps-legacy",
-    title: "",
-    description: "",
-    options: [],
-  },
-];
-
-
 const treatmentDetailOptions = ["Topical", "Oral", "Supplements", "Other"];
 const sideEffectLevelOptions = ["None", "Mild", "Moderate", "Significant"];
+const NONE_OF_THESE = "None of these";
 
 const INTAKE_WORD_STAGGER_MS = 48;
 const INTAKE_WORD_DURATION_MS = 420;
@@ -330,23 +150,54 @@ function FadeLines({ text, delayMs = 0 }: { text: string; delayMs?: number }) {
 }
 
 export default function IntakePage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#f7f3ea]" />}>
+      <IntakePageGate />
+    </Suspense>
+  );
+}
+
+function IntakePageGate() {
+  const searchParams = useSearchParams();
+  const conditionParam = searchParams.get("condition");
+  const condition = parseIntakeCondition(conditionParam);
+  // Remount when condition changes so each homepage card starts a fresh flow.
+  return <IntakePageInner key={condition} conditionParam={conditionParam} />;
+}
+
+function IntakePageInner({ conditionParam }: { conditionParam: string | null }) {
   const intake = useIntakeCopy();
-  const photoCheckTextBlocks = [...intake.photoCheck];
+  const catalog = useMemo(
+    () => getIntakeCatalog(conditionParam),
+    [conditionParam],
+  );
+  const intakeSteps = catalog.intakeSteps;
+  const medicalSteps = catalog.medicalSteps;
+  const photoCheckTextBlocks =
+    catalog.condition === "intimate-skin" ? [...intake.photoCheckIntimate] : [...intake.photoCheck];
   const postCameraInterstitialTextBlocks = [...intake.postCamera];
-  const preAuthInterstitialTextBlocks = [...intake.preAuth];
+  const preAuthInterstitialTextBlocks =
+    catalog.condition === "hair-loss"
+      ? [...intake.preAuth]
+      : catalog.condition === "erection"
+        ? [...intake.preAuthErection]
+        : catalog.condition === "premature-ejaculation"
+          ? [...intake.preAuthPe]
+          : [...intake.preAuthIntimate];
   const nextStepsInterstitialTextBlocks = [
     intake.nextSteps.title,
     intake.nextSteps.steps.map((step) => `${step.title}\n${step.body}`).join("\n\n"),
   ];
-  const cameraPrepPoints = [...intake.cameraPrep.points];
+  const cameraPrepPoints =
+    catalog.condition === "intimate-skin" ? [...intake.cameraPrepIntimate.points] : [...intake.cameraPrep.points];
   const totalCameraPrepPoints = cameraPrepPoints.length;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [selectedMultiAnswers, setSelectedMultiAnswers] = useState<Record<string, string[]>>({});
   const [selectedGoalOptions, setSelectedGoalOptions] = useState<string[]>([]);
   const [returnedStepIndexForContinue, setReturnedStepIndexForContinue] = useState<number | null>(null);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isFading, setIsFading] = useState(false);
-  const [matchingStage, setMatchingStage] = useState<"loading" | "success">("loading");
   const [isPhotoCheckButtonVisible, setIsPhotoCheckButtonVisible] = useState(false);
   const [cameraPrepVisiblePointCount, setCameraPrepVisiblePointCount] = useState(0);
   const [isCameraPrepButtonVisible, setIsCameraPrepButtonVisible] = useState(false);
@@ -372,6 +223,8 @@ export default function IntakePage() {
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [hasAcceptedLocationConsent, setHasAcceptedLocationConsent] = useState(false);
   const [preferredDoctorId, setPreferredDoctorId] = useState(DEFAULT_PHYSICIAN_ID);
+  const [isDoctorMatchOpen, setIsDoctorMatchOpen] = useState(false);
+  const [hasConfirmedDoctorMatch, setHasConfirmedDoctorMatch] = useState(false);
   const [isChoosingPhysician, setIsChoosingPhysician] = useState(false);
   const [isViewingPhysicianProfile, setIsViewingPhysicianProfile] = useState(false);
   const [isDoctorPopupOpen, setIsDoctorPopupOpen] = useState(false);
@@ -401,12 +254,17 @@ export default function IntakePage() {
   const [recommendationReveal, setRecommendationReveal] = useState(false);
   const [shippingFlowStep, setShippingFlowStep] = useState<1 | 2>(1);
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
-  const [identityAuthMethod, setIdentityAuthMethod] = useState<"email" | "phone">("email");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authConfirm, setAuthConfirm] = useState("");
   const [authPasswordVisible, setAuthPasswordVisible] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
+  const [authStage, setAuthStage] = useState<"identifier" | "code" | "profile">("identifier");
+  const [authChannel, setAuthChannel] = useState<"email" | "phone">("email");
+  const [authIdentifier, setAuthIdentifier] = useState("");
+  const [authDestination, setAuthDestination] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const authVerifyLock = useRef(false);
   const [authError, setAuthError] = useState("");
   const [signedInEmail, setSignedInEmail] = useState("");
   const [authAfterGuestSubmit, setAuthAfterGuestSubmit] = useState(false);
@@ -438,8 +296,7 @@ export default function IntakePage() {
   const preAuthInterstitialIndex = intakeSteps.length;
   const authStepIndex = preAuthInterstitialIndex + 1;
   const locationStepIndex = authStepIndex + 1;
-  const matchingStepIndex = locationStepIndex + 1;
-  const medicalStartIndex = matchingStepIndex + 1;
+  const medicalStartIndex = locationStepIndex + 1;
   const medicalEndIndex = medicalStartIndex + medicalSteps.length - 1;
   const photoCheckStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "photo-check");
   const finalReviewStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "review-submit-interstitial");
@@ -448,24 +305,23 @@ export default function IntakePage() {
   const recommendationStepIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "recommendation-interstitial");
   const prePhotoCheckStepIndex = Math.max(photoCheckStepIndex - 1, medicalStartIndex);
   const isAuthStep = currentStepIndex === authStepIndex;
-  const authPasswordTooShortLive =
-    authMode === "signup" && authPassword.length > 0 && authPassword.length < 8;
   const isLocationStep = currentStepIndex === locationStepIndex;
 
   useEffect(() => {
     void fetch("/api/auth/me", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) return;
-        const user = (await res.json()) as { email?: string; hasCase?: boolean };
+        const user = (await res.json()) as { email?: string; phone?: string | null; hasCase?: boolean };
         if (user.hasCase) {
           window.location.replace("/care");
           return;
         }
         if (user.email) setSignedInEmail(user.email);
+        else if (user.phone) setSignedInEmail(user.phone);
       })
       .catch(() => undefined);
   }, []);
-  const isMatchingStep = currentStepIndex === matchingStepIndex;
+
   const isMedicalStep = currentStepIndex >= medicalStartIndex && currentStepIndex <= medicalEndIndex;
   const isFirstMedicalStep = currentStepIndex === medicalStartIndex;
   const isPreAuthInterstitialStep = currentStepIndex === preAuthInterstitialIndex;
@@ -476,20 +332,7 @@ export default function IntakePage() {
   const selectedOption = currentStep ? selectedAnswers[currentStep.id] ?? null : null;
   const currentMedicalStepNumber = isMedicalStep ? currentStepIndex - medicalStartIndex + 1 : 0;
   const medicalProgressPercentage = isMedicalStep ? (currentMedicalStepNumber / medicalSteps.length) * 100 : 0;
-  // Discrete progress across finalized visible medical pages (exclude camera/interstitial screens)
-  const progressBarStepIds = [
-    "progression",
-    "symptoms",
-    "family-history",
-    "medical-conditions",
-    "medications",
-    "recent-changes",
-    "previous-hair-loss-treatments",
-    "final-notes",
-    "treatment-details",
-    // placeholder to reserve final segment so shipping sits ~90%
-    "progress-end",
-  ];
+  const progressBarStepIds = catalog.progressBarStepIds;
   const isProgressBarStep = currentStep ? progressBarStepIds.includes(currentStep.id) : false;
   const currentProgressIndex = isProgressBarStep ? progressBarStepIds.indexOf(currentStep!.id) : -1;
   const discreteProgress = isProgressBarStep && currentProgressIndex >= 0
@@ -501,20 +344,33 @@ export default function IntakePage() {
     ? istanbulDistricts.filter((district) => district.toLocaleLowerCase("tr").includes(normalizedLocationQuery))
     : istanbulDistricts;
   const canContinueLocation = Boolean(selectedCity && isLocationReady && hasAcceptedLocationConsent);
-  const isCheckboxSelectionStep = currentStep?.id === "goal";
+  const isCheckboxSelectionStep = Boolean(currentStep?.multiSelect);
+  const currentMultiSelections = currentStep ? selectedMultiAnswers[currentStep.id] ?? [] : [];
+  const hasMultiSelections = currentMultiSelections.length > 0;
   const hasGoalSelections = selectedGoalOptions.length > 0;
   const currentMedicalTextValue = currentStep ? medicalFollowUpText[currentStep.id] ?? "" : "";
-  const needsMedicalConditionsText = currentStep?.id === "medical-conditions" && selectedOption !== null && selectedOption !== "No known conditions";
-  const needsMedicationText = currentStep?.id === "medications" && selectedOption === "Yes";
+  const needsMedicalConditionsText =
+    currentStep?.id === "medical-conditions" && selectedOption !== null && selectedOption !== "No known conditions";
+  const needsMedicationText =
+    (currentStep?.id === "medications" || currentStep?.id === "ed-medications") &&
+    Boolean(selectedOption?.startsWith("Yes"));
   const needsPreviousTreatmentsText = currentStep?.id === "previous-hair-loss-treatments" && selectedOption === "Yes";
   const needsFinalNotesText = currentStep?.id === "final-notes" && selectedOption === "Yes";
-  const isMedicalDoctorIntroStep = currentStep?.id === "progression";
+  const isMedicalDoctorIntroStep =
+    currentStep?.id === "progression" ||
+    currentStep?.id === "ed-experience" ||
+    currentStep?.id === "pe-concern" ||
+    currentStep?.id === "is-concern";
   const whyWeAskNote =
-    currentStep?.id === "family-history"
+    catalog.condition === "hair-loss" && currentStep?.id === "family-history"
       ? { body: intake.whyWeAsk.familyHistory, href: intake.whyWeAsk.familyHistoryHref }
-      : currentStep?.id === "recent-changes"
+      : catalog.condition === "hair-loss" && currentStep?.id === "recent-changes"
         ? { body: intake.whyWeAsk.recentChanges, href: intake.whyWeAsk.recentChangesHref }
-        : null;
+        : currentStep?.id === "ed-morning"
+          ? { body: intake.whyWeAsk.edMorning, href: intake.whyWeAsk.edMorningHref }
+          : currentStep?.id === "pe-onset"
+            ? { body: intake.whyWeAsk.peOnset, href: intake.whyWeAsk.peOnsetHref }
+            : null;
   const isPhotoCheckStep = currentStep?.id === "photo-check";
   const isCameraPrepStep = currentStep?.id === "camera-prep";
   const isCameraCaptureStep = currentStep?.id === "camera-capture";
@@ -572,10 +428,11 @@ export default function IntakePage() {
         city: selectedCity,
         firstName: shippingFormData.firstName,
         photos: Object.values(capturedPhotos),
+        condition: catalog.condition,
       });
       setRecommendedTreatment(recommendation);
     }
-  }, [isRecommendationInterstitialStep, selectedAnswers, medicalFollowUpText, treatmentSelections, treatmentOtherDetail, treatmentSideEffectsLevel, selectedCity, shippingFormData.firstName, capturedPhotos]);
+  }, [isRecommendationInterstitialStep, selectedAnswers, medicalFollowUpText, treatmentSelections, treatmentOtherDetail, treatmentSideEffectsLevel, selectedCity, shippingFormData.firstName, capturedPhotos, catalog.condition]);
 
   // Persist the completed intake as a doctor-dashboard case (once).
   const persistCompletedIntake = useCallback(async (): Promise<boolean> => {
@@ -585,7 +442,13 @@ export default function IntakePage() {
     setIntakeSaveStatus("saving");
     try {
       await createCaseFromIntake({
-        answers: selectedAnswers,
+        answers: {
+          ...selectedAnswers,
+          ...Object.fromEntries(
+            Object.entries(selectedMultiAnswers).map(([id, values]) => [id, values.join("; ")]),
+          ),
+          condition: catalog.condition,
+        },
         followUpText: medicalFollowUpText,
         treatmentSelections,
         treatmentOtherDetail,
@@ -609,6 +472,7 @@ export default function IntakePage() {
     }
   }, [
     selectedAnswers,
+    selectedMultiAnswers,
     medicalFollowUpText,
     treatmentSelections,
     treatmentOtherDetail,
@@ -618,6 +482,7 @@ export default function IntakePage() {
     capturedPhotos,
     signedInEmail,
     preferredDoctorId,
+    catalog.condition,
   ]);
 
   useEffect(() => {
@@ -793,10 +658,12 @@ export default function IntakePage() {
     return () => {
       if (advanceTimeoutRef.current) {
         window.clearTimeout(advanceTimeoutRef.current);
+        advanceTimeoutRef.current = null;
       }
 
       if (fadeTimeoutRef.current) {
         window.clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
       }
 
       if (locationReadyTimeoutRef.current) {
@@ -1304,29 +1171,7 @@ export default function IntakePage() {
     }
   };
 
-  const startIntroDoctorPopupClose = (delayMs = 3300) => {
-    clearIntroDoctorPopupClose();
-    doctorPopupAutoCloseTimeoutRef.current = window.setTimeout(() => {
-      setIsDoctorPopupVisible(false);
-      doctorPopupAutoCloseTimeoutRef.current = null;
-    }, delayMs);
-    doctorPopupFadeTimeoutRef.current = window.setTimeout(() => {
-      setIsDoctorPopupVisible(false);
-      setIsDoctorPopupOpen(false);
-      setShouldShowDoctorPopupAbout(false);
-      setIsChoosingPhysician(false);
-      setIsViewingPhysicianProfile(false);
-      setIsDoctorAssignmentNoticeVisible(true);
-      doctorPopupFadeTimeoutRef.current = null;
-    }, delayMs + 220);
-  };
-
   useEffect(() => {
-    if (doctorAssignmentNoticeTimeoutRef.current) {
-      window.clearTimeout(doctorAssignmentNoticeTimeoutRef.current);
-      doctorAssignmentNoticeTimeoutRef.current = null;
-    }
-
     clearIntroDoctorPopupClose();
 
     if (doctorPopupOpenTimeoutRef.current) {
@@ -1340,10 +1185,6 @@ export default function IntakePage() {
       setIsDoctorAssignmentNoticeVisible(false);
       return;
     }
-
-    doctorPopupIsIntroRef.current = true;
-    openDoctorPopup(false);
-    startIntroDoctorPopupClose(3300);
 
     return () => {
       if (doctorAssignmentNoticeTimeoutRef.current) {
@@ -1369,29 +1210,18 @@ export default function IntakePage() {
   }, [isMedicalDoctorIntroStep]);
 
   useEffect(() => {
-    if (!isMatchingStep) {
-      clearMatchingTimeouts();
-      setMatchingStage("loading");
-      return;
-    }
-
-    setMatchingStage("loading");
-
-    matchingSuccessTimeoutRef.current = window.setTimeout(() => {
-      setMatchingStage("success");
-      matchingSuccessTimeoutRef.current = null;
-    }, 3500);
-
-    matchingCompleteTimeoutRef.current = window.setTimeout(() => {
-      setCurrentStepIndex(medicalStartIndex);
-      setMatchingStage("loading");
-      matchingCompleteTimeoutRef.current = null;
-    }, 4300);
-
+    if (!isDoctorAssignmentNoticeVisible) return;
+    doctorAssignmentNoticeTimeoutRef.current = window.setTimeout(() => {
+      setIsDoctorAssignmentNoticeVisible(false);
+      doctorAssignmentNoticeTimeoutRef.current = null;
+    }, 3000);
     return () => {
-      clearMatchingTimeouts();
+      if (doctorAssignmentNoticeTimeoutRef.current) {
+        window.clearTimeout(doctorAssignmentNoticeTimeoutRef.current);
+        doctorAssignmentNoticeTimeoutRef.current = null;
+      }
     };
-  }, [isMatchingStep, medicalStartIndex]);
+  }, [isDoctorAssignmentNoticeVisible]);
 
   const clearLocationReadyTimeout = () => {
     if (locationReadyTimeoutRef.current) {
@@ -1457,9 +1287,24 @@ export default function IntakePage() {
   };
 
   const advanceToStep = (nextStepIndex: number) => {
-    setIsAdvancing(true);
+    if (nextStepIndex === currentStepIndex) {
+      return;
+    }
+
+    // Cancel any in-flight transition so a remount/HMR can't leave us faded & stuck.
+    if (advanceTimeoutRef.current) {
+      window.clearTimeout(advanceTimeoutRef.current);
+      advanceTimeoutRef.current = null;
+    }
+    if (fadeTimeoutRef.current) {
+      window.clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = null;
+    }
+
     closeDoctorPopup();
     setIsTreatmentInfoOpen(false);
+    setIsAdvancing(true);
+    setIsFading(false);
 
     advanceTimeoutRef.current = window.setTimeout(() => {
       setIsFading(true);
@@ -1508,6 +1353,23 @@ export default function IntakePage() {
       return;
     }
 
+    if (currentStep.multiSelect) {
+      setSelectedMultiAnswers((current) => {
+        const existing = current[currentStep.id] ?? [];
+        const isNone = option === NONE_OF_THESE;
+        if (isNone) {
+          return { ...current, [currentStep.id]: existing.includes(NONE_OF_THESE) ? [] : [NONE_OF_THESE] };
+        }
+        const withoutNone = existing.filter((value) => value !== NONE_OF_THESE);
+        const next = withoutNone.includes(option)
+          ? withoutNone.filter((value) => value !== option)
+          : [...withoutNone, option];
+        return { ...current, [currentStep.id]: next };
+      });
+      setIsDoctorPopupOpen(false);
+      return;
+    }
+
     if (currentStep.id === "goal") {
       setSelectedGoalOptions((currentOptions) => {
         const isAllOfTheAboveOption = option === "All of the above";
@@ -1535,7 +1397,12 @@ export default function IntakePage() {
       return;
     }
 
-    if (selectedOption === option && !needsMedicalConditionsText && !needsMedicationText && !needsPreviousTreatmentsText && !needsFinalNotesText) {
+    // Stay on the step when a follow-up text field is required for this choice.
+    if (
+      (currentStep.id === "medical-conditions" && option !== "No known conditions") ||
+      ((currentStep.id === "medications" || currentStep.id === "ed-medications") && option.startsWith("Yes")) ||
+      (currentStep.id === "previous-hair-loss-treatments" && option === "Yes")
+    ) {
       setIsDoctorPopupOpen(false);
       return;
     }
@@ -1555,6 +1422,10 @@ export default function IntakePage() {
       setMedicalFollowUpText((currentValues) => ({ ...currentValues, [currentStep.id]: "" }));
     }
 
+    if (currentStep.id === "ed-medications" && option === "No") {
+      setMedicalFollowUpText((currentValues) => ({ ...currentValues, [currentStep.id]: "" }));
+    }
+
     if (currentStep.id === "previous-hair-loss-treatments" && option !== "Yes") {
       setTreatmentSelections({});
       setTreatmentOtherDetail("");
@@ -1566,16 +1437,6 @@ export default function IntakePage() {
       setMedicalFollowUpText((currentValues) => ({ ...currentValues, [currentStep.id]: "" }));
     }
 
-    if (
-      (currentStep.id === "medical-conditions" && option !== "No known conditions") ||
-      (currentStep.id === "medications" && option === "Yes") ||
-      (currentStep.id === "previous-hair-loss-treatments" && option === "Yes") ||
-      (currentStep.id === "final-notes" && option === "Yes")
-    ) {
-      setIsDoctorPopupOpen(false);
-      return;
-    }
-
     advanceToStep(nextStepIndex);
   };
 
@@ -1584,7 +1445,7 @@ export default function IntakePage() {
       return;
     }
 
-    advanceToStep(locationStepIndex);
+    advanceToStep(authStepIndex);
   };
 
   const handleNextStepsInterstitialContinue = () => {
@@ -1710,13 +1571,13 @@ export default function IntakePage() {
   };
 
   const handleCheckboxStepContinue = () => {
-    if (!currentStep || currentStep.id !== "goal" || selectedGoalOptions.length === 0) {
+    if (!currentStep || !currentStep.multiSelect || currentMultiSelections.length === 0) {
       return;
     }
 
     setSelectedAnswers((currentAnswers) => ({
       ...currentAnswers,
-      [currentStep.id]: selectedGoalOptions.join(" | "),
+      [currentStep.id]: currentMultiSelections.join("; "),
     }));
 
     const nextStepIndex = getNextQuestionStepIndex();
@@ -1774,29 +1635,161 @@ export default function IntakePage() {
     continuePastAuth();
   };
 
-  const handleAuthContinue = () => {
-    if (identityAuthMethod === "phone") {
-      const phone = shippingFormData.phone.trim();
-      const digits = phone.replace(/\D/g, "");
-      if (digits.length < 10) {
-        setAuthError(intake.auth.phoneRequired);
+  const authFailureMessage = (code: string | undefined) => {
+    if (code === "expired") return intake.auth.codeExpired;
+    if (code === "invalid_code") return intake.auth.codeInvalid;
+    if (code === "send_failed") return intake.auth.couldNotContinue;
+    return intake.auth.identifierInvalid;
+  };
+
+  const handleSendLoginCode = async () => {
+    const identifier = authIdentifier.trim();
+    if (!identifier) {
+      setAuthError(intake.auth.identifierInvalid);
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError("");
+    const started = Date.now();
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        display?: string;
+        channel?: "email" | "phone";
+      };
+      if (!res.ok) {
+        setAuthError(authFailureMessage(payload.error));
         return;
       }
-      setSelectedAnswers((current) => ({ ...current, phone }));
+      const wait = 900 - (Date.now() - started);
+      if (wait > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, wait));
+      }
+      const display = payload.display || identifier;
+      setAuthDestination(display);
+      setAuthCode("");
+      setAuthStage("code");
+      setAuthChannel(payload.channel === "phone" ? "phone" : "email");
+      if (payload.channel === "phone") {
+        setSelectedAnswers((current) => ({ ...current, phone: display }));
+        setShippingFormData((current) => ({ ...current, phone: display }));
+      } else {
+        setAuthEmail(display);
+        setShippingFormData((current) => ({ ...current, email: display }));
+      }
+    } catch {
+      setAuthError(intake.auth.identifierInvalid);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleVerifyLoginCode = async (code: string) => {
+    if (authVerifyLock.current || code.length !== 6) return;
+    authVerifyLock.current = true;
+    setAuthBusy(true);
+    setAuthError("");
+    try {
+      const res = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: authIdentifier.trim(), code }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        email?: string | null;
+        phone?: string | null;
+        firstName?: string | null;
+        lastName?: string | null;
+        needsProfile?: boolean;
+        hasCase?: boolean;
+      };
+      if (!res.ok) {
+        setAuthCode("");
+        setAuthError(authFailureMessage(payload.error));
+        return;
+      }
+      if (payload.hasCase) {
+        window.location.replace("/care");
+        return;
+      }
+      setSignedInEmail(payload.email || payload.phone || authDestination);
+      if (payload.phone) setAuthChannel("phone");
+      if (payload.email) setAuthChannel("email");
+      if (payload.needsProfile) {
+        setShippingFormData((current) => ({
+          ...current,
+          email: payload.email || current.email,
+          phone: payload.phone || current.phone,
+          firstName: payload.firstName || current.firstName,
+          lastName: payload.lastName || current.lastName,
+        }));
+        setAuthStage("profile");
+        return;
+      }
       finishIdentityAuth();
+    } catch {
+      setAuthError(intake.auth.codeInvalid);
+    } finally {
+      authVerifyLock.current = false;
+      setAuthBusy(false);
+    }
+  };
+
+  const handleCompleteProfile = async () => {
+    const firstName = shippingFormData.firstName.trim();
+    const lastName = shippingFormData.lastName.trim();
+    const dateOfBirth = shippingFormData.dateOfBirth.trim();
+    const email = shippingFormData.email.trim();
+    const phone = shippingFormData.phone.trim();
+    const age = ageFromDateOfBirth(dateOfBirth);
+    if (!firstName || !lastName) {
+      setAuthError(intake.auth.nameHint);
       return;
     }
-    const email = authEmail.trim();
-    if (!email) {
-      setAuthError(intake.auth.emailRequired);
+    if (age === null) {
+      setAuthError(intake.shipping.dobRequired);
       return;
     }
-    if (!authPasswordVisible) {
-      setAuthError("");
-      setAuthPasswordVisible(true);
+    if (age < 18) {
+      setAuthError(intake.shipping.dobAdult);
       return;
     }
-    void handleAuthSubmit();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthError(intake.shipping.emailRequired);
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError("");
+    setSelectedAnswers((current) => ({
+      ...current,
+      dateOfBirth,
+      age: String(age),
+      email,
+      phone,
+    }));
+    try {
+      const res = await fetch("/api/auth/complete-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName, dateOfBirth, email, phone }),
+      });
+      if (res.status !== 401 && !res.ok) {
+        setAuthError(intake.auth.couldNotContinue);
+        return;
+      }
+      setSignedInEmail(email || phone);
+      finishIdentityAuth();
+    } catch {
+      setAuthError(intake.auth.couldNotContinue);
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   const handleAuthSubmit = async () => {
@@ -1849,6 +1842,17 @@ export default function IntakePage() {
         return;
       }
       if (user.email) setSignedInEmail(user.email);
+      if (user.needsProfile) {
+        setAuthChannel("email");
+        setShippingFormData((current) => ({
+          ...current,
+          email: user.email || current.email,
+          firstName: user.firstName || current.firstName,
+          lastName: user.lastName || current.lastName,
+        }));
+        setAuthStage("profile");
+        return;
+      }
       finishIdentityAuth();
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Could not sign in with Google.");
@@ -1870,7 +1874,9 @@ export default function IntakePage() {
   const handleCitySelect = (city: string) => {
     setLocationQuery(city);
     setSelectedCity(city);
-    setPreferredDoctorId(assignedPhysicianForLocation(city).id);
+    setHasConfirmedDoctorMatch(false);
+    const nearest = physiciansNearDistrict(city)[0];
+    if (nearest) setPreferredDoctorId(nearest.physician.id);
     setIsLocationDropdownOpen(false);
     resetLocationButtonState();
     setIsLocationLoading(true);
@@ -1888,9 +1894,12 @@ export default function IntakePage() {
     }
 
     setIsDoctorPopupOpen(false);
-    setMatchingStage("loading");
     setReturnedStepIndexForContinue(null);
-    setCurrentStepIndex(matchingStepIndex);
+    if (!hasConfirmedDoctorMatch) {
+      setIsDoctorMatchOpen(true);
+      return;
+    }
+    setCurrentStepIndex(medicalStartIndex);
   };
 
   const handleMedicalFollowUpContinue = () => {
@@ -1925,7 +1934,6 @@ export default function IntakePage() {
 
     setIsAdvancing(false);
     setIsFading(false);
-    setMatchingStage("loading");
     setIsLocationDropdownOpen(false);
     setCurrentStepIndex((currentIndex) => {
       // Custom previous mapping for the subflow
@@ -1940,10 +1948,10 @@ export default function IntakePage() {
 
       const previousStepIndex =
         currentIndex === locationStepIndex
+          ? authStepIndex
+          : currentIndex === authStepIndex
           ? preAuthInterstitialIndex
           : currentIndex === medicalStartIndex
-          ? locationStepIndex
-          : currentIndex === matchingStepIndex
           ? locationStepIndex
           : isCameraCaptureStep
             ? Math.max(currentIndex - 3, 0)
@@ -1974,8 +1982,6 @@ export default function IntakePage() {
       <div className={`relative flex min-w-0 flex-col ${HOME_PAGE_GUTTER_CLASS} ${
         isCameraCaptureStep
           ? "h-dvh overflow-hidden pb-24 pt-6 sm:h-screen sm:pb-6 sm:pt-5"
-          : isMatchingStep
-            ? "h-screen overflow-hidden pb-8 pt-4 sm:pb-6 sm:pt-5"
           : isShippingInfoStep || isRecommendationInterstitialStep
             ? "h-dvh overflow-hidden pb-4 pt-4 sm:pt-5"
           : isPhotoCheckStep || isCameraPrepStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep
@@ -1986,7 +1992,7 @@ export default function IntakePage() {
               ? "min-h-dvh overflow-visible pb-8 pt-4 sm:pb-6 sm:pt-5"
             : "min-h-screen overflow-y-auto pb-8 pt-4 sm:pb-6 sm:pt-5"
       }`}>
-        {!isMatchingStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isPreAuthInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
+        {!isAuthStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isPreAuthInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
           <div className={`flex w-full shrink-0 items-start justify-between gap-6 ${
             isCameraCaptureStep || isShippingInfoStep || isRecommendationInterstitialStep ? "" : "mt-[10vh] sm:mt-0"
           }`}>
@@ -2001,6 +2007,21 @@ export default function IntakePage() {
                 className="h-auto w-[80px]"
               />
             </a>
+
+            {currentStepIndex === 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthStage("identifier");
+                  setAuthCode("");
+                  setAuthError("");
+                  setCurrentStepIndex(authStepIndex);
+                }}
+                className="inline-flex cursor-pointer items-center rounded-full border border-dashed border-[#c77e57] bg-white/80 px-4 py-2.5 text-[14px] font-semibold text-[#9a5c3c]"
+              >
+                Login
+              </button>
+            ) : null}
 
             {!isAuthStep && !isShippingInfoStep && !isRecommendationInterstitialStep ? (
               isCameraCaptureStep ? (
@@ -2034,8 +2055,6 @@ export default function IntakePage() {
           className={`mx-auto flex w-full min-w-0 max-w-[1440px] flex-1 justify-center ${
             isCameraCaptureStep
               ? "min-h-0 flex-1 flex-col items-center pt-3 sm:pt-0"
-              : isMatchingStep
-                ? "min-h-0 flex-1 flex-col items-center justify-center"
               : isAuthStep
                 ? "min-h-[calc(100dvh-6rem)] items-center"
               : isShippingInfoStep
@@ -2064,201 +2083,352 @@ export default function IntakePage() {
           ) : null}
 
           {isAuthStep ? (
-            <div className="mx-auto w-full max-w-[520px] pt-3">
-              <h1 className="text-center font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#2b2a28]">
-                {authAfterGuestSubmit ? intake.auth.submitTitle : intake.auth.contactTitle}
-              </h1>
-              <p className="mx-auto mt-3 max-w-[34ch] text-center text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-black/52 sm:mt-4 sm:text-[17px]">
-                {authAfterGuestSubmit ? intake.auth.submitSubtitle : intake.auth.contactSubtitle}
-              </p>
-
-              <div className="mx-auto mt-5 w-full max-w-[430px] space-y-2">
+            <div className={`relative mx-auto w-full max-w-[500px] rounded-[32px] bg-white px-6 shadow-[0_18px_50px_rgba(40,50,90,0.10)] ${authStage === "profile" ? "max-h-[min(860px,calc(100dvh-2rem))] overflow-y-auto pb-8 pt-6 sm:pb-10 sm:pt-7" : authStage === "code" ? "flex min-h-[531px] flex-col py-[80px]" : "py-[80px]"}`}>
+              {authStage === "code" || authStage === "profile" ? (
                 <button
                   type="button"
-                  disabled={authBusy}
-                  onClick={() => void handleGoogleSignIn()}
-                  className="group block w-full cursor-pointer rounded-full border border-black/10 bg-white/74 p-[1.5px] transition duration-200 hover:border-black/14 hover:bg-white/84 disabled:opacity-50"
+                  onClick={() => {
+                    setAuthError("");
+                    if (authStage === "profile") {
+                      setAuthStage("code");
+                      return;
+                    }
+                    setAuthStage("identifier");
+                    setAuthCode("");
+                  }}
+                  className="absolute left-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[#222] hover:bg-black/5"
+                  aria-label={intake.previous}
                 >
-                  <span className="flex min-h-[44px] w-full items-center justify-center gap-2.5 rounded-full bg-[#fffef9] px-4 text-center text-[15px] font-medium leading-[1.35] tracking-[-0.03em] text-[#262522] sm:min-h-[50px] sm:px-6 sm:text-[16px]">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                      <path fill="#4285F4" d="M21.6 12.23c0-.68-.06-1.33-.18-1.95H12v3.69h5.39a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.97-4.32 2.97-7.26Z" />
-                      <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.81-1.75-5.6-4.1H3.05v2.58A10 10 0 0 0 12 22Z" />
-                      <path fill="#FBBC05" d="M6.4 13.92A5.98 5.98 0 0 1 6.08 12c0-.67.12-1.32.32-1.92V7.5H3.05A10 10 0 0 0 2 12c0 1.61.39 3.14 1.05 4.5l3.35-2.58Z" />
-                      <path fill="#EA4335" d="M12 5.98c1.47 0 2.78.5 3.82 1.48l2.87-2.87C16.95 2.97 14.7 2 12 2A10 10 0 0 0 3.05 7.5l3.35 2.58c.79-2.35 3-4.1 5.6-4.1Z" />
-                    </svg>
-                    <span>{intake.auth.google}</span>
-                  </span>
+                  <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+                    <path d="M12.25 4.75 7 10l5.25 5.25" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
-                {authError && signedInEmail ? <p className="text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
-              </div>
+              ) : null}
+              {authStage !== "code" ? (
+                <button
+                  type="button"
+                  onClick={handlePreviousClick}
+                  className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[#222] hover:bg-black/5"
+                  aria-label={intake.previous}
+                >
+                  <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
+                    <path d="M5 5l10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                  </svg>
+                </button>
+              ) : null}
 
-              <div className="mx-auto mt-4 flex w-full max-w-[430px] items-center gap-4 text-[14px] font-medium tracking-[-0.02em] text-black/38 sm:mt-6 sm:text-[15px]">
-                <span className="h-px flex-1 bg-black/10" />
-                <span>{intake.auth.or}</span>
-                <span className="h-px flex-1 bg-black/10" />
-              </div>
+              {authStage === "profile" ? null : (
+                <div className={`flex justify-center ${authStage === "code" ? "pt-2" : "mb-[20px]"}`}>
+                  <Image src="/hiros_logo.png" alt="Hiros" width={111} height={46} priority unoptimized className="h-auto w-[84px]" />
+                </div>
+              )}
 
-              <div className="mx-auto mt-6 w-full max-w-[430px] space-y-3">
-                {!signedInEmail ? (
-                  <div className="flex border-b border-black/10">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIdentityAuthMethod("email");
+              {authStage === "profile" ? (
+                <form
+                  className="mx-auto mt-8 w-full max-w-[430px] pb-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleCompleteProfile();
+                  }}
+                >
+                  <h1 className="text-center text-[26px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
+                    {intake.auth.createAccountTitle}
+                  </h1>
+                  <p className="mx-auto mt-2 max-w-[36ch] text-center text-[15px] leading-[1.4] text-[#6a6a6a]">
+                    {intake.auth.createAccountSubtitle}
+                  </p>
+
+                  <p className="mt-6 text-[16px] font-semibold text-[#222222]">{intake.auth.legalName}</p>
+                  <div className="mt-2 overflow-hidden rounded-xl border border-[#222222]">
+                    <input
+                      type="text"
+                      autoComplete="given-name"
+                      value={shippingFormData.firstName}
+                      placeholder={intake.shipping.firstName}
+                      onChange={(event) => {
+                        setShippingFormData((current) => ({ ...current, firstName: event.target.value }));
                         setAuthError("");
-                        setAuthPasswordVisible(false);
                       }}
-                      className={`flex-1 pb-2.5 text-center text-[14px] font-semibold tracking-[-0.02em] transition-colors ${
-                        identityAuthMethod === "email"
-                          ? "border-b-2 border-[#c77e57] text-[#2b2a28]"
-                          : "border-b-2 border-transparent text-black/38 hover:text-black/55"
-                      }`}
-                    >
-                      {intake.auth.emailLabel}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIdentityAuthMethod("phone");
+                      className="h-14 w-full border-b border-[#dddddd] px-4 text-[16px] text-[#222222] outline-none placeholder:text-[#8c8c8c]"
+                    />
+                    <input
+                      type="text"
+                      autoComplete="family-name"
+                      value={shippingFormData.lastName}
+                      placeholder={intake.shipping.lastName}
+                      onChange={(event) => {
+                        setShippingFormData((current) => ({ ...current, lastName: event.target.value }));
                         setAuthError("");
-                        setAuthPasswordVisible(false);
                       }}
-                      className={`flex-1 pb-2.5 text-center text-[14px] font-semibold tracking-[-0.02em] transition-colors ${
-                        identityAuthMethod === "phone"
-                          ? "border-b-2 border-[#c77e57] text-[#2b2a28]"
-                          : "border-b-2 border-transparent text-black/38 hover:text-black/55"
-                      }`}
-                    >
-                      {intake.auth.phoneLabel}
-                    </button>
+                      className="h-14 w-full px-4 text-[16px] text-[#222222] outline-none placeholder:text-[#8c8c8c]"
+                    />
                   </div>
-                ) : null}
-                {signedInEmail ? (
-                  <>
-                    <p className="text-center text-[14px] font-medium text-black/55">
-                      {intake.auth.signedInAs} <span className="font-semibold text-[#2b2a28]">{signedInEmail}</span>
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void fetch("/api/auth/me", { cache: "no-store" })
-                          .then(async (res) => {
-                            if (res.ok) {
-                              const user = (await res.json()) as { hasCase?: boolean };
-                              if (user.hasCase) {
-                                window.location.replace("/care");
-                                return;
-                              }
-                            }
-                            finishIdentityAuth();
-                          })
-                          .catch(() => finishIdentityAuth());
+                  <p className="mt-2 text-[13px] leading-[1.45] text-[#6a6a6a]">{intake.auth.nameHint}</p>
+
+                  <p className="mt-6 text-[16px] font-semibold text-[#222222]">{intake.shipping.dateOfBirth}</p>
+                  <label className="relative mt-2 flex h-14 items-center rounded-xl border border-[#b0b0b0] px-4">
+                    <span className={shippingFormData.dateOfBirth ? "text-[16px] text-[#222222]" : "text-[16px] text-[#8c8c8c]"}>
+                      {shippingFormData.dateOfBirth
+                        ? shippingFormData.dateOfBirth.split("-").reverse().join(".")
+                        : intake.auth.selectDate}
+                    </span>
+                    <input
+                      type="date"
+                      required
+                      value={shippingFormData.dateOfBirth}
+                      onChange={(event) => {
+                        setShippingFormData((current) => ({ ...current, dateOfBirth: event.target.value }));
+                        setAuthError("");
                       }}
-                      className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white"
-                    >
-                      {intake.auth.continueAs}
-                    </button>
-                  </>
-                ) : (
-                  <form
-                    className="space-y-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      handleAuthContinue();
-                    }}
-                  >
-                    {identityAuthMethod === "phone" ? (
-                      <input
-                        type="tel"
-                        autoComplete="tel"
-                        value={shippingFormData.phone}
-                        onChange={(e) => setShippingFormData((current) => ({ ...current, phone: e.target.value }))}
-                        placeholder={intake.auth.phonePlaceholder}
-                        className="h-12 w-full rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
-                      />
-                    ) : (
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                    />
+                  </label>
+
+                  <p className="mt-6 text-[16px] font-semibold text-[#222222]">{intake.shipping.email}</p>
+                  {authChannel === "email" && shippingFormData.email ? (
+                    <div className="mt-2 rounded-xl border border-[#dddddd] bg-[#f7f7f7] px-4 py-2.5">
+                      <p className="text-[12px] text-[#6a6a6a]">{intake.shipping.email}</p>
+                      <p className="text-[16px] text-[#6a6a6a]">{shippingFormData.email}</p>
+                    </div>
+                  ) : (
                     <input
                       type="email"
                       autoComplete="email"
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      placeholder={intake.auth.emailLabel}
-                      className="h-12 w-full rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
+                      value={shippingFormData.email}
+                      placeholder={intake.shipping.email}
+                      onChange={(event) => {
+                        setShippingFormData((current) => ({ ...current, email: event.target.value }));
+                        setAuthError("");
+                      }}
+                      className="mt-2 h-14 w-full rounded-xl border border-[#222222] px-4 text-[16px] outline-none placeholder:text-[#8c8c8c]"
                     />
+                  )}
+                  <p className="mt-2 text-[13px] leading-[1.45] text-[#6a6a6a]">{intake.shipping.emailNote}</p>
+
+                  <p className="mt-6 text-[16px] font-semibold text-[#222222]">{intake.shipping.phone}</p>
+                  {authChannel === "phone" && shippingFormData.phone ? (
+                    <div className="mt-2 rounded-xl border border-[#dddddd] bg-[#f7f7f7] px-4 py-2.5">
+                      <p className="text-[12px] text-[#6a6a6a]">{intake.shipping.phone}</p>
+                      <p className="text-[16px] text-[#6a6a6a]">{shippingFormData.phone}</p>
+                    </div>
+                  ) : (
+                    <input
+                      type="tel"
+                      autoComplete="tel"
+                      value={shippingFormData.phone}
+                      placeholder={intake.auth.phonePlaceholder}
+                      onChange={(event) => {
+                        setShippingFormData((current) => ({ ...current, phone: event.target.value }));
+                        setAuthError("");
+                      }}
+                      className="mt-2 h-14 w-full rounded-xl border border-[#222222] px-4 text-[16px] outline-none placeholder:text-[#8c8c8c]"
+                    />
+                  )}
+                  <p className="mt-2 text-[13px] leading-[1.45] text-[#6a6a6a]">{intake.shipping.phoneNote}</p>
+
+                  {authError ? <p className="mt-4 text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                  <p className="mt-5 text-[13px] leading-[1.45] text-[#222222]">
+                    {intake.auth.agreeLegalBefore}
+                    <Link href="/terms" className="font-semibold underline underline-offset-[3px]">{intake.auth.agreeLegalTerms}</Link>
+                    {intake.auth.agreeLegalAnd}
+                    <Link href="/privacy" className="font-semibold underline underline-offset-[3px]">{intake.auth.agreeLegalPrivacy}</Link>
+                    {intake.auth.agreeLegalAfter}
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={authBusy}
+                    className={`mt-4 flex h-12 w-full items-center justify-center rounded-lg text-[16px] font-semibold ${
+                      authBusy ? "bg-[#f2f2f2]" : "bg-[#111111] text-white"
+                    }`}
+                  >
+                    {authBusy ? (
+                      <span className="auth-send-dots" aria-label={intake.auth.agreeContinue}>
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    ) : (
+                      intake.auth.agreeContinue
                     )}
-                    {identityAuthMethod === "email" && authPasswordVisible ? (
-                      <>
-                        <input
-                          type="password"
-                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                          value={authPassword}
-                          onChange={(e) => setAuthPassword(e.target.value)}
-                          placeholder={intake.auth.passwordLabel}
-                          autoFocus
-                          aria-invalid={authPasswordTooShortLive}
-                          aria-describedby={authPasswordTooShortLive ? "intake-password-min-length" : undefined}
-                          className={`h-12 w-full rounded-full border bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 ${
-                            authPasswordTooShortLive
-                              ? "border-[#c24b3a] focus:border-[#c24b3a]"
-                              : "border-black/10 focus:border-[#8ea57a]"
-                          }`}
-                        />
-                        {authPasswordTooShortLive ? (
-                          <p
-                            id="intake-password-min-length"
-                            role="status"
-                            className="flex items-center gap-1.5 px-2 text-[13px] font-medium leading-none text-[#c24b3a]"
-                          >
-                            <span
-                              className="inline-flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border-[1.4px] border-current text-[10px] font-semibold"
-                              aria-hidden="true"
-                            >
-                              !
-                            </span>
-                            {intake.auth.passwordMinLength}
-                          </p>
-                        ) : null}
-                        {authMode === "signup" ? (
-                          <input
-                            type="password"
-                            autoComplete="new-password"
-                            value={authConfirm}
-                            onChange={(e) => setAuthConfirm(e.target.value)}
-                            placeholder={intake.auth.confirmLabel}
-                            className="h-12 w-full rounded-full border border-black/10 bg-white px-5 text-[15px] font-medium outline-none placeholder:text-black/35 focus:border-[#8ea57a]"
-                          />
-                        ) : null}
-                      </>
-                    ) : null}
-                    {authError ? <p className="text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
-                    <button
-                      type="submit"
-                      disabled={authBusy}
-                      className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#11110f] px-5 text-[15px] font-semibold text-white disabled:opacity-50"
-                    >
-                      {authBusy ? "…" : intake.auth.continueAs}
-                    </button>
-                    <p className="w-full text-center text-[13.5px] font-medium text-black/45">
-                      {authMode === "signup" ? intake.auth.haveAccount : intake.auth.needAccount}{" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIdentityAuthMethod("email");
-                          setAuthMode(authMode === "signup" ? "login" : "signup");
-                          setAuthError("");
-                        }}
-                        className="font-semibold text-[#3f5f35]"
-                      >
-                        {authMode === "signup" ? intake.auth.logInLink : intake.auth.createAccountLink}
+                  </button>
+                </form>
+              ) : signedInEmail ? (
+                <div className="mx-auto mt-8 w-full max-w-[430px]">
+                  <h1 className="text-center text-[22px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
+                    {intake.auth.loginHeading}
+                  </h1>
+                  <p className="mt-4 text-center text-[15px] font-medium text-black/55">
+                    {intake.auth.signedInAs} <span className="font-semibold text-[#222222]">{signedInEmail}</span>
+                  </p>
+                  {authError ? <p className="mt-3 text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void fetch("/api/auth/me", { cache: "no-store" })
+                        .then(async (res) => {
+                          if (res.ok) {
+                            const user = (await res.json()) as { hasCase?: boolean };
+                            if (user.hasCase) {
+                              window.location.replace("/care");
+                              return;
+                            }
+                          }
+                          finishIdentityAuth();
+                        })
+                        .catch(() => finishIdentityAuth());
+                    }}
+                    className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-[#111111] text-[16px] font-semibold text-white"
+                  >
+                    {intake.auth.continueAs}
+                  </button>
+                </div>
+              ) : authStage === "code" ? (
+                <div className="mx-auto mt-6 flex w-full max-w-[430px] flex-1 flex-col">
+                  <h1 className="text-center text-[22px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
+                    {intake.auth.confirmTitle}
+                  </h1>
+                  <p className="mx-auto mt-2 max-w-[36ch] text-center text-[15px] leading-[1.4] text-[#6a6a6a]">
+                    {intake.auth.codeSent(authDestination)}
+                  </p>
+                  <div className="relative mx-auto mt-8 h-[64px] w-full max-w-[280px] rounded-xl border border-[#222222]">
+                    <div className="pointer-events-none flex h-full items-center justify-center gap-3 text-[22px] font-medium text-[#222222]" aria-hidden="true">
+                      {Array.from({ length: 6 }, (_, index) => (
+                        <span key={index} className={`relative inline-flex w-[18px] justify-center ${authCode[index] ? "" : "text-[#b0b0b0]"}`}>
+                          {authCode.length < 6 && index === authCode.length ? (
+                            <span className="auth-code-caret absolute left-0 top-1/2 -translate-y-1/2" />
+                          ) : null}
+                          {authCode[index] ?? "–"}
+                        </span>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      value={authCode}
+                      aria-label={intake.auth.confirmTitle}
+                      onChange={(event) => {
+                        const next = event.target.value.replace(/\D/g, "").slice(0, 6);
+                        setAuthCode(next);
+                        setAuthError("");
+                        if (next.length === 6) void handleVerifyLoginCode(next);
+                      }}
+                      className="absolute inset-0 cursor-text bg-transparent text-transparent caret-transparent outline-none"
+                    />
+                  </div>
+                  {authError ? <p className="mt-3 text-center text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                  {authBusy ? (
+                    <div className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-[#f2f2f2]" aria-hidden="true">
+                      <span className="auth-send-dots">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-6 text-center text-[15px] text-[#222222]">
+                      {intake.auth.didntGet}{" "}
+                      <button type="button" onClick={() => void handleSendLoginCode()} className="font-semibold underline underline-offset-[3px]">
+                        {intake.auth.resendCode}
                       </button>
                     </p>
-                  </form>
-                )}
-              </div>
-
-              <p className="mt-6 text-center text-[15px] font-medium leading-[1.45] tracking-[-0.02em] text-black/42">
-                {intake.auth.privacy}
-              </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthStage("identifier");
+                      setAuthCode("");
+                      setAuthError("");
+                    }}
+                    className="mt-auto flex h-12 w-full items-center justify-center rounded-lg bg-[#f2f2f2] text-[16px] font-semibold text-[#222222]"
+                  >
+                    {intake.auth.tryAnotherWay}
+                  </button>
+                </div>
+              ) : (
+                <form
+                  className="mx-auto w-full max-w-[430px]"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleSendLoginCode();
+                  }}
+                >
+                  <h1 className="text-center text-[22px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
+                    {intake.auth.loginHeading}
+                  </h1>
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    value={authIdentifier}
+                    onChange={(event) => {
+                      setAuthIdentifier(event.target.value);
+                      setAuthError("");
+                    }}
+                    placeholder={intake.auth.identifierPlaceholder}
+                    className="mt-6 h-14 w-full rounded-xl border border-[#222222] bg-white px-4 text-[16px] text-[#222222] outline-none placeholder:text-[#8c8c8c]"
+                  />
+                  <p className="mt-3 text-[13px] leading-[1.45] text-[#6a6a6a]">
+                    {intake.auth.codeNotice}{" "}
+                    <Link href="/privacy" className="font-semibold text-[#222222] underline underline-offset-[3px]">
+                      {intake.auth.privacyPolicy}
+                    </Link>
+                  </p>
+                  {authError ? <p className="mt-3 text-[13px] font-medium text-[#a81d12]">{authError}</p> : null}
+                  <button
+                    type="submit"
+                    disabled={authBusy}
+                    className={`mt-4 flex h-12 w-full items-center justify-center rounded-lg text-[16px] font-semibold ${
+                      authBusy ? "bg-[#f2f2f2]" : "bg-[#111111] text-white"
+                    }`}
+                  >
+                    {authBusy ? (
+                      <span className="auth-send-dots" aria-label={intake.auth.continueAs}>
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    ) : (
+                      intake.auth.continueAs
+                    )}
+                  </button>
+                  <div className="mt-4 flex items-center gap-3 text-[14px] text-[#717171]">
+                    <span className="h-px flex-1 bg-[#dddddd]" />
+                    <span>{intake.shipping.or}</span>
+                    <span className="h-px flex-1 bg-[#dddddd]" />
+                  </div>
+                  <div className="mt-4 flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      disabled={authBusy}
+                      onClick={() => void handleGoogleSignIn()}
+                      aria-label={intake.auth.google}
+                      className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#b0b0b0] bg-white disabled:opacity-50"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                        <path fill="#4285F4" d="M21.6 12.23c0-.68-.06-1.33-.18-1.95H12v3.69h5.39a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.97-4.32 2.97-7.26Z" />
+                        <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.81-1.75-5.6-4.1H3.05v2.58A10 10 0 0 0 12 22Z" />
+                        <path fill="#FBBC05" d="M6.4 13.92A5.98 5.98 0 0 1 6.08 12c0-.67.12-1.32.32-1.92V7.5H3.05A10 10 0 0 0 2 12c0 1.61.39 3.14 1.05 4.5l3.35-2.58Z" />
+                        <path fill="#EA4335" d="M12 5.98c1.47 0 2.78.5 3.82 1.48l2.87-2.87C16.95 2.97 14.7 2 12 2A10 10 0 0 0 3.05 7.5l3.35 2.58c.79-2.35 3-4.1 5.6-4.1Z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={authBusy}
+                      onClick={() => setAuthError(intake.auth.comingSoon)}
+                      aria-label={intake.auth.apple}
+                      className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#b0b0b0] bg-white disabled:opacity-50"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                        <path
+                          fill="#111111"
+                          d="M16.7 12.6c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.7-3.1.7s-1.6-.7-2.7-.7c-1.4 0-2.7.8-3.4 2.1-1.5 2.5-.4 6.3 1 8.3.7 1 1.6 2.1 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7 1.9-1 2.6-2c.8-1.2 1.2-2.3 1.2-2.4-.1 0-2.3-.9-2.3-3.2ZM15 6.8c.6-.7 1-1.7.9-2.7-1 .1-2.1.6-2.8 1.4-.6.7-1.1 1.7-.9 2.6 1 .1 2.1-.5 2.8-1.3Z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           ) : isLocationStep ? (
             <div className="mx-auto flex min-h-[580px] w-full max-w-[560px] flex-col items-start pt-3">
@@ -2364,38 +2534,6 @@ export default function IntakePage() {
                   intake.continue
                 )}
               </button>
-            </div>
-          ) : isMatchingStep ? (
-            <div className="flex w-full max-w-[560px] flex-col items-center justify-center px-4 text-center self-center">
-              <div className="relative flex h-16 w-16 items-center justify-center sm:h-24 sm:w-24">
-                <span
-                  className={`absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-[#5f7f4f] border-r-[#8ea57a] border-b-[#4b6942] transition-opacity duration-500 sm:border-[3px] ${
-                    matchingStage === "loading" ? "animate-spin opacity-100" : "opacity-0"
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="absolute flex h-11 w-11 items-center justify-center transition-all duration-500 sm:h-16 sm:w-16">
-                  {matchingStage === "success" ? (
-                    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5 text-[#5f7f4f] sm:h-7 sm:w-7" aria-hidden="true">
-                      <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ) : (
-                    <Image
-                      src="/hiros_h.png"
-                      alt="Hiros"
-                      width={56}
-                      height={56}
-                      priority
-                      unoptimized
-                      className="h-8 w-auto sm:h-12"
-                    />
-                  )}
-                </span>
-              </div>
-
-              <p className="mt-6 max-w-[32ch] text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82 sm:mt-10 sm:text-[16px]">
-                {intake.matching}
-              </p>
             </div>
           ) : isPhotoCheckStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep || isRecommendationInterstitialStep || isShippingInfoStep ? (
             <div className={`w-full min-w-0 transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"} ${isTypedPauseStep || isFinalReviewInterstitialStep ? "max-w-[560px]" : "max-w-[700px]"}`}>
@@ -2627,11 +2765,7 @@ export default function IntakePage() {
                           ) : null}
 
                           <div className="mt-5 border-t border-black/[0.06] pt-4">
-                            <button
-                              type="button"
-                              onClick={() => openDoctorPopup(true, false, true)}
-                              className="flex w-full items-center gap-4 rounded-[22px] bg-[#faf7f2] px-5 py-3 text-left transition-colors hover:bg-[#f4f0e7]"
-                            >
+                            <div className="flex w-full items-center gap-4 rounded-[22px] bg-[#faf7f2] px-5 py-3 text-left">
                               <div className="min-w-0 flex-1">
                                 <p className="text-[20px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">{intake.doctor.specialty}</p>
                                 <p className="mt-2 text-[15px] font-medium tracking-[-0.02em] text-[#1a1a1a]">{assignedDoctor.fullName}</p>
@@ -2642,18 +2776,6 @@ export default function IntakePage() {
                                 alt=""
                                 className="h-16 w-16 shrink-0 rounded-full object-cover object-[center_18%] ring-2 ring-[#c77e57]/25"
                               />
-                              <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0 text-black/25" aria-hidden="true">
-                                <path d="M7.5 5.25 12.25 10 7.5 14.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                            <div className="mt-2 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => openDoctorPopup(false, true)}
-                                className="text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
-                              >
-                                {intake.doctor.change}
-                              </button>
                             </div>
                             {recommendedTreatment && recommendedTreatment.type !== "review" ? (
                             <div className="mt-5 flex items-end justify-between gap-4 border-t border-black/[0.06] pt-5">
@@ -2750,7 +2872,7 @@ export default function IntakePage() {
                           isFinalReviewInterstitialStep ? "text-center" : "text-left"
                         } ${
                           isPostCameraInterstitialStep
-                            ? "text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] leading-[1.18] tracking-[-0.04em]"
+                            ? "text-[clamp(1.25rem,0.88rem+2.5vw,2.375rem)] leading-[1.22] tracking-[-0.04em]"
                             : "text-[clamp(0.9375rem,0.82rem+1.1vw,1.375rem)] leading-[1.45] tracking-[-0.03em]"
                         }`}
                       >
@@ -2810,20 +2932,37 @@ export default function IntakePage() {
                       </button>
                       )
                     ) : (
-                      <button
-                        type="button"
-                        onClick={handlePhotoCheckContinue}
-                        disabled={!isInterstitialButtonVisible}
-                        aria-hidden={!isInterstitialButtonVisible}
-                        tabIndex={isInterstitialButtonVisible ? 0 : -1}
-                        className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
-                          isInterstitialButtonVisible
-                            ? "translate-y-0 bg-[#11110f] text-white opacity-100"
-                            : "translate-y-2 bg-black/10 text-black/30 opacity-0"
-                        }`}
-                      >
-                        {interstitialPrimaryButtonLabel}
-                      </button>
+                      <div className="flex w-full flex-col gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePhotoCheckContinue}
+                          disabled={!isInterstitialButtonVisible}
+                          aria-hidden={!isInterstitialButtonVisible}
+                          tabIndex={isInterstitialButtonVisible ? 0 : -1}
+                          className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                            isInterstitialButtonVisible
+                              ? "translate-y-0 bg-[#11110f] text-white opacity-100"
+                              : "translate-y-2 bg-black/10 text-black/30 opacity-0"
+                          }`}
+                        >
+                          {catalog.condition === "intimate-skin" ? intake.photoUpload : isPhotoCheckStep ? intake.photoCheckContinue : interstitialPrimaryButtonLabel}
+                        </button>
+                        {catalog.condition === "intimate-skin" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const goalIndex = medicalStartIndex + medicalSteps.findIndex((step) => step.id === "is-goal");
+                              if (goalIndex >= medicalStartIndex) advanceToStep(goalIndex);
+                            }}
+                            disabled={!isInterstitialButtonVisible}
+                            className={`w-full rounded-full border border-black/12 bg-white px-5 py-3 text-[15px] font-medium tracking-[-0.03em] text-[#2b2a28] transition-all duration-300 sm:px-6 sm:py-3.5 sm:text-[16px] ${
+                              isInterstitialButtonVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+                            }`}
+                          >
+                            {intake.photoSkip}
+                          </button>
+                        ) : null}
+                      </div>
                     )}
                   </div>
                   ) : null}
@@ -2835,7 +2974,7 @@ export default function IntakePage() {
               <div className="flex w-full min-w-0 flex-col items-center gap-8 pb-2 sm:gap-16">
                 <div className="w-full min-w-0 max-w-[34rem] text-left">
                   <h1 className="font-title text-[clamp(1.375rem,0.95rem+2.8vw,2.625rem)] font-medium leading-[1.18] tracking-[-0.04em] text-[#c77e57]">
-                    {intake.cameraPrep.title}
+                    {catalog.condition === "intimate-skin" ? intake.cameraPrepIntimate.title : intake.cameraPrep.title}
                   </h1>
 
                   <div className="mt-6 space-y-4 text-left sm:mt-12 sm:space-y-7">
@@ -2984,7 +3123,7 @@ export default function IntakePage() {
             <div
               key={`question-${currentStepIndex}`}
               className={`w-full max-w-[700px] ${isMedicalStep ? "pt-6 sm:pt-2" : ""} ${
-                isFading ? "opacity-0" : "intake-enter-from-right"
+                isFading ? "opacity-0 transition-opacity duration-150 ease-out" : "intake-enter-from-right"
               }`}
             >
                 <>
@@ -3000,7 +3139,7 @@ export default function IntakePage() {
               <div className="mt-6 space-y-2.5 sm:mt-8 sm:space-y-3">
                 {currentStep!.options.map((option) => {
                   const isSelected = isCheckboxSelectionStep
-                    ? selectedGoalOptions.includes(option)
+                    ? currentMultiSelections.includes(option)
                     : selectedOption === option;
                   const optionIcon =
                     currentStep?.id === "change-location" && hasChangeLocationIcon(option);
@@ -3064,9 +3203,9 @@ export default function IntakePage() {
                   <button
                     type="button"
                     onClick={isCheckboxSelectionStep ? handleCheckboxStepContinue : handleSelectedAnswerContinue}
-                    disabled={isCheckboxSelectionStep ? !hasGoalSelections : false}
+                    disabled={isCheckboxSelectionStep ? !hasMultiSelections : false}
                     className={`w-full rounded-full px-5 py-3 text-[15px] font-medium tracking-[-0.03em] transition-colors sm:px-6 sm:py-3.5 sm:text-[16px] ${
-                      isCheckboxSelectionStep && !hasGoalSelections
+                      isCheckboxSelectionStep && !hasMultiSelections
                         ? "bg-black/10 text-black/30"
                         : "cursor-pointer bg-[#11110f] text-white"
                     }`}
@@ -3312,141 +3451,26 @@ export default function IntakePage() {
         </>
       ) : null}
 
-      {isMedicalStep ? (
-        <>
-          {isDoctorPopupOpen ? (
+      {isMedicalStep && !isShippingInfoStep && !isRecommendationInterstitialStep ? (
+        <div className="fixed bottom-6 right-6 z-[60] flex items-end justify-end">
+          {isDoctorAssignmentNoticeVisible && isFirstMedicalStep ? (
             <div
-              onMouseEnter={() => {
-                if (doctorPopupIsIntroRef.current) {
-                  clearIntroDoctorPopupClose();
-                }
-              }}
-              onMouseLeave={() => {
-                if (doctorPopupIsIntroRef.current) {
-                  startIntroDoctorPopupClose(280);
-                }
-              }}
-              className={`fixed bottom-10 right-6 z-[70] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.2)] transition-all duration-220 ease-out ${isDoctorPopupVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.98] opacity-0"}`}
+              role="status"
+              className="flex max-w-[min(420px,calc(100vw-3rem))] items-center gap-3 rounded-[28px] border border-[#5f7f4f] bg-white px-3.5 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
             >
-              <div className="flex items-start justify-between border-b border-black/8 bg-[#fbfaf5] px-5 py-4">
-                <div>
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#848484]">{intake.doctor.assignedLabel}</p>
-                  <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.04em] text-black">{isChoosingPhysician ? intake.doctor.changeTitle : assignedDoctor.fullName}</h3>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Close doctor info"
-                  onClick={closeDoctorPopup}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-white transition-colors hover:bg-[#1a1a1a]"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-                    <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-
-              {isChoosingPhysician ? (
-                <div className="px-4 py-4">
-                  <PhysicianPicker
-                    physicians={LICENSED_PHYSICIANS}
-                    selectedId={preferredDoctorId}
-                    onSelect={(id) => {
-                      setPreferredDoctorId(id);
-                      setIsChoosingPhysician(false);
-                      setIsViewingPhysicianProfile(false);
-                    }}
-                    copy={{ suggested: intake.doctor.suggested, selected: intake.doctor.selected }}
-                  />
-                </div>
-              ) : (
-                <>
-              <div className="relative h-[190px] w-full overflow-hidden bg-[#fbfaf5]">
-                <Image src={assignedDoctor.imageSrc} alt={assignedDoctor.fullName} fill sizes="360px" className="object-cover object-[center_18%]" />
-                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/70 to-transparent" />
-              </div>
-
-              <div className="px-5 pb-5 pt-1">
-                <p className="text-[15px] font-medium tracking-[-0.02em] text-black/55">{intake.doctor.role}</p>
-                <p className="mt-3 text-[15px] font-medium leading-[1.5] tracking-[-0.02em] text-[#2b2a28]/82">{intake.doctor.intro}</p>
-
-                <div className="mt-5 flex gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsChoosingPhysician(true);
-                      setIsViewingPhysicianProfile(false);
-                    }}
-                    className="flex min-h-[44px] flex-1 items-center justify-center rounded-full border border-black/12 bg-white px-3 text-[13px] font-semibold tracking-[-0.02em] text-[#2b2a28] transition-colors hover:bg-[#fbfaf5]"
-                  >
-                    {intake.doctor.change}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsViewingPhysicianProfile((open) => !open)}
-                    aria-expanded={isViewingPhysicianProfile}
-                    className={`flex min-h-[44px] flex-1 items-center justify-center rounded-full border px-3 text-[13px] font-semibold tracking-[-0.02em] transition-colors ${
-                      isViewingPhysicianProfile
-                        ? "border-[#c77e57]/40 bg-[#c77e57]/18 text-[#8a5238]"
-                        : "border-[#c77e57]/28 bg-[#c77e57]/10 text-[#9a5b45] hover:bg-[#c77e57]/16"
-                    }`}
-                  >
-                    {intake.doctor.seeProfile}
-                  </button>
-                </div>
-              </div>
-
-              {isViewingPhysicianProfile ? (
-                <div className="border-t border-black/[0.06] px-5 pb-8 pt-5">
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.12em] text-[#848484]">{intake.doctor.about}</p>
-                  <ul className="mt-3.5 space-y-3">
-                    {intake.doctor.details.map((detail) => (
-                      <li key={detail} className="flex gap-3 text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]/82">
-                        <span className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rounded-full bg-[#c77e57]" aria-hidden="true" />
-                        <span>{detail}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-                </>
-              )}
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f] text-white">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+                  <path d="M20 6.5 9.5 17 4 11.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <p className="text-[15px] font-medium leading-[1.25] tracking-[-0.03em] text-[#1a1a1a]">
+                <span className="font-semibold">{assignedDoctor.fullName}</span> {intake.doctor.assigned}
+              </p>
             </div>
-          ) : null}
-
-          {isMedicalDoctorIntroStep && !isDoctorPopupOpen && !isShippingInfoStep ? (
+          ) : (
             <div
-              className={`fixed bottom-6 left-1/2 z-[65] w-[calc(100%-2rem)] max-w-[340px] -translate-x-1/2 rounded-[24px] bg-gradient-to-r from-[#5f7f4f] via-[#8ea57a] to-[#4b6942] p-[1.5px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.16)] transition-all duration-500 ease-out sm:left-auto sm:right-6 sm:w-full sm:translate-x-0 sm:text-left ${
-                isDoctorAssignmentNoticeVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-              }`}
-              aria-hidden={!isDoctorAssignmentNoticeVisible}
-            >
-              <div className="rounded-[22px] bg-white/95 px-5 py-4 backdrop-blur-sm">
-                <button
-                  type="button"
-                  onClick={() => openDoctorPopup(true)}
-                  tabIndex={isDoctorAssignmentNoticeVisible ? 0 : -1}
-                  className="flex w-full items-center justify-center gap-3 text-center sm:items-start sm:justify-start sm:text-left"
-                >
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f] text-white shadow-[0_6px_14px_rgba(95,127,79,0.25)]">
-                    <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5" aria-hidden="true">
-                      <path d="M5.5 10.25 8.5 13.25 14.5 6.75" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <p className="text-[14px] font-medium leading-[1.45] tracking-[-0.02em] text-[#2b2a28]">
-                    <span className="font-semibold">{assignedDoctor.fullName}</span> {intake.doctor.assigned}
-                  </p>
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {!isShippingInfoStep && !isRecommendationInterstitialStep && !isDoctorPopupOpen && !isDoctorAssignmentNoticeVisible ? (
-            <button
-              type="button"
-              aria-label="Open assigned doctor info"
-              aria-expanded={false}
-              onClick={() => openDoctorPopup(true)}
-              className="fixed bottom-6 right-6 z-[60] flex h-[63px] w-[63px] items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-[#fbfaf5] shadow-[0_12px_30px_rgba(0,0,0,0.28)] transition-transform duration-300 hover:scale-105"
+              aria-label={assignedDoctor.fullName}
+              className="relative flex h-[63px] w-[63px] items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-[#fbfaf5] shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
             >
               <Image
                 src={assignedDoctor.imageSrc}
@@ -3455,9 +3479,26 @@ export default function IntakePage() {
                 sizes="63px"
                 className="object-cover object-[center_18%]"
               />
-            </button>
-          ) : null}
-        </>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {isDoctorMatchOpen && selectedCity ? (
+        <DoctorMatchScreen
+          district={selectedCity}
+          selectedId={preferredDoctorId}
+          onSelect={setPreferredDoctorId}
+          onBack={() => setIsDoctorMatchOpen(false)}
+          onContinue={() => {
+            setHasConfirmedDoctorMatch(true);
+            setIsDoctorMatchOpen(false);
+            setReturnedStepIndexForContinue(null);
+            setIsDoctorAssignmentNoticeVisible(true);
+            setCurrentStepIndex(medicalStartIndex);
+          }}
+          copy={intake.doctorMatch}
+        />
       ) : null}
     </main>
   );
