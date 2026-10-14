@@ -80,26 +80,26 @@ export const homeCopy = {
       en: "EN",
     },
     announcement: {
-      text: "Ziyaret gerekmez. Birkaç soruyla başlayın.",
+      text: "Kliniğe gitmeden başlayın. Birkaç soruyu yanıtlamanız yeterli.",
       cta: "Başlayın",
       href: "#get-started",
     },
     hero: {
-      titleLine1: "Özel bakıma başlayın.",
-      titleLine2: "Doğrudan evinizden.",
+      titleLine1: "Sağlığınız için ilk adım.",
+      titleLine2: "Evinizin rahatlığında.",
       steps: [
         {
           step: "ADIM 1",
-          title: "Birkaç basit soruyu yanıtlayın.",
-          description: "Evinizin konforunda özel ve güvenli bir form.",
+          title: "Birkaç kısa soruyu yanıtlayın.",
+          description: "Sağlığınızla ilgili bilgileri evinizden, rahatça ve gizlilik içinde paylaşın.",
           cta: "Değerlendirmeye başla",
           href: "#get-started",
           imageSrc: "/step_1.png",
         },
         {
           step: "ADIM 2",
-          title: "Lisanslı bir hekimle bağlantı kurun.",
-          description: "Formunuz Türkiye’de deneyimli bir hekim tarafından incelenir. Arama veya ziyaret gerekmez.",
+          title: "Bir doktorla görüşmeye başlayın.",
+          description: "Yanıtlarınız Türkiye’de görev yapan deneyimli bir hekim tarafından değerlendirilir. İlk adım için telefon etmeniz veya kliniğe gitmeniz gerekmez.",
           cta: "Hekiminizle tanışın",
           href: "#get-started",
           imageSrc: "/step_2b.png",
@@ -119,69 +119,69 @@ export const homeCopy = {
           href: "/intake?condition=hair-loss",
           title: "Saç dökülmesi",
           badge: null,
-          description: "Saç dökülmesine harekete geçin",
+          description: "Saç dökülmesi için destek alın.",
           iconSrc: "/topic_hair.png",
         },
         {
           href: "/intake?condition=erection",
           title: "Ereksiyon kaygıları",
           badge: null,
-          description: "Ereksiyon için destek alın",
+          description: "Sertleşme sorunları için destek alın.",
           iconSrc: "/topic_pill.png",
         },
         {
           href: "/intake?condition=premature-ejaculation",
           title: "Erken boşalma",
           badge: null,
-          description: "Kontrol için destek alın",
+          description: "Erken boşalma konusunda destek alın.",
           iconSrc: "/topic_hourglass.png",
         },
         {
           href: "/intake?condition=intimate-skin",
           title: "Mahrem cilt",
           badge: null,
-          description: "Cildiniz hakkında yanıt alın",
+          description: "Cilt sağlığınız hakkında bilgi edinin.",
           iconSrc: "/topic_cream.png",
         },
       ],
     },
     about: {
-      titleLine1: "Bazı şeyler daha kolay",
-      titleLine2: "özel halledilir.",
+      titleLine1: "Bazı konuları konuşmak daha kolaydır.",
+      titleLine2: "Özellikle kendinizi rahat hissettiğinizde.",
       subtitle:
-        "Evden özel bir formla başlayın — randevu gerekmez. Birkaç soruyu kendi hızınızda yanıtlayın; bir hekim bilgilerinizi inceler ve sonraki adımı netleştirir.",
+        "Evinizden başlayın, birkaç kısa soruyu kendi zamanınızda yanıtlayın. Paylaştığınız bilgiler bir hekim tarafından değerlendirilir ve sonraki adımlar buna göre belirlenir. İlk adım için randevu almanız gerekmez.",
       cta: "Başlayın",
       ctaHref: "#get-started",
     },
     startGallery: {
       eyebrow: "EVDEN BAŞLAYIN",
-      titleLine1: "Bakıma başlamanın",
-      titleLine2: "daha sade yolu.",
-      body: "Evden, kendi hızınızda yanıtlayacağınız kısa bir form. Bilgileriniz bir hekim tarafından incelenir ve sonraki adım netleşir.",
+      titleLine1: "Sağlık desteğine",
+      titleLine2: "daha kolay bir başlangıç.",
+      body: "Evinizden, kendi zamanınızda kısa bir ön değerlendirme formunu doldurun. Yanıtlarınız bir hekim tarafından incelenir ve sonraki adımlar hakkında bilgilendirilirsiniz.",
       slides: [
         {
           key: "start-1",
           imageSrc: "/home_large5.jpg",
           imageAlt: "Tedavi planı, hekim mesajları ve ilerleme",
-          titleLine1: "Daha iyi bakım.",
-          titleLine2: "Yolun her adımında.",
-          body: "Hekiminizle bağlantıda kalın, tedavinizi yönetin ve ilerlemenizi takip edin. Düzenli kontroller ve yan etki takibi, bakımınız boyunca bilgilenmenize yardımcı olur.",
+          titleLine1: "Sağlık sürecinizde",
+          titleLine2: "her adımda yanınızda.",
+          body: "Doktorunuzla iletişimde kalın, tedavi planınızı takip edin ve sürecinizdeki değişimleri izleyin. Düzenli durum değerlendirmeleri ve yan etki takibi sayesinde süreciniz hakkında bilgi sahibi olun.",
         },
         {
           key: "start-2",
           imageSrc: "/large_section1.jpg",
           imageAlt: "Hiros değerlendirme formu",
-          titleLine1: "Sağlık kaygılarınız.",
+          titleLine1: "Sağlığınızla ilgili konular.",
           titleLine2: "Kendi hızınızda.",
-          body: "Kaygılarınız ve tıbbi geçmişiniz hakkında birkaç soruyu yanıtlayın. Bilgilerinizi özel olarak paylaşın; her şeyi yüz yüze anlatmanıza gerek kalmaz.",
+          body: "Şikâyetleriniz ve sağlık geçmişiniz hakkında birkaç soruyu yanıtlayın. Her şeyi yüz yüze anlatmak zorunda kalmadan, bilgilerinizi gizlilik içinde paylaşın.",
         },
         {
           key: "start-3",
           imageSrc: "/large_section4.jpg",
           imageAlt: "Lisanslı hekim değerlendirmesi",
-          titleLine1: "Tıbbi kararlar",
-          titleLine2: "hekimlere aittir.",
-          body: "Bilgileriniz, lisanslı bir hekimin kaygılarınızı anlamasına yardımcı olur. Uygun sonraki adımları hekim belirler; buna bir görüşme veya ek muayene gerekip gerekmediği de dahildir.",
+          titleLine1: "Tıbbi kararları",
+          titleLine2: "doktorlar verir.",
+          body: "Paylaştığınız bilgiler, doktorunuzun durumunuzu daha iyi anlamasına yardımcı olur. Görüşme veya ek muayene gerekip gerekmediğine doktorunuz karar verir.",
         },
       ],
     },
@@ -320,41 +320,41 @@ export const homeCopy = {
       href: "/faq",
       items: [
         {
-          question: "Bu gerçek bir tıbbi hizmet mi?",
+          question: "Bu gerçek bir sağlık hizmeti mi?",
           answer:
-            "Evet. Bilgileriniz lisanslı hekimlerce incelenir ve uygun sonraki adım belirlenir. Hiros, bilgilerinizi net ve özel şekilde paylaşmanız için yapılandırılmış bir yol sunar.",
+            "Evet. Paylaştığınız bilgiler hekimler tarafından değerlendirilir ve sizin için uygun sonraki adım belirlenir. Hiros, sağlık durumunuzu açık ve gizlilik içinde paylaşmanızı kolaylaştırır.",
         },
         {
-          question: "Ben herhangi bir şeye bağlanmak zorunda mıyım?",
+          question: "Devam etmek zorunda mıyım?",
           answer:
-            "Hayır. Basit bir formla başlayabilir ve nasıl ilerleyeceğinize siz karar verirsiniz. Siz tercih etmedikçe devam etme zorunluluğu yoktur.",
+            "Hayır. Ön değerlendirme formunu doldurarak başlayabilir, sonrasında nasıl ilerleyeceğinize kendiniz karar verebilirsiniz. Devam etmek zorunda değilsiniz.",
         },
         {
-          question: "Bu, bir kliniğe gitmekten nasıl farklıdır?",
+          question: "Kliniğe gitmekten farkı ne?",
           answer:
-            "Hiros, kendi alanınızdan özel şekilde başlamanıza yardımcı olur. Önce randevu almak yerine durumunuzu net paylaşırsınız; hekim sonraki adımdan önce neyin uygun olduğunu değerlendirir.",
+            "Hiros, sağlık sürecinize evinizden ve gizlilik içinde başlamanızı sağlar. Önce randevu almak yerine durumunuzu paylaşabilirsiniz. Doktorunuz, sonraki adımın ne olması gerektiğini değerlendirir.",
         },
         {
-          question: "Benim bilgilerim gizli tutuluyor mu?",
+          question: "Bilgilerim gizli tutuluyor mu?",
           answer:
-            "Evet. Bilgileriniz güvenle işlenir ve yalnızca bakımınıza katılan lisanslı sağlık uzmanlarıyla paylaşılır. Ne paylaşacağınız ve ne zaman paylaşacağınız sizin kontrolünüzdedir.",
+            "Evet. Bilgileriniz güvenli şekilde işlenir ve yalnızca sağlık sürecinizde görev alan yetkili sağlık profesyonelleriyle paylaşılır. Paylaşacağınız bilgilere siz karar verirsiniz.",
         },
         {
-          question: "Formu bitirdikten sonra tam olarak ne olur?",
+          question: "Formu doldurduktan sonra ne olur?",
           answer:
-            "Bilgileriniz bir hekim tarafından incelenir ve uygun sonraki adım belirlenir. Durumunuza göre nasıl ilerleyeceğinize dair net bir yönlendirme alırsınız.",
+            "Yanıtlarınız bir hekim tarafından değerlendirilir. Ardından, durumunuza uygun şekilde nasıl ilerleyebileceğiniz konusunda bilgilendirilirsiniz.",
         },
       ],
     },
     professionals: {
       titleLine1: "Sağlık profesyoneli misiniz?",
-      titleLine2: "Hekimlere özel Hiros.",
+      titleLine2: "Hekimler için Hiros.",
       cards: [
         {
           key: "physician-workspace",
           title: "Hekim paneli",
           description:
-            "Yapılandırılmış formları inceleyin, vakaları önceliklendirin ve hastalarla güvenli şekilde iletişim kurun — hepsi tek bir çalışma alanında.",
+            "Hasta bilgilerini inceleyin, vakaları önceliklendirin ve hastalarla güvenli şekilde iletişim kurun. Hepsi tek bir çalışma alanında.",
           cta: "Daha fazla bilgi",
           href: "/contact",
           imageSrc: "/home2.png",
@@ -364,7 +364,7 @@ export const homeCopy = {
           key: "patient-care",
           title: "Hasta bakımı",
           description:
-            "Mesajlaşma, tedavi planı ve takip aynı yerde kalsın. Klinik karar size kalsın; platform günlük işi sadeleştirsin.",
+            "Mesajlaşmayı, tedavi planlarını ve hasta takibini tek bir yerde yönetin. Tıbbi kararlar size aittir; Hiros günlük işlerinizi kolaylaştırır.",
           cta: "Daha fazla bilgi",
           href: "/contact",
           imageSrc: "/step_2.png",
@@ -395,7 +395,7 @@ export const homeCopy = {
         { href: "/contact", label: "İletişim" },
       ],
       disclaimer:
-        "Bu web sitesinde yer alan bilgiler genel bilgilendirme amaçlıdır ve tıbbi tavsiye, teşhis veya tedavi yerine geçmez. Hiros bir acil sağlık hizmeti değildir; klinik değerlendirme ve kararlar, bakıma katılan lisanslı hekimlerin sorumluluğundadır. Hiros herhangi bir sağlık hizmeti sağlayıcısını tavsiye etmez veya desteklemez; sitedeki içerik kamuoyunun sağlık alanında daha iyi bilgilenmesini sağlamayı amaçlar.",
+        "Bu web sitesindeki bilgiler yalnızca genel bilgilendirme amacı taşır; tıbbi tavsiye, tanı veya tedavinin yerini tutmaz. Hiros bir acil sağlık hizmeti değildir. Tıbbi değerlendirme ve kararlar, sağlık sürecinizde görev alan yetkili hekimlerin sorumluluğundadır. Hiros herhangi bir sağlık hizmeti sağlayıcısını önermez veya desteklemez. Sitedeki içerikler, toplumun sağlık konusunda daha bilinçli kararlar almasına yardımcı olmayı amaçlar.",
       addressLines: ["Teşvikiye Cad. No: 48/3", "Nişantaşı, Şişli", "34365 İstanbul, Türkiye"],
     },
     chat: {

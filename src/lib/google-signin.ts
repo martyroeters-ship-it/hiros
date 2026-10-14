@@ -76,14 +76,29 @@ export async function requestGoogleAccessToken(): Promise<string> {
   });
 }
 
-export async function signInWithGoogle(): Promise<{ email?: string; hasCase?: boolean }> {
+export async function signInWithGoogle(): Promise<{
+  email?: string;
+  phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  needsProfile?: boolean;
+  hasCase?: boolean;
+}> {
   const accessToken = await requestGoogleAccessToken();
   const res = await fetch("/api/auth/google", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ accessToken }),
   });
-  const payload = (await res.json().catch(() => ({}))) as { error?: string; email?: string; hasCase?: boolean };
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    email?: string;
+    phone?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    needsProfile?: boolean;
+    hasCase?: boolean;
+  };
   if (!res.ok) {
     const raw = payload.error || "";
     if (/ECONNREFUSED|127\.0\.0\.1|NO_DATABASE|connect/i.test(raw)) {

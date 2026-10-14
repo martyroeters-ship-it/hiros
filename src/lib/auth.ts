@@ -92,35 +92,41 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const id = readSessionToken(token);
   if (!id) return null;
 
-  const [row] = await sql<
-    {
-      id: string;
-      email: string | null;
-      first_name: string | null;
-      last_name: string | null;
-      phone: string | null;
-      il: string | null;
-      postal_code: string | null;
-      role: string;
-      is_active: boolean;
-    }[]
-  >`
-    select id, email, first_name, last_name, phone, il, postal_code, role, is_active
-    from public.profiles
-    where id = ${id}::uuid
-    limit 1
-  `;
-  if (!row?.email || !row.is_active) return null;
-  return {
-    id: row.id,
-    email: row.email,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    phone: row.phone,
-    city: row.il,
-    postalCode: row.postal_code,
-    role: row.role,
-  };
+  try {
+    const [row] = await sql<
+      {
+        id: string;
+        email: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        phone: string | null;
+        il: string | null;
+        postal_code: string | null;
+        role: string;
+        is_active: boolean;
+      }[]
+    >`
+      select id, email, first_name, last_name, phone, il, postal_code, role, is_active
+      from public.profiles
+      where id = ${id}::uuid
+      limit 1
+    `;
+    if (!row?.is_active || (!row.email && !row.phone)) return null;
+    return {
+      id: row.id,
+      email: row.email ?? "",
+      firstName: row.first_name,
+      lastName: row.last_name,
+      phone: row.phone,
+      city: row.il,
+      postalCode: row.postal_code,
+      role: row.role,
+    };
+  } catch (error) {
+    // Don't take down intake/home when Postgres isn't running locally.
+    console.error("[auth] getSessionUser failed:", error);
+    return null;
+  }
 }
 
 export function normalizeEmail(email: string): string {
@@ -171,6 +177,7 @@ export async function findOrCreateOAuthProfile(input: {
       email: existing.email || email,
       firstName: existing.first_name,
       lastName: existing.last_name,
+      created: false,
     };
   }
 
@@ -198,5 +205,6 @@ export async function findOrCreateOAuthProfile(input: {
     email: created.email || email,
     firstName: created.first_name,
     lastName: created.last_name,
+    created: true,
   };
 }

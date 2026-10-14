@@ -65,7 +65,7 @@ function HomeContent() {
             <div className={`relative z-10 flex w-full flex-col pt-6 pb-8 sm:pb-10 sm:pt-9 ${HOME_PAGE_GUTTER_CLASS}`}>
               <div className="text-left">
                 <h1 className="font-title text-[32px] font-normal leading-[1.08] tracking-[-0.06em] text-[#1f241b] sm:text-[43px] lg:text-[58px] lg:leading-[1.1] lg:tracking-[-0.07em]">
-                  <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#6a8255] bg-clip-text text-transparent">
+                  <span className="inline-block bg-gradient-to-r from-[#3f5f35] via-[#6f8759] to-[#6a8255] bg-clip-text pb-[0.2em] -mb-[0.2em] pr-[0.12em] text-transparent">
                     {copy.hero.titleLine1}
                   </span>
                   <br />

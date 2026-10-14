@@ -20,6 +20,7 @@ export type IntakeSubmission = {
   city: string | null;
   firstName: string;
   photos: string[]; // data URLs
+  condition?: string;
 };
 
 /* ------------------------------------------------------------------ *
@@ -417,6 +418,38 @@ export type TreatmentRecommendation = {
 };
 
 export function determineTreatmentRecommendation(input: IntakeSubmission): TreatmentRecommendation {
+  const condition = input.condition || input.answers.condition || "hair-loss";
+
+  if (condition === "erection") {
+    return {
+      type: "review",
+      title: "Physician review for erection concerns",
+      description:
+        "A licensed physician will review your answers and advise on the next appropriate step. Photos were not required for this intake.",
+      imageSrc: "/treatment-bottle.webp",
+    };
+  }
+
+  if (condition === "premature-ejaculation") {
+    return {
+      type: "review",
+      title: "Physician review for ejaculation concerns",
+      description:
+        "A licensed physician will review your answers privately and guide the next appropriate step.",
+      imageSrc: "/treatment-bottle.webp",
+    };
+  }
+
+  if (condition === "intimate-skin") {
+    return {
+      type: "review",
+      title: "Physician review for intimate skin concerns",
+      description:
+        "A licensed physician will review your intake and any photos you shared. History and photos alone do not establish a diagnosis; testing may be recommended.",
+      imageSrc: "/treatment-bottle.webp",
+    };
+  }
+
   // Check for red flags that require physician review first
   const location = input.answers["change-location"];
   const symptoms = input.answers["symptoms"];
@@ -603,6 +636,14 @@ export function buildCaseFromIntake(input: IntakeSubmission): PatientCase {
     src,
   }));
 
+  const condition = input.condition || input.answers.condition || "hair-loss";
+  const reasonByCondition: Record<string, string> = {
+    "hair-loss": "Hair loss consultation",
+    erection: "Erection concerns consultation",
+    "premature-ejaculation": "Premature ejaculation consultation",
+    "intimate-skin": "Intimate skin consultation",
+  };
+
   return {
     id: generateCaseId(),
     firstName: input.firstName.trim() || "Patient",
@@ -617,9 +658,20 @@ export function buildCaseFromIntake(input: IntakeSubmission): PatientCase {
       const rawAge = Number(input.answers.age);
       return Number.isFinite(rawAge) && rawAge > 0 ? String(rawAge) : "Not provided";
     })(),
-    reason: input.answers["current-situation"] ?? "Hair loss consultation",
+    reason:
+      input.answers["current-situation"] ??
+      input.answers["ed-experience"] ??
+      input.answers["pe-concern"] ??
+      input.answers["is-concern"] ??
+      reasonByCondition[condition] ??
+      "Medical consultation",
     location: input.city ?? "Not provided",
-    reportedOnset: input.answers["timeline"] ?? "Not provided",
+    reportedOnset:
+      input.answers["timeline"] ??
+      input.answers["ed-duration"] ??
+      input.answers["pe-onset"] ??
+      input.answers["is-duration"] ??
+      "Not provided",
     date: new Date().toLocaleDateString("en-US"),
     priority,
     tab: "pending",

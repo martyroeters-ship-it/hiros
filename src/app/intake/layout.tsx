@@ -6,10 +6,15 @@ import { ready } from "@/lib/ensure-db";
 export const dynamic = "force-dynamic";
 
 export default async function IntakeLayout({ children }: { children: React.ReactNode }) {
-  const user = await getSessionUser();
-  if (user && !isStaffRole(user.role)) {
-    await ready();
-    if (await patientHasCompletedIntake(user.id)) redirect("/care");
+  try {
+    const user = await getSessionUser();
+    if (user && !isStaffRole(user.role)) {
+      await ready();
+      if (await patientHasCompletedIntake(user.id)) redirect("/care");
+    }
+  } catch (error) {
+    // Allow the intake UI to load even if the local DB is down.
+    console.error("[intake] session check failed:", error);
   }
   return children;
 }

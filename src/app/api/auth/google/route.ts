@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     await setSessionCookie(user.id);
     return NextResponse.json({
       ...user,
+      needsProfile: user.created || !user.firstName || !user.lastName,
       hasCase: await patientHasCompletedIntake(user.id),
     });
   } catch (error) {
