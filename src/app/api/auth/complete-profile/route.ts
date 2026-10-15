@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { getSessionUser, isValidEmail, normalizeEmail } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { ageFromDateOfBirth } from "@/lib/age";
+import { ready } from "@/lib/ensure-db";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
+    await ready();
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: "Not signed in" }, { status: 401 });

@@ -20,6 +20,7 @@ export type IntakeSubmission = {
   city: string | null;
   firstName: string;
   photos: string[]; // data URLs
+  photoKinds?: string[];
   condition?: string;
 };
 
@@ -570,7 +571,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
       type: "combo",
       title: "Topical Finasteride + Minoxidil",
       description: "Commonly considered when both prevention and regrowth are desired.",
-      imageSrc: "/treatment-bottle.webp",
+      imageSrc: "/treatment-combo.png",
     };
   }
   
@@ -599,7 +600,7 @@ export function determineTreatmentRecommendation(input: IntakeSubmission): Treat
     type: "combo",
     title: "Topical Finasteride + Minoxidil",
     description: "Commonly considered for male pattern hair loss.",
-    imageSrc: "/treatment-bottle.webp",
+    imageSrc: "/treatment-combo.png",
   };
 }
 

@@ -12,6 +12,7 @@
     "db:docker:down": "docker compose down"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.1.1",
     "maplibre-gl": "^6.14.0",
     "next": "16.2.6",
     "postgres": "^3.4.9",

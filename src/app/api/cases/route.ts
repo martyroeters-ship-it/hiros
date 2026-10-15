@@ -39,6 +39,7 @@ export async function POST(request: Request) {
         city: body.city ?? null,
         firstName: body.firstName ?? "Patient",
         photos: Array.isArray(body.photos) ? body.photos : [],
+        photoKinds: Array.isArray(body.photoKinds) ? body.photoKinds.filter((kind) => typeof kind === "string") : undefined,
         lastName: body.lastName,
         postalCode: body.postalCode,
         phone: body.phone,
