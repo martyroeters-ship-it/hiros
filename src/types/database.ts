@@ -46,7 +46,7 @@ export type ChargeStatus =
 
 export type MessageSender = "patient" | "doctor";
 
-export type PhotoKind = "front" | "top" | "left" | "right" | "other";
+export type PhotoKind = "front" | "top" | "left" | "right" | "crown" | "other";
 
 export type RiskLevel = "Green" | "Orange" | "Red";
 

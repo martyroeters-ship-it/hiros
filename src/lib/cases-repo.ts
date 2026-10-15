@@ -316,7 +316,8 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
       select count(*)::int as count from public.case_photos where case_id = ${caseId}::uuid
     `;
     if (input.photos.length && existingPhotoCount === 0) {
-      const kinds = ["front", "top", "other"] as const;
+      const legacyKinds = ["front", "top", "other"] as const;
+      const allowedKinds = new Set(["front", "top", "left", "right", "crown", "other"]);
       for (const [index, dataUrl] of input.photos.entries()) {
         if (!dataUrl.startsWith("data:")) continue;
         const { ext, bytes, contentType } = parseDataUrl(dataUrl);
@@ -331,7 +332,7 @@ export async function persistIntake(input: IntakePersistInput, patientId?: strin
           insert into public.case_photos (case_id, kind, storage_path, content_type, byte_size, bytes)
           values (
             ${caseId}::uuid,
-            ${kinds[index] ?? "other"},
+            ${(input.photoKinds?.[index] && allowedKinds.has(input.photoKinds[index]) ? input.photoKinds[index] : legacyKinds[index]) ?? "other"},
             ${storagePath},
             ${contentType},
             ${bytes.length},

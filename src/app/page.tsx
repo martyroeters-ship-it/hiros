@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import Header from "@/components/Header";
 import PrivacyCarousel, { type PrivacyCarouselHandle } from "@/components/PrivacyCarousel";
@@ -285,9 +286,19 @@ function HomeContent() {
                     </span>
                   </summary>
                   {isOpen ? (
-                    <p className="max-w-[48rem] pt-4 text-[15px] font-medium leading-[1.35] tracking-[-0.02em] text-black/55 sm:text-[16px]">
-                      {faq.answer}
-                    </p>
+                    <div className="max-w-[48rem] pt-4">
+                      <p className="text-[15px] font-medium leading-[1.35] tracking-[-0.02em] text-black/55 sm:text-[16px]">
+                        {faq.answer}
+                      </p>
+                      {"link" in faq && faq.link ? (
+                        <Link
+                          href={faq.link.href}
+                          className="mt-3 inline-flex text-[15px] font-medium leading-[1.35] tracking-[-0.02em] text-[#1f241b] underline decoration-[#1f241b]/30 underline-offset-[3px] transition-colors hover:decoration-[#1f241b] sm:text-[16px]"
+                        >
+                          {faq.link.label}
+                        </Link>
+                      ) : null}
+                    </div>
                   ) : null}
                 </details>
               );

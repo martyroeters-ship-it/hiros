@@ -86,12 +86,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[auth] verify-code", error instanceof Error ? error.message : error);
-    return NextResponse.json({
-      error: "send_failed",
-      verified: Boolean(parsed),
-      needsProfile: true,
-      email: parsed?.email ?? null,
-      phone: parsed?.phone ?? null,
-    }, { status: parsed ? 200 : 500 });
+    return NextResponse.json({ error: "send_failed" }, { status: 500 });
   }
 }

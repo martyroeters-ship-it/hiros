@@ -11,12 +11,16 @@ import { ChangeLocationIcon, hasChangeLocationIcon } from "./change-location-ico
 import { getIntakeCatalog, parseIntakeCondition, type IntakeStep } from "./conditions";
 import { createCaseFromIntake } from "../doctor/store";
 import { determineTreatmentRecommendation, type TreatmentRecommendation } from "../doctor/triage";
-import { useIntakeCopy } from "@/i18n/LanguageProvider";
+import { useHydratedLocale, useIntakeCopy } from "@/i18n/LanguageProvider";
 import { signInWithGoogle } from "@/lib/google-signin";
-import { ageFromDateOfBirth } from "@/lib/age";
+import { ageFromDateOfBirth, toIsoDateOfBirth } from "@/lib/age";
 import { HOME_PAGE_GUTTER_CLASS } from "@/constants/homeHeaderLayout";
 import { DoctorMatchScreen } from "@/components/intake/DoctorMatchScreen";
-import { DEFAULT_PHYSICIAN_ID, physicianById } from "@/lib/physicians";
+import { PhysicianPicker } from "@/components/PhysicianPicker";
+import { ScalpCamera } from "@/components/intake/ScalpCamera";
+import { ScalpCameraBoundary } from "@/components/intake/ScalpCameraBoundary";
+import { SCALP_VIEW_IDS } from "@/components/intake/scalp-views";
+import { DEFAULT_PHYSICIAN_ID, LICENSED_PHYSICIANS, physicianById } from "@/lib/physicians";
 import { physiciansNearDistrict } from "@/lib/istanbulGeo";
 
 type FaceDetectionResult = {
@@ -167,6 +171,7 @@ function IntakePageGate() {
 
 function IntakePageInner({ conditionParam }: { conditionParam: string | null }) {
   const intake = useIntakeCopy();
+  const locale = useHydratedLocale();
   const catalog = useMemo(
     () => getIntakeCatalog(conditionParam),
     [conditionParam],
@@ -216,6 +221,8 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
   const [isCameraCaptureFlashVisible, setIsCameraCaptureFlashVisible] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraSessionRestartKey, setCameraSessionRestartKey] = useState(0);
+  const [scalpCameraMode, setScalpCameraMode] = useState<"guided" | "standard">("guided");
+  const [photoKinds, setPhotoKinds] = useState<string[] | null>(null);
   const [locationQuery, setLocationQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
@@ -266,6 +273,22 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
   const [authCode, setAuthCode] = useState("");
   const authVerifyLock = useRef(false);
   const [authError, setAuthError] = useState("");
+  const [dobParts, setDobParts] = useState({ day: "", month: "", year: "" });
+  const dobMonthRef = useRef<HTMLInputElement>(null);
+  const dobYearRef = useRef<HTMLInputElement>(null);
+  const updateDobPart = (part: "day" | "month" | "year", value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, part === "year" ? 4 : 2);
+    const next = { ...dobParts, [part]: digits };
+    setDobParts(next);
+    const dateOfBirth =
+      next.year.length === 4 && next.month && next.day
+        ? toIsoDateOfBirth(`${next.year}-${next.month.padStart(2, "0")}-${next.day.padStart(2, "0")}`)
+        : "";
+    setShippingFormData((current) => ({ ...current, dateOfBirth }));
+    setAuthError("");
+    if (part === "day" && digits.length === 2) dobMonthRef.current?.focus();
+    if (part === "month" && digits.length === 2) dobYearRef.current?.focus();
+  };
   const [signedInEmail, setSignedInEmail] = useState("");
   const [authAfterGuestSubmit, setAuthAfterGuestSubmit] = useState(false);
   const [intakeSaveStatus, setIntakeSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -374,6 +397,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
   const isPhotoCheckStep = currentStep?.id === "photo-check";
   const isCameraPrepStep = currentStep?.id === "camera-prep";
   const isCameraCaptureStep = currentStep?.id === "camera-capture";
+  const isGuidedScalpCapture = isCameraCaptureStep && catalog.condition === "hair-loss" && scalpCameraMode === "guided";
   const isPostCameraInterstitialStep = currentStep?.id === "post-camera-interstitial";
   const isFinalReviewInterstitialStep = currentStep?.id === "review-submit-interstitial";
   const finalReviewInterstitialTextBlocks =
@@ -438,6 +462,15 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
   const persistCompletedIntake = useCallback(async (): Promise<boolean> => {
     if (!signedInEmail && !shippingFormData.phone.trim()) return false;
     if (hasSubmittedCaseRef.current) return false;
+    const session = await fetch("/api/auth/me");
+    if (!session.ok) {
+      setAuthAfterGuestSubmit(true);
+      setAuthStage("identifier");
+      setAuthError("");
+      setIntakeSaveStatus("idle");
+      setCurrentStepIndex(authStepIndex);
+      return false;
+    }
     hasSubmittedCaseRef.current = true;
     setIntakeSaveStatus("saving");
     try {
@@ -459,18 +492,39 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
         postalCode: shippingFormData.postalCode,
         phone: shippingFormData.phone,
         province: shippingFormData.province,
-        photos: Object.values(capturedPhotos),
+        photos: (() => {
+          const pairs = (photoKinds ?? [])
+            .map((kind) => ({ kind, photo: capturedPhotos[kind] }))
+            .filter((pair): pair is { kind: string; photo: string } => Boolean(pair.photo));
+          return pairs.length ? pairs.map((pair) => pair.photo) : Object.values(capturedPhotos);
+        })(),
+        photoKinds: (() => {
+          const pairs = (photoKinds ?? [])
+            .map((kind) => ({ kind, photo: capturedPhotos[kind] }))
+            .filter((pair): pair is { kind: string; photo: string } => Boolean(pair.photo));
+          return pairs.length ? pairs.map((pair) => pair.kind) : undefined;
+        })(),
         preferredDoctorId,
       });
       setIntakeSaveStatus("saved");
       return true;
     } catch (error) {
       hasSubmittedCaseRef.current = false;
+      const message = error instanceof Error ? error.message : "";
+      if (message.toLowerCase().includes("sign in")) {
+        setAuthAfterGuestSubmit(true);
+        setAuthStage("identifier");
+        setAuthError("");
+        setIntakeSaveStatus("idle");
+        setCurrentStepIndex(authStepIndex);
+        return false;
+      }
       setIntakeSaveStatus("error");
       console.error(error);
       return false;
     }
   }, [
+    authStepIndex,
     selectedAnswers,
     selectedMultiAnswers,
     medicalFollowUpText,
@@ -480,6 +534,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
     selectedCity,
     shippingFormData,
     capturedPhotos,
+    photoKinds,
     signedInEmail,
     preferredDoctorId,
     catalog.condition,
@@ -491,11 +546,18 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
     }
     if (!signedInEmail && !shippingFormData.phone.trim()) {
       setAuthAfterGuestSubmit(true);
-      setCurrentStepIndex(shippingInfoStepIndex);
+      setAuthStage("identifier");
+      setCurrentStepIndex(authStepIndex);
       return;
     }
     void persistCompletedIntake();
-  }, [isFinalReviewInterstitialStep, intakeSaveStatus, persistCompletedIntake, signedInEmail, shippingFormData.phone, shippingInfoStepIndex]);
+  }, [authStepIndex, isFinalReviewInterstitialStep, intakeSaveStatus, persistCompletedIntake, signedInEmail, shippingFormData.phone]);
+  useEffect(() => {
+    if (!isShippingInfoStep) return;
+    if (!signedInEmail) setAuthStage("identifier");
+    setAuthError("");
+    setCurrentStepIndex(authStepIndex);
+  }, [authStepIndex, isShippingInfoStep, signedInEmail]);
   useEffect(() => {
     if (isShippingInfoStep) {
       setShippingFlowStep(1);
@@ -728,7 +790,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
   }, [isCameraCaptureStep, capturedCameraImage, cameraCapturePhase]);
 
   useEffect(() => {
-    if (!isCameraCaptureStep) {
+    if (!isCameraCaptureStep || isGuidedScalpCapture) {
       setIsCameraLoading(false);
       setIsCameraReady(false);
       setIsCameraReadyConfirmed(false);
@@ -835,12 +897,12 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
       clearCameraReadyDelay();
       stopCameraStream();
     };
-  }, [cameraSessionRestartKey, clearCameraCaptureFlash, clearCameraCountdown, clearCameraDetectionLoop, clearCameraReadyDelay, isCameraCaptureStep, stopCameraStream]);
+  }, [cameraSessionRestartKey, clearCameraCaptureFlash, clearCameraCountdown, clearCameraDetectionLoop, clearCameraReadyDelay, isCameraCaptureStep, isGuidedScalpCapture, stopCameraStream]);
 
   useEffect(() => {
     clearCameraDetectionLoop();
 
-    if (!isCameraCaptureStep || !isCameraReady || !isCameraReadyConfirmed || cameraError !== null || capturedCameraImage !== null || isAutoCaptureSupported !== true) {
+    if (isGuidedScalpCapture || !isCameraCaptureStep || !isCameraReady || !isCameraReadyConfirmed || cameraError !== null || capturedCameraImage !== null || isAutoCaptureSupported !== true) {
       return;
     }
 
@@ -991,7 +1053,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
       clearCameraDetectionLoop();
       setIsAutoCapturing(false);
     };
-  }, [cameraError, capturedCameraImage, captureCurrentCameraFrame, clearCameraDetectionLoop, isAutoCaptureSupported, isCameraCaptureStep, isCameraReady, isCameraReadyConfirmed, stopCameraStream]);
+  }, [cameraError, capturedCameraImage, captureCurrentCameraFrame, clearCameraDetectionLoop, isAutoCaptureSupported, isCameraCaptureStep, isCameraReady, isCameraReadyConfirmed, isGuidedScalpCapture, stopCameraStream]);
 
   useLayoutEffect(() => {
     if (photoCheckRevealIntervalRef.current) {
@@ -1334,7 +1396,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
         return nextStepsStepIndex;
       }
       if (currentMedical?.id === "next-steps") {
-        return shippingInfoStepIndex;
+        return authStepIndex;
       }
       if (currentMedical?.id === "shipping-info") {
         return recommendationStepIndex >= 0 ? recommendationStepIndex : finalReviewStepIndex;
@@ -1445,7 +1507,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
       return;
     }
 
-    advanceToStep(authStepIndex);
+    advanceToStep(locationStepIndex);
   };
 
   const handleNextStepsInterstitialContinue = () => {
@@ -1453,7 +1515,17 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
       return;
     }
 
-    advanceToStep(shippingInfoStepIndex);
+    if (!signedInEmail) setAuthStage("identifier");
+    setAuthError("");
+    advanceToStep(authStepIndex);
+  };
+
+  const handleGuidedScalpComplete = (photos: Record<(typeof SCALP_VIEW_IDS)[number], string>) => {
+    setCapturedPhotos(photos);
+    setPhotoKinds([...SCALP_VIEW_IDS]);
+    const nextStepIndex = getNextQuestionStepIndex();
+    if (nextStepIndex === currentStepIndex) return;
+    advanceToStep(nextStepIndex);
   };
 
   const handleCameraRetake = () => {
@@ -1619,9 +1691,10 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
       setCurrentStepIndex(finalReviewStepIndex);
       return;
     }
-    setIsLocationDropdownOpen(Boolean(locationQuery.trim()));
+    setIsLocationDropdownOpen(false);
+    setIsDoctorMatchOpen(false);
     setReturnedStepIndexForContinue(null);
-    setCurrentStepIndex(locationStepIndex);
+    setCurrentStepIndex(recommendationStepIndex >= 0 ? recommendationStepIndex : finalReviewStepIndex);
   };
 
   const finishIdentityAuth = () => {
@@ -1779,7 +1852,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ firstName, lastName, dateOfBirth, email, phone }),
       });
-      if (res.status !== 401 && !res.ok) {
+      if (!res.ok) {
         setAuthError(intake.auth.couldNotContinue);
         return;
       }
@@ -1937,9 +2010,9 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
     setIsLocationDropdownOpen(false);
     setCurrentStepIndex((currentIndex) => {
       // Custom previous mapping for the subflow
-      if (isRecommendationInterstitialStep && shippingInfoStepIndex >= 0) {
-        setReturnedStepIndexForContinue(shippingInfoStepIndex);
-        return shippingInfoStepIndex;
+      if (isRecommendationInterstitialStep && authStepIndex >= 0) {
+        setReturnedStepIndexForContinue(authStepIndex);
+        return authStepIndex;
       }
       if (isFinalReviewInterstitialStep && recommendationStepIndex >= 0) {
         setReturnedStepIndexForContinue(recommendationStepIndex);
@@ -1948,9 +2021,11 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
 
       const previousStepIndex =
         currentIndex === locationStepIndex
-          ? authStepIndex
-          : currentIndex === authStepIndex
           ? preAuthInterstitialIndex
+          : currentIndex === authStepIndex
+          ? nextStepsStepIndex >= 0
+            ? nextStepsStepIndex
+            : preAuthInterstitialIndex
           : currentIndex === medicalStartIndex
           ? locationStepIndex
           : isCameraCaptureStep
@@ -1981,8 +2056,10 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
 
       <div className={`relative flex min-w-0 flex-col ${HOME_PAGE_GUTTER_CLASS} ${
         isCameraCaptureStep
-          ? "h-dvh overflow-hidden pb-24 pt-6 sm:h-screen sm:pb-6 sm:pt-5"
-          : isShippingInfoStep || isRecommendationInterstitialStep
+          ? "h-dvh overflow-hidden pb-4 pt-4 sm:h-dvh sm:pb-4 sm:pt-4"
+          : isRecommendationInterstitialStep
+            ? "box-border h-dvh overflow-y-auto pb-8 pt-4 sm:pb-6 sm:pt-5"
+          : isShippingInfoStep
             ? "h-dvh overflow-hidden pb-4 pt-4 sm:pt-5"
           : isPhotoCheckStep || isCameraPrepStep || isPostCameraInterstitialStep || isPreAuthInterstitialStep || isFinalReviewInterstitialStep || isNextStepsInterstitialStep
             ? "h-dvh overflow-hidden"
@@ -1994,7 +2071,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
       }`}>
         {!isAuthStep && !isPhotoCheckStep && !isCameraPrepStep && !isPostCameraInterstitialStep && !isPreAuthInterstitialStep && !isFinalReviewInterstitialStep && !isNextStepsInterstitialStep ? (
           <div className={`flex w-full shrink-0 items-start justify-between gap-6 ${
-            isCameraCaptureStep || isShippingInfoStep || isRecommendationInterstitialStep ? "" : "mt-[10vh] sm:mt-0"
+            isCameraCaptureStep || isShippingInfoStep ? "" : "mt-[10vh] sm:mt-0"
           }`}>
             <a href="/" className="inline-flex items-center">
               <Image
@@ -2007,21 +2084,6 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                 className="h-auto w-[80px]"
               />
             </a>
-
-            {currentStepIndex === 0 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthStage("identifier");
-                  setAuthCode("");
-                  setAuthError("");
-                  setCurrentStepIndex(authStepIndex);
-                }}
-                className="inline-flex cursor-pointer items-center rounded-full border border-dashed border-[#c77e57] bg-white/80 px-4 py-2.5 text-[14px] font-semibold text-[#9a5c3c]"
-              >
-                Login
-              </button>
-            ) : null}
 
             {!isAuthStep && !isShippingInfoStep && !isRecommendationInterstitialStep ? (
               isCameraCaptureStep ? (
@@ -2056,7 +2118,9 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
             isCameraCaptureStep
               ? "min-h-0 flex-1 flex-col items-center pt-3 sm:pt-0"
               : isAuthStep
-                ? "min-h-[calc(100dvh-6rem)] items-center"
+                ? authStage === "profile"
+                  ? "items-start py-6 sm:py-10"
+                  : "min-h-[calc(100dvh-6rem)] items-center"
               : isShippingInfoStep
                 ? "min-h-0 flex-1 items-start pt-6 sm:pt-8"
               : isRecommendationInterstitialStep
@@ -2083,7 +2147,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
           ) : null}
 
           {isAuthStep ? (
-            <div className={`relative mx-auto w-full max-w-[500px] rounded-[32px] bg-white px-6 shadow-[0_18px_50px_rgba(40,50,90,0.10)] ${authStage === "profile" ? "max-h-[min(860px,calc(100dvh-2rem))] overflow-y-auto pb-8 pt-6 sm:pb-10 sm:pt-7" : authStage === "code" ? "flex min-h-[531px] flex-col py-[80px]" : "py-[80px]"}`}>
+            <div className={`relative mx-auto w-full max-w-[500px] rounded-[32px] bg-white px-6 shadow-[0_18px_50px_rgba(40,50,90,0.10)] ${authStage === "profile" ? "pb-8 pt-6 sm:pb-10 sm:pt-7" : authStage === "code" ? "flex min-h-[531px] flex-col py-[80px]" : "py-[80px]"}`}>
               {authStage === "code" || authStage === "profile" ? (
                 <button
                   type="button"
@@ -2131,7 +2195,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                     void handleCompleteProfile();
                   }}
                 >
-                  <h1 className="text-center text-[26px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
+                  <h1 className="text-center text-[28px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
                     {intake.auth.createAccountTitle}
                   </h1>
                   <p className="mx-auto mt-2 max-w-[36ch] text-center text-[15px] leading-[1.4] text-[#6a6a6a]">
@@ -2166,23 +2230,37 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                   <p className="mt-2 text-[13px] leading-[1.45] text-[#6a6a6a]">{intake.auth.nameHint}</p>
 
                   <p className="mt-6 text-[16px] font-semibold text-[#222222]">{intake.shipping.dateOfBirth}</p>
-                  <label className="relative mt-2 flex h-14 items-center rounded-xl border border-[#b0b0b0] px-4">
-                    <span className={shippingFormData.dateOfBirth ? "text-[16px] text-[#222222]" : "text-[16px] text-[#8c8c8c]"}>
-                      {shippingFormData.dateOfBirth
-                        ? shippingFormData.dateOfBirth.split("-").reverse().join(".")
-                        : intake.auth.selectDate}
-                    </span>
+                  <div className="mt-2 grid grid-cols-3 overflow-hidden rounded-xl border border-[#b0b0b0]">
                     <input
-                      type="date"
-                      required
-                      value={shippingFormData.dateOfBirth}
-                      onChange={(event) => {
-                        setShippingFormData((current) => ({ ...current, dateOfBirth: event.target.value }));
-                        setAuthError("");
-                      }}
-                      className="absolute inset-0 cursor-pointer opacity-0"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="bday-day"
+                      placeholder={intake.shipping.dobDay}
+                      value={dobParts.day}
+                      onChange={(event) => updateDobPart("day", event.target.value)}
+                      className="h-14 w-full border-r border-[#dddddd] px-4 text-[16px] text-[#222222] outline-none placeholder:text-[#8c8c8c]"
                     />
-                  </label>
+                    <input
+                      ref={dobMonthRef}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="bday-month"
+                      placeholder={intake.shipping.dobMonth}
+                      value={dobParts.month}
+                      onChange={(event) => updateDobPart("month", event.target.value)}
+                      className="h-14 w-full border-r border-[#dddddd] px-4 text-[16px] text-[#222222] outline-none placeholder:text-[#8c8c8c]"
+                    />
+                    <input
+                      ref={dobYearRef}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="bday-year"
+                      placeholder={intake.shipping.dobYear}
+                      value={dobParts.year}
+                      onChange={(event) => updateDobPart("year", event.target.value)}
+                      className="h-14 w-full px-4 text-[16px] text-[#222222] outline-none placeholder:text-[#8c8c8c]"
+                    />
+                  </div>
 
                   <p className="mt-6 text-[16px] font-semibold text-[#222222]">{intake.shipping.email}</p>
                   {authChannel === "email" && shippingFormData.email ? (
@@ -2237,7 +2315,7 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                   <button
                     type="submit"
                     disabled={authBusy}
-                    className={`mt-4 flex h-12 w-full items-center justify-center rounded-lg text-[16px] font-semibold ${
+                    className={`mt-4 flex h-12 w-full items-center justify-center rounded-full text-[16px] font-semibold ${
                       authBusy ? "bg-[#f2f2f2]" : "bg-[#111111] text-white"
                     }`}
                   >
@@ -2711,11 +2789,31 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                     ) : null}
                     {isRecommendationInterstitialStep ? (
                       <div className={`mx-auto w-full max-w-[520px] transition-all duration-500 ${recommendationReveal ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
-                        <div className="rounded-[28px] bg-white px-8 pb-6 pt-[25px] shadow-[0_18px_50px_rgba(40,50,90,0.08)] sm:px-10 sm:pb-6 sm:pt-[25px]">
-                          <h1 className="text-left text-[38px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">
+                        <div className="relative rounded-[28px] bg-white px-8 pb-[50px] pt-6 shadow-[0_18px_50px_rgba(40,50,90,0.08)] sm:px-10 sm:pt-7">
+                          <button
+                            type="button"
+                            onClick={handlePreviousClick}
+                            className="absolute left-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[#222] hover:bg-black/5"
+                            aria-label={intake.previous}
+                          >
+                            <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+                              <path d="M12.25 4.75 7 10l5.25 5.25" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePreviousClick}
+                            className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full text-[#222] hover:bg-black/5"
+                            aria-label={intake.previous}
+                          >
+                            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
+                              <path d="M5 5l10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                          <h1 className="mt-8 text-center text-[28px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
                             {intake.recommend.title}
                           </h1>
-                          <p className="mt-2 text-[14px] font-medium leading-[1.4] text-black/45">
+                          <p className="mx-auto mt-2 max-w-[36ch] text-center text-[15px] leading-[1.4] text-[#6a6a6a]">
                             {intake.recommend.titleSubtitle}
                           </p>
 
@@ -2723,37 +2821,42 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                           <div className="mt-8 border-t border-black/[0.06] pt-4">
                             <div className="flex items-start justify-between gap-4">
                               <div>
-                                <h2 className="text-[20px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#111111]">{recommendedTreatmentCopy?.title}</h2>
-                                <p className="mt-1 text-[14px] font-medium leading-[1.4] text-black/50">{recommendedTreatmentCopy?.description}</p>
+                                <h2 className="text-[16px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">{recommendedTreatmentCopy?.title}</h2>
+                                <p className="mt-1 text-[13px] leading-[1.45] text-[#6a6a6a]">{recommendedTreatmentCopy?.description}</p>
                               </div>
                               <img src={recommendedTreatment.imageSrc} alt="" className="h-14 w-14 rounded-full object-cover" />
                             </div>
 
                             <ul className="mt-4 space-y-2.5">
-                              {intake.recommend.bullets.slice(0, 2).map((bullet) => (
-                                <li key={bullet} className="flex items-start gap-2.5 text-[14px] font-medium leading-[1.4] text-[#2b2a28]">
-                                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f]/12 text-[#5f7f4f]">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-                                    </svg>
-                                  </span>
-                                  {bullet}
-                                </li>
-                              ))}
+                              {intake.recommend.bullets.slice(0, 2).map((bullet, index, bullets) => {
+                                const isLast = index === bullets.length - 1;
+                                return (
+                                  <li key={bullet} className="flex items-center justify-between gap-3 text-[14px] leading-[1.4] text-[#6a6a6a]">
+                                    <span className="flex min-w-0 items-center gap-2.5">
+                                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#5f7f4f]/12 text-[#5f7f4f]">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                      </span>
+                                      {bullet}
+                                    </span>
+                                    {isLast ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          closeDoctorPopup();
+                                          setIsTreatmentInfoOpen(true);
+                                        }}
+                                        aria-expanded={isTreatmentInfoOpen}
+                                        className="shrink-0 text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
+                                      >
+                                        {intake.recommend.moreInfo}
+                                      </button>
+                                    ) : null}
+                                  </li>
+                                );
+                              })}
                             </ul>
-                            <div className="mt-2 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  closeDoctorPopup();
-                                  setIsTreatmentInfoOpen(true);
-                                }}
-                                aria-expanded={isTreatmentInfoOpen}
-                                className="text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
-                              >
-                                {intake.recommend.moreInfo}
-                              </button>
-                            </div>
                           </div>
                           ) : recommendedTreatment && recommendedTreatment.type === "review" ? (
                           <div className="mt-8 border-t border-black/[0.06] pt-4">
@@ -2765,36 +2868,80 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                           ) : null}
 
                           <div className="mt-5 border-t border-black/[0.06] pt-4">
-                            <div className="flex w-full items-center gap-4 rounded-[22px] bg-[#faf7f2] px-5 py-3 text-left">
+                            <h2 className="text-[16px] font-semibold leading-[1.2] tracking-[-0.03em] text-[#222222]">
+                              {intake.recommend.physicianTitle}
+                            </h2>
+                            <div className="mt-4 flex items-start gap-3">
+                              <span className="relative mt-0.5 h-11 w-11 shrink-0 overflow-hidden rounded-full bg-[#eceae4]">
+                                <Image
+                                  src={assignedDoctor.imageSrc}
+                                  alt=""
+                                  fill
+                                  sizes="44px"
+                                  className="object-cover object-[center_18%]"
+                                />
+                              </span>
                               <div className="min-w-0 flex-1">
-                                <p className="text-[20px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#111111]">{intake.doctor.specialty}</p>
-                                <p className="mt-2 text-[15px] font-medium tracking-[-0.02em] text-[#1a1a1a]">{assignedDoctor.fullName}</p>
-                                <p className="mt-0.5 text-[13px] font-medium text-black/45">{intake.doctor.role}</p>
+                                <p className="text-[16px] font-semibold tracking-[-0.02em] text-[#222222]">{assignedDoctor.fullName}</p>
+                                <p className="mt-1 truncate text-[13px] leading-[1.45] text-[#6a6a6a]">
+                                  {assignedDoctor.neighborhood}
+                                  <span className="text-black/35"> · </span>
+                                  <span>{assignedDoctor.address}</span>
+                                </p>
+                                <p className="mt-1 text-[13px] leading-[1.45] text-[#6a6a6a]">{assignedDoctor.specialty}</p>
+                                <div className="mt-1 flex items-center justify-between gap-3">
+                                  <p className="flex items-center gap-1.5 text-[13px] leading-[1.45] text-[#222222]">
+                                    <span aria-hidden="true">★</span>
+                                    <span>{locale === "tr" ? assignedDoctor.rating.toFixed(1).replace(".", ",") : assignedDoctor.rating.toFixed(1)}</span>
+                                    <span className="text-[#6a6a6a]">
+                                      ({assignedDoctor.reviewCount} {intake.doctorMatch.reviews})
+                                    </span>
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsTreatmentInfoOpen(false);
+                                      setIsChoosingPhysician((open) => !open);
+                                    }}
+                                    aria-expanded={isChoosingPhysician}
+                                    className="shrink-0 text-[13px] font-semibold tracking-[-0.02em] text-[#c77e57] underline underline-offset-[3px]"
+                                  >
+                                    {intake.recommend.change}
+                                  </button>
+                                </div>
                               </div>
-                              <img
-                                src={assignedDoctor.imageSrc}
-                                alt=""
-                                className="h-16 w-16 shrink-0 rounded-full object-cover object-[center_18%] ring-2 ring-[#c77e57]/25"
-                              />
                             </div>
+                            {isChoosingPhysician ? (
+                              <div className="mt-3">
+                                <PhysicianPicker
+                                  physicians={LICENSED_PHYSICIANS}
+                                  selectedId={preferredDoctorId}
+                                  onSelect={(id) => {
+                                    setPreferredDoctorId(id);
+                                    setIsChoosingPhysician(false);
+                                  }}
+                                  copy={{ suggested: intake.doctor.suggested, selected: intake.doctor.selected }}
+                                />
+                              </div>
+                            ) : null}
                             {recommendedTreatment && recommendedTreatment.type !== "review" ? (
                             <div className="mt-5 flex items-end justify-between gap-4 border-t border-black/[0.06] pt-5">
-                              <p className="text-[13px] font-medium leading-[1.35] text-black/45">{intake.recommend.chargeAfterApproval}</p>
-                              <p className="shrink-0 text-[22px] font-semibold tracking-[-0.03em] text-[#111111]">
-                                ₺750<span className="text-[14px] font-medium text-black/40"> / {intake.recommend.month}</span>
+                              <p className="text-[13px] leading-[1.45] text-[#6a6a6a]">{intake.recommend.chargeAfterApproval}</p>
+                              <p className="shrink-0 text-[16px] font-semibold tracking-[-0.03em] text-[#222222]">
+                                ₺750<span className="text-[13px] font-normal text-[#6a6a6a]"> / {intake.recommend.month}</span>
                               </p>
                             </div>
                             ) : null}
                           </div>
 
-                          <p className="mt-6 text-[14px] font-medium leading-[1.4] text-black/45">
+                          <p className="mt-6 text-[13px] leading-[1.45] text-[#6a6a6a]">
                             {intake.recommend.chargeReassurance}
                           </p>
                           <button
                             type="button"
                             onClick={handleRecommendationContinue}
                             disabled={isAdvancing}
-                            className="mt-5 w-full rounded-full bg-[#11110f] px-6 py-3 text-[16px] font-semibold tracking-[-0.02em] text-white transition-colors disabled:opacity-70"
+                            className="mt-4 flex h-12 w-full items-center justify-center rounded-full bg-[#111111] text-[16px] font-semibold text-white transition-colors disabled:opacity-70"
                           >
                             {intake.continue}
                           </button>
@@ -3020,6 +3167,22 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                 </div>
               </div>
             </div>
+          ) : isGuidedScalpCapture ? (
+            <ScalpCameraBoundary onFail={() => setScalpCameraMode("standard")}>
+              <ScalpCamera
+                copy={{
+                  ...intake.scalp,
+                  opening: intake.camera.opening,
+                  unsupported: intake.camera.unsupported,
+                  access: intake.camera.access,
+                  captureFail: intake.camera.captureFail,
+                  looksGood: intake.camera.looksGood,
+                  retake: intake.camera.retake,
+                }}
+                isFading={isFading}
+                onComplete={handleGuidedScalpComplete}
+              />
+            </ScalpCameraBoundary>
           ) : isCameraCaptureStep ? (
             <div className={`mx-auto flex h-full min-h-0 w-full max-w-[1080px] flex-col items-center transition-opacity duration-150 ease-out ${isFading ? "opacity-0" : "opacity-100"}`}>
               <div className="flex min-h-0 w-full flex-1 flex-col items-center sm:flex-none">
@@ -3180,6 +3343,20 @@ function IntakePageInner({ conditionParam }: { conditionParam: string | null }) 
                   );
                 })}
               </div>
+
+              {currentStepIndex === 0 && medicalSteps.some((step) => step.id === "camera-capture") ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthStage("identifier");
+                    setAuthError("");
+                    advanceToStep(authStepIndex);
+                  }}
+                  className="mt-6 flex h-12 w-full items-center justify-center rounded-full bg-[#111111] text-[16px] font-semibold text-white"
+                >
+                  {locale === "tr" ? "Girişe git" : "Go to login"}
+                </button>
+              ) : null}
 
               {whyWeAskNote ? (
                 <div className="mt-4 rounded-[22px] bg-[#fffef9] px-5 py-5 sm:mt-5 sm:px-6 sm:py-6">

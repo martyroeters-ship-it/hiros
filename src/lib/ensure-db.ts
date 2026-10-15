@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { hashPassword } from "./auth";
 import { databaseUrl, sql } from "./db";
+import { ensureLocalPostgres } from "./local-postgres";
 
 const globalForDb = globalThis as typeof globalThis & {
   hirosDbBoot?: Promise<void> | null;
@@ -80,6 +81,8 @@ async function applyIfNeeded() {
     await applyFile("db/migrations/007_care_lifestyle.sql");
   }
 
+  await ensureCrownPhotoKind();
+
   await applyFile("db/seed/001_demo.sql");
   await applyFile("db/seed/002_treatment_patients.sql");
   await applyFile("db/seed/003_appointments.sql");
@@ -109,6 +112,7 @@ export async function ready() {
   if (process.env.VERCEL && !databaseUrl) {
     throw new Error("NO_DATABASE");
   }
+  await ensureLocalPostgres();
   if (!globalForDb.hirosDbBoot) {
     globalForDb.hirosDbBoot = applyIfNeeded().catch((error) => {
       globalForDb.hirosDbBoot = null;
@@ -150,6 +154,17 @@ async function ensurePhotoBytesColumn() {
   if (!has_photo_bytes) {
     await applyFile("db/migrations/006_photo_bytes.sql");
   }
+}
+
+async function ensureCrownPhotoKind() {
+  const rows = await sql<{ enumlabel: string }[]>`
+    select e.enumlabel
+    from pg_enum e
+    join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'photo_kind'
+  `;
+  if (rows.some((row) => row.enumlabel === "crown")) return;
+  await sql.unsafe("alter type public.photo_kind add value if not exists 'crown'");
 }
 
 async function ensureCareLifestyleTable() {

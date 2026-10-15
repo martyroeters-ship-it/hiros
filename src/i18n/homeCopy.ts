@@ -585,7 +585,7 @@ export const homeCopy = {
           imageAlt: "Hiros intake form",
           titleLine1: "Your health concerns.",
           titleLine2: "Your own pace.",
-          body: "Answer a few questions about your concerns and medical history. Share information privately, without needing to explain everything in person.",
+          body: "Answer a few questions about your health concerns from home. Share your information privately with a licensed physician, without having to explain everything face to face.",
         },
         {
           key: "start-3",
@@ -593,7 +593,7 @@ export const homeCopy = {
           imageAlt: "Licensed physician review",
           titleLine1: "Medical decisions",
           titleLine2: "belong to physicians.",
-          body: "Your information helps a licensed physician understand your concerns. They determine the appropriate next steps, including whether a consultation or further examination is needed.",
+          body: "A licensed physician reviews your information and determines the appropriate next steps. They'll assess whether your care can continue remotely or an in-person visit is needed.",
         },
       ],
     },
@@ -744,12 +744,16 @@ export const homeCopy = {
         {
           question: "How is this different from going to a clinic?",
           answer:
-            "Hiros helps you start privately, from your own space. Instead of booking first, you begin by sharing your situation clearly, so a physician can assess what’s appropriate before any next step.",
+            "With Hiros, you can share your health concerns and medical history from home. A physician reviews your information and determines the appropriate next steps. Depending on your situation, care may continue remotely or you may need an in-person visit.",
         },
         {
           question: "Is my information kept private?",
           answer:
-            "Yes. Your information is handled securely and only shared with licensed medical professionals involved in your care. You stay in control of what you share and when.",
+            "Your health information is handled securely and in accordance with applicable Turkish data-protection requirements. Access to your information is restricted as described in our Privacy Policy.",
+          link: {
+            href: "/privacy",
+            label: "Learn more about how we protect your information →",
+          },
         },
         {
           question: "What happens after I complete the intake?",
@@ -766,7 +770,7 @@ export const homeCopy = {
           key: "physician-workspace",
           title: "Physician workspace",
           description:
-            "Review structured intakes, prioritize cases, and message patients securely — all in one clinical workspace.",
+            "Review structured intakes, prioritize cases, and message patients securely. All in one clinical workspace.",
           cta: "Learn more",
           href: "/contact",
           imageSrc: "/home2.png",
@@ -776,7 +780,7 @@ export const homeCopy = {
           key: "patient-care",
           title: "Patient care",
           description:
-            "Keep messaging, treatment plans, and follow-up in one place. Clinical decisions stay with you; the platform simplifies the day-to-day.",
+            "Keep patient messages, treatment plans, and follow-ups in one place. You remain in control of clinical decisions, while Hiros makes managing patient care easier.",
           cta: "Learn more",
           href: "/contact",
           imageSrc: "/step_2.png",
